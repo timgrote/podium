@@ -204,6 +204,85 @@
         .action-view:hover {
             background: #4b4b7d;
         }
+        .action-contract {
+            background: #3d4b3d;
+            color: #a5d6a5;
+        }
+        .action-contract:hover {
+            background: #4d5b4d;
+        }
+        .action-paid {
+            background: #2d4a3d;
+            color: #4ade80;
+        }
+        .action-paid:hover {
+            background: #3d5a4d;
+        }
+        .action-complete {
+            background: #1a3a2e;
+            color: #10b981;
+        }
+        .action-complete:hover {
+            background: #2a4a3e;
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: #242442;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .modal-header h3 {
+            color: #fff;
+            font-size: 1.25rem;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-body p {
+            color: #ccc;
+            margin-bottom: 16px;
+        }
+        .modal-body .project-info {
+            background: #1a1a2e;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        .modal-body .project-info p {
+            margin-bottom: 8px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
         @media (max-width: 768px) {
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
@@ -276,8 +355,26 @@
         </div>
     </div>
 
+    <!-- Project Modal -->
+    <div id="project-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Project Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="project-info" id="modal-project-info"></div>
+                <p>Update project status:</p>
+                <div class="modal-actions" id="modal-actions"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const PROJECTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-projects';
+        const UPDATE_API = 'https://n8n.irrigationengineers.com/webhook/podium-update-status';
+
+        let allProjects = [];
 
         async function loadProjects() {
             const loading = document.getElementById('projects-loading');
@@ -297,6 +394,7 @@
                     return;
                 }
 
+                allProjects = data.projects;
                 table.style.display = 'table';
                 tbody.innerHTML = '';
 
@@ -357,24 +455,90 @@
 
         function getActionButtons(project) {
             const buttons = [];
+            const nextStatus = getNextStatus(project.status);
 
-            if (project.status === 'contract') {
-                buttons.push(`<button class="action-btn action-invoice" onclick="sendInvoice('${project.job_id}')">Send Invoice</button>`);
+            if (nextStatus) {
+                buttons.push(`<button class="action-btn action-${nextStatus.class}" onclick="event.stopPropagation(); updateStatus('${project.job_id}', '${nextStatus.status}')">${nextStatus.label}</button>`);
             }
 
-            buttons.push(`<button class="action-btn action-view" onclick="viewProject('${project.job_id}')">View</button>`);
+            buttons.push(`<button class="action-btn action-view" onclick="event.stopPropagation(); viewProject('${project.job_id}')">Details</button>`);
 
             return buttons.join('');
         }
 
+        function getNextStatus(currentStatus) {
+            const transitions = {
+                'proposal': { status: 'contract', label: 'Contract Signed', class: 'contract' },
+                'contract': { status: 'invoiced', label: 'Mark Invoiced', class: 'invoice' },
+                'invoiced': { status: 'paid', label: 'Mark Paid', class: 'paid' },
+                'paid': { status: 'complete', label: 'Complete', class: 'complete' }
+            };
+            return transitions[currentStatus];
+        }
+
+        async function updateStatus(jobId, newStatus) {
+            try {
+                const response = await fetch(UPDATE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_id: jobId, status: newStatus })
+                });
+
+                if (response.ok) {
+                    refreshData();
+                } else {
+                    alert('Failed to update status');
+                }
+            } catch (error) {
+                console.error('Update failed:', error);
+                alert('Failed to update status');
+            }
+        }
+
         function sendInvoice(jobId) {
-            // Navigate to invoice page with job_id
             window.location.href = `invoice.html?job=${encodeURIComponent(jobId)}`;
         }
 
         function viewProject(jobId) {
-            alert('Project details view coming soon!');
+            const project = allProjects.find(p => p.job_id === jobId);
+            if (!project) return;
+
+            document.getElementById('modal-title').textContent = project.project_name || project.job_id;
+            document.getElementById('modal-project-info').innerHTML = `
+                <p><strong>Job ID:</strong> ${escapeHtml(project.job_id)}</p>
+                <p><strong>Client:</strong> ${escapeHtml(project.client_name)}</p>
+                <p><strong>Email:</strong> ${escapeHtml(project.client_email)}</p>
+                <p><strong>Amount:</strong> $${Number(project.amount).toLocaleString()}</p>
+                <p><strong>Status:</strong> ${formatStatus(project.status)}</p>
+                <p><strong>Created:</strong> ${formatDate(project.created_at)}</p>
+            `;
+
+            const actionsDiv = document.getElementById('modal-actions');
+            actionsDiv.innerHTML = '';
+
+            const statuses = ['proposal', 'contract', 'invoiced', 'paid', 'complete'];
+            statuses.forEach(status => {
+                const btn = document.createElement('button');
+                btn.className = `btn ${project.status === status ? 'btn-primary' : 'btn-secondary'}`;
+                btn.textContent = formatStatus(status);
+                btn.onclick = () => {
+                    updateStatus(jobId, status);
+                    closeModal();
+                };
+                actionsDiv.appendChild(btn);
+            });
+
+            document.getElementById('project-modal').classList.add('active');
         }
+
+        function closeModal() {
+            document.getElementById('project-modal').classList.remove('active');
+        }
+
+        // Close modal on background click
+        document.getElementById('project-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeModal();
+        });
 
         function escapeHtml(text) {
             if (!text) return '';
