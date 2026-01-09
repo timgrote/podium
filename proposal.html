@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podium - Submit Proposal</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #1a1a2e;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h1 {
+            font-size: 2rem;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            color: #888;
+            font-size: 1rem;
+        }
+        .card {
+            background: #242442;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #ccc;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #444;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #1a1a2e;
+            color: #fff;
+            transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #6c63ff;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .file-input {
+            border: 2px dashed #444;
+            border-radius: 6px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .file-input:hover {
+            border-color: #6c63ff;
+        }
+        .file-input input { display: none; }
+        .file-input .label { color: #888; }
+        .file-input .formats {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 8px;
+        }
+        .file-name {
+            margin-top: 10px;
+            color: #6c63ff;
+            font-weight: 500;
+        }
+        .row {
+            display: flex;
+            gap: 16px;
+        }
+        .row .form-group {
+            flex: 1;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #6c63ff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #5a52d5;
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .success-message {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+            color: #fff;
+        }
+        .success-message h2 {
+            color: #6c63ff;
+            margin-bottom: 10px;
+        }
+        .admin-badge {
+            background: #6c63ff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Podium <span class="admin-badge">Designer</span></h1>
+            <p class="tagline">Submit Proposal to Client</p>
+        </header>
+
+        <div class="card">
+            <form id="proposal-form">
+                <div class="form-group">
+                    <label for="job_id">Job Reference</label>
+                    <input type="text" id="job_id" name="job_id" required
+                           placeholder="e.g., 2026-001 or project name">
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label for="client_name">Client Name</label>
+                        <input type="text" id="client_name" name="client_name" required
+                               placeholder="Client's name">
+                    </div>
+                    <div class="form-group">
+                        <label for="client_email">Client Email</label>
+                        <input type="email" id="client_email" name="client_email" required
+                               placeholder="client@example.com">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="project_name">Project Name</label>
+                    <input type="text" id="project_name" name="project_name" required
+                           placeholder="Gateway Residence Irrigation">
+                </div>
+
+                <div class="row">
+                    <div class="form-group">
+                        <label for="amount">Quote Amount ($)</label>
+                        <input type="number" id="amount" name="amount" required
+                               placeholder="2500" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="turnaround">Turnaround (days)</label>
+                        <input type="number" id="turnaround" name="turnaround"
+                               placeholder="5" min="1" value="5">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="scope">Scope of Work</label>
+                    <textarea id="scope" name="scope" required
+                              placeholder="Describe what's included in this quote..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Proposal PDF (optional)</label>
+                    <div class="file-input" onclick="document.getElementById('file').click()">
+                        <input type="file" id="file" name="proposal_pdf" accept=".pdf">
+                        <div class="label">Click to attach proposal document</div>
+                        <div class="formats">PDF format</div>
+                        <div class="file-name" id="file-name"></div>
+                    </div>
+                </div>
+
+                <button type="submit">Send Proposal to Client</button>
+            </form>
+
+            <div class="success-message" id="success">
+                <h2>Proposal Sent!</h2>
+                <p>The client will receive an email with the proposal and contract link.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('proposal-form');
+        const fileInput = document.getElementById('file');
+        const fileName = document.getElementById('file-name');
+        const success = document.getElementById('success');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileName.textContent = e.target.files[0].name;
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = form.querySelector('button');
+            button.disabled = true;
+            button.textContent = 'Sending...';
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('https://n8n.irrigationengineers.com/webhook/podium-proposal', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    form.style.display = 'none';
+                    success.style.display = 'block';
+                } else {
+                    throw new Error('Submission failed');
+                }
+            } catch (error) {
+                alert('Something went wrong. Please try again.');
+                button.disabled = false;
+                button.textContent = 'Send Proposal to Client';
+            }
+        });
+    </script>
+</body>
+</html>
