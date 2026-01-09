@@ -371,8 +371,9 @@
     </div>
 
     <script>
-        const PROJECTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-projects';
-        const UPDATE_API = 'https://n8n.irrigationengineers.com/webhook/podium-update-status';
+        const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
+        const PROJECTS_API = API_BASE + '?action=list';
+        const UPDATE_API = API_BASE;
 
         let allProjects = [];
 
@@ -481,7 +482,7 @@
                 const response = await fetch(UPDATE_API, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ job_id: jobId, status: newStatus })
+                    body: JSON.stringify({ action: 'update', job_id: jobId, status: newStatus })
                 });
 
                 if (response.ok) {
