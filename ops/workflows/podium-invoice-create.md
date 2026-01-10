@@ -96,19 +96,32 @@ return {
 - **Spreadsheet:** `{{ new_spreadsheet_id }}`
 - **Range:** Various cells
 
+**Template ID:** `1bEr2Mq2hYAG_nG4kjt3tlxRWEdxZ5NkMJ09ipzboSE4`
+
 **Values to set:**
-| Cell | Value |
-|------|-------|
-| B2 | `{{ company.company_name }}` |
-| B3 | `{{ company.company_address }}` |
-| B4 | `{{ company.company_email }}` |
-| B5 | `{{ company.company_phone }}` |
-| E2 | `{{ invoice_number }}` |
-| E3 | `{{ today's date }}` |
-| B8 | `{{ project.client_name }}` |
-| B9 | `{{ project.client_email }}` |
-| A12:C... | Task line items (name, description, amount) |
-| C20 | `{{ total_amount }}` |
+| Cell | Field | Value |
+|------|-------|-------|
+| B7 | Project Name | `{{ project.project_name }}` |
+| B8 | Project ID | `{{ project.job_id }}` |
+| B9 | Invoice Date | `{{ today }}` |
+| B10 | Invoice Number | `{{ invoice_number }}` |
+| B11 | Project Manager | `{{ company.company_email }}` |
+| E7 | Client Contact | `{{ project.client_name }}` |
+| E8 | Client Company | (optional) |
+| E9 | Client Address | (optional) |
+| E10 | City, State ZIP | (optional) |
+| E11 | Client Project # | (optional) |
+
+**Task Line Items (A14:E23):**
+| Column | Field |
+|--------|-------|
+| A | Task name |
+| B | Fee (task amount) |
+| C | Percent Complete (percent being invoiced) |
+| D | Previous Fee Billing (0 for first invoice) |
+| E | Current Fee Billing (amount × percent / 100) |
+
+Row 24 and E25 contain formulas that auto-calculate totals.
 
 ### 8. Calculate Invoice Amount (Code Node)
 ```javascript

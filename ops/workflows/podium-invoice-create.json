@@ -1,0 +1,280 @@
+{
+  "name": "podium-invoice-create",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podium-invoice-create",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "podium-invoice-create"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://n8n.irrigationengineers.com/webhook/podium-api?action=get&job_id={{ $json.body.job_id }}",
+        "options": {}
+      },
+      "id": "get-project",
+      "name": "Get Project",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://n8n.irrigationengineers.com/webhook/podium-company",
+        "options": {}
+      },
+      "id": "get-company",
+      "name": "Get Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const project = $('Get Project').first().json.project;\nconst webhookData = $('Webhook').first().json.body;\nconst jobId = webhookData.job_id;\n\n// Get existing invoices or empty array\nconst invoices = project.invoices || [];\n\n// Find highest invoice number for this project\nlet maxNum = 0;\ninvoices.forEach(inv => {\n  const match = inv.invoice_number.match(/-(\\d+)$/);\n  if (match) {\n    maxNum = Math.max(maxNum, parseInt(match[1]));\n  }\n});\n\nconst invoiceNumber = `${jobId}-${maxNum + 1}`;\n\n// Calculate invoice amounts\nconst tasks = webhookData.tasks;\nlet total = 0;\nconst lineItems = tasks.map(task => {\n  const currentBilling = (task.amount * task.percent) / 100;\n  total += currentBilling;\n  return {\n    name: task.name,\n    fee: task.amount,\n    percent: task.percent,\n    previousBilling: 0,\n    currentBilling: currentBilling\n  };\n});\n\nconst today = new Date().toISOString().split('T')[0];\n\nreturn {\n  invoice_number: invoiceNumber,\n  today: today,\n  total_amount: total,\n  line_items: lineItems,\n  tasks: webhookData.tasks,\n  send_to: webhookData.send_to || []\n};"
+      },
+      "id": "calculate-invoice",
+      "name": "Calculate Invoice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "value": "1bEr2Mq2hYAG_nG4kjt3tlxRWEdxZ5NkMJ09ipzboSE4",
+          "mode": "id"
+        },
+        "name": "={{ $('Calculate Invoice').first().json.invoice_number }}",
+        "options": {
+          "folderIdOption": "id"
+        }
+      },
+      "id": "copy-template",
+      "name": "Copy Template",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [900, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Copy Template').first().json.id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=375814074",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED",
+          "range": "B7:B11"
+        },
+        "dataMode": "raw",
+        "valueInputMode": "RAW",
+        "rawData": "={{ [[$('Get Project').first().json.project.project_name], [$('Get Project').first().json.project.job_id], [$('Calculate Invoice').first().json.today], [$('Calculate Invoice').first().json.invoice_number], [$('Get Company').first().json.company_email || '']] }}"
+      },
+      "id": "fill-project-info",
+      "name": "Fill Project Info",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1120, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Copy Template').first().json.id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=375814074",
+          "mode": "id"
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED",
+          "range": "E7"
+        },
+        "dataMode": "raw",
+        "rawData": "={{ [[$('Get Project').first().json.project.client_name]] }}"
+      },
+      "id": "fill-client-info",
+      "name": "Fill Client Info",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1120, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lineItems = $('Calculate Invoice').first().json.line_items;\n\n// Build 2D array for rows 14-23 (up to 10 tasks)\nconst rows = [];\nfor (let i = 0; i < 10; i++) {\n  if (i < lineItems.length) {\n    const item = lineItems[i];\n    rows.push([item.name, item.fee, item.percent + '%', item.previousBilling, item.currentBilling]);\n  } else {\n    rows.push(['', '', '', '', '']);\n  }\n}\n\nreturn { taskRows: rows };"
+      },
+      "id": "format-tasks",
+      "name": "Format Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 600]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Copy Template').first().json.id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=375814074",
+          "mode": "id"
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED",
+          "range": "A14:E23"
+        },
+        "dataMode": "raw",
+        "rawData": "={{ $json.taskRows }}"
+      },
+      "id": "fill-tasks",
+      "name": "Fill Tasks",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1340, 600],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.irrigationengineers.com/webhook/podium-api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"action\": \"add_invoice\",\n  \"job_id\": \"{{ $('Webhook').first().json.body.job_id }}\",\n  \"invoice\": {\n    \"invoice_number\": \"{{ $('Calculate Invoice').first().json.invoice_number }}\",\n    \"created_at\": \"{{ $('Calculate Invoice').first().json.today }}\",\n    \"amount\": {{ $('Calculate Invoice').first().json.total_amount }},\n    \"status\": \"draft\",\n    \"sheet_url\": \"https://docs.google.com/spreadsheets/d/{{ $('Copy Template').first().json.id }}\",\n    \"send_to\": {{ JSON.stringify($('Calculate Invoice').first().json.send_to) }},\n    \"tasks_invoiced\": {{ JSON.stringify($('Calculate Invoice').first().json.tasks) }}\n  }\n}",
+        "options": {}
+      },
+      "id": "save-invoice",
+      "name": "Save Invoice to Project",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"invoice_number\": \"{{ $('Calculate Invoice').first().json.invoice_number }}\",\n  \"sheet_url\": \"https://docs.google.com/spreadsheets/d/{{ $('Copy Template').first().json.id }}\",\n  \"amount\": {{ $('Calculate Invoice').first().json.total_amount }}\n}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1780, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Get Project", "type": "main", "index": 0 },
+          { "node": "Get Company", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Project": {
+      "main": [
+        [{ "node": "Calculate Invoice", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Company": {
+      "main": [
+        [{ "node": "Calculate Invoice", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calculate Invoice": {
+      "main": [
+        [{ "node": "Copy Template", "type": "main", "index": 0 }]
+      ]
+    },
+    "Copy Template": {
+      "main": [
+        [
+          { "node": "Fill Project Info", "type": "main", "index": 0 },
+          { "node": "Fill Client Info", "type": "main", "index": 0 },
+          { "node": "Format Tasks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fill Project Info": {
+      "main": [
+        [{ "node": "Save Invoice to Project", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fill Client Info": {
+      "main": [
+        [{ "node": "Save Invoice to Project", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Tasks": {
+      "main": [
+        [{ "node": "Fill Tasks", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fill Tasks": {
+      "main": [
+        [{ "node": "Save Invoice to Project", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Invoice to Project": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
