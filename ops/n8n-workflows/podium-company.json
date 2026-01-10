@@ -1,0 +1,159 @@
+{
+  "name": "Podium - Company Settings",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "={{$request.method}}",
+        "path": "podium-company",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "podium-company"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body?.action }}",
+                    "rightValue": "save",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Save"
+            }
+          ],
+          "fallbackOutput": {
+            "fallbackOutput": "extra",
+            "outputKey": "Get"
+          }
+        },
+        "options": {}
+      },
+      "id": "switch",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Load company data from workflow static data\nconst staticData = $getWorkflowStaticData('global');\nconst company = staticData.company || {};\n\nreturn [{\n  json: {\n    success: true,\n    ...company\n  }\n}];"
+      },
+      "id": "get-company",
+      "name": "Get Company",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst body = $input.first().json.body || {};\n\n// Build company object\nconst company = {\n  company_name: body.company_name || '',\n  company_email: body.company_email || '',\n  company_phone: body.company_phone || '',\n  company_address: body.company_address || '',\n  tagline: body.tagline || '',\n  primary_color: body.primary_color || '#6c63ff',\n  updated_at: new Date().toISOString().split('T')[0]\n};\n\n// Keep existing logo unless new one provided\nif (body.logo_data) {\n  // Store base64 as data URL\n  company.logo_url = body.logo_data;\n} else if (staticData.company?.logo_url) {\n  company.logo_url = staticData.company.logo_url;\n}\n\n// Set created_at only if new\nif (!staticData.company?.created_at) {\n  company.created_at = company.updated_at;\n} else {\n  company.created_at = staticData.company.created_at;\n}\n\n// Save to static data\nstaticData.company = company;\n\nreturn [{\n  json: {\n    success: true,\n    message: 'Company settings saved',\n    ...company\n  }\n}];"
+      },
+      "id": "save-company",
+      "name": "Save Company",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond-get",
+      "name": "Respond Get",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [920, 200]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond-save",
+      "name": "Respond Save",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [920, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Save Company",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Company": {
+      "main": [
+        [
+          {
+            "node": "Respond Get",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Company": {
+      "main": [
+        [
+          {
+            "node": "Respond Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "pinData": {}
+}
