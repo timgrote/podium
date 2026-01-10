@@ -422,6 +422,125 @@
         .project-totals .total-value.success {
             color: #4ade80;
         }
+        /* Invoices section in Details modal */
+        .invoices-section {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #333;
+        }
+        .invoices-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .invoices-title {
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .invoices-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .invoice-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a1a2e;
+            padding: 10px 14px;
+            border-radius: 6px;
+        }
+        .invoice-item-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .invoice-number {
+            color: #fff;
+            font-weight: 500;
+        }
+        .invoice-amount {
+            color: #4ade80;
+        }
+        .invoice-status {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+        .invoice-status-draft { background: #3b3b6d; color: #a5a5ff; }
+        .invoice-status-sent { background: #4b4b3d; color: #ffd700; }
+        .invoice-status-paid { background: #2d4a3d; color: #4ade80; }
+        .invoice-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .invoice-empty {
+            color: #666;
+            font-size: 0.875rem;
+            text-align: center;
+            padding: 16px;
+        }
+
+        /* Create Invoice Modal */
+        .invoice-instructions {
+            color: #ccc;
+            margin-bottom: 16px;
+        }
+        .invoice-task-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .invoice-task-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .invoice-task-name {
+            flex: 2;
+            color: #fff;
+        }
+        .invoice-task-amount {
+            flex: 1;
+            color: #888;
+            text-align: right;
+        }
+        .invoice-task-percent {
+            width: 80px;
+        }
+        .invoice-task-percent input {
+            width: 100%;
+            padding: 6px 8px;
+            background: #242442;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #fff;
+            text-align: center;
+        }
+        .invoice-task-computed {
+            width: 100px;
+            color: #4ade80;
+            text-align: right;
+            font-weight: 500;
+        }
+        .invoice-total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            margin: 16px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
         @media (max-width: 768px) {
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
@@ -509,6 +628,32 @@
             <div class="modal-body">
                 <div class="project-info" id="modal-project-info"></div>
                 <div class="modal-actions" id="modal-actions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Invoice Modal -->
+    <div id="create-invoice-modal" class="modal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3 id="create-invoice-title">Create Invoice</h3>
+                <button class="modal-close" onclick="closeCreateInvoiceModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="invoice-instructions">Select tasks to invoice and set the percentage for each:</p>
+                <div id="invoice-tasks-list"></div>
+                <div class="invoice-total-row">
+                    <span>Invoice Total:</span>
+                    <span id="invoice-total-amount" class="amount">$0</span>
+                </div>
+                <div class="form-group">
+                    <label for="invoice-emails">Send to (comma-separated emails)</label>
+                    <input type="text" id="invoice-emails" placeholder="client@example.com, accounting@example.com">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateInvoiceModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createInvoice()">Create Invoice Sheet</button>
+                </div>
             </div>
         </div>
     </div>
@@ -816,6 +961,14 @@
                         <div class="total-value success">$${paid.toLocaleString()}</div>
                     </div>
                 </div>
+
+                <div class="invoices-section">
+                    <div class="invoices-header">
+                        <span class="invoices-title">INVOICES</span>
+                        <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${project.job_id}')">+ Create</button>
+                    </div>
+                    ${getInvoicesHtml(project)}
+                </div>
             `;
 
             const actionsDiv = document.getElementById('modal-actions');
@@ -933,6 +1086,211 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Invoice functions
+        const INVOICE_CREATE_API = 'https://n8n.irrigationengineers.com/webhook/podium-invoice-create';
+        const INVOICE_SEND_API = 'https://n8n.irrigationengineers.com/webhook/podium-invoice-send';
+        let currentInvoiceJobId = null;
+
+        function getInvoicesHtml(project) {
+            if (!project.invoices || project.invoices.length === 0) {
+                return '<div class="invoice-empty">No invoices yet</div>';
+            }
+
+            return `<div class="invoices-list">
+                ${project.invoices.map(inv => `
+                    <div class="invoice-item">
+                        <div class="invoice-item-info">
+                            <span class="invoice-number">${escapeHtml(inv.invoice_number)}</span>
+                            <span class="invoice-amount">$${Number(inv.amount).toLocaleString()}</span>
+                            <span class="invoice-status invoice-status-${inv.status}">${inv.status}</span>
+                        </div>
+                        <div class="invoice-item-actions">
+                            ${inv.sheet_url ? `<a href="${inv.sheet_url}" target="_blank" class="action-btn action-view">View</a>` : ''}
+                            ${inv.status === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.job_id}', '${inv.invoice_number}')">Send</button>` : ''}
+                            ${inv.status === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.job_id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>`;
+        }
+
+        function openCreateInvoiceModal(jobId) {
+            currentInvoiceJobId = jobId;
+            const project = allProjects.find(p => p.job_id === jobId);
+            if (!project) return;
+
+            document.getElementById('create-invoice-title').textContent = `Create Invoice - ${jobId}`;
+
+            // Pre-fill client email
+            document.getElementById('invoice-emails').value = project.client_email || '';
+
+            // Build task selection list
+            const tasksList = document.getElementById('invoice-tasks-list');
+            if (project.tasks && project.tasks.length > 0) {
+                tasksList.innerHTML = project.tasks.map((task, idx) => `
+                    <div class="invoice-task-row">
+                        <input type="checkbox" id="inv-task-${idx}" data-amount="${task.amount}" onchange="updateInvoiceTotal()">
+                        <span class="invoice-task-name">${escapeHtml(task.name)}</span>
+                        <span class="invoice-task-amount">$${Number(task.amount).toLocaleString()}</span>
+                        <div class="invoice-task-percent">
+                            <input type="number" id="inv-percent-${idx}" value="100" min="0" max="100" onchange="updateInvoiceTotal()"> %
+                        </div>
+                        <span class="invoice-task-computed" id="inv-computed-${idx}">$0</span>
+                    </div>
+                `).join('');
+            } else {
+                tasksList.innerHTML = '<div class="invoice-empty">No tasks defined for this project</div>';
+            }
+
+            updateInvoiceTotal();
+            closeModal(); // Close details modal
+            document.getElementById('create-invoice-modal').classList.add('active');
+        }
+
+        function closeCreateInvoiceModal() {
+            document.getElementById('create-invoice-modal').classList.remove('active');
+            currentInvoiceJobId = null;
+        }
+
+        document.getElementById('create-invoice-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeCreateInvoiceModal();
+        });
+
+        function updateInvoiceTotal() {
+            const project = allProjects.find(p => p.job_id === currentInvoiceJobId);
+            if (!project || !project.tasks) return;
+
+            let total = 0;
+            project.tasks.forEach((task, idx) => {
+                const checkbox = document.getElementById(`inv-task-${idx}`);
+                const percentInput = document.getElementById(`inv-percent-${idx}`);
+                const computedSpan = document.getElementById(`inv-computed-${idx}`);
+
+                if (checkbox && checkbox.checked) {
+                    const percent = parseFloat(percentInput.value) || 0;
+                    const amount = (task.amount * percent) / 100;
+                    computedSpan.textContent = `$${amount.toLocaleString()}`;
+                    total += amount;
+                } else if (computedSpan) {
+                    computedSpan.textContent = '$0';
+                }
+            });
+
+            document.getElementById('invoice-total-amount').textContent = `$${total.toLocaleString()}`;
+        }
+
+        async function createInvoice() {
+            const project = allProjects.find(p => p.job_id === currentInvoiceJobId);
+            if (!project || !project.tasks) return;
+
+            const tasksToInvoice = [];
+            project.tasks.forEach((task, idx) => {
+                const checkbox = document.getElementById(`inv-task-${idx}`);
+                const percentInput = document.getElementById(`inv-percent-${idx}`);
+
+                if (checkbox && checkbox.checked) {
+                    const percent = parseFloat(percentInput.value) || 0;
+                    if (percent > 0) {
+                        tasksToInvoice.push({
+                            name: task.name,
+                            amount: task.amount,
+                            percent: percent
+                        });
+                    }
+                }
+            });
+
+            if (tasksToInvoice.length === 0) {
+                alert('Please select at least one task to invoice.');
+                return;
+            }
+
+            const emails = document.getElementById('invoice-emails').value
+                .split(',')
+                .map(e => e.trim())
+                .filter(e => e);
+
+            try {
+                const response = await fetch(INVOICE_CREATE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        job_id: currentInvoiceJobId,
+                        tasks: tasksToInvoice,
+                        send_to: emails
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.sheet_url) {
+                    closeCreateInvoiceModal();
+                    alert(`Invoice ${result.invoice_number} created!\nOpening Google Sheet...`);
+                    window.open(result.sheet_url, '_blank');
+                    refreshData();
+                } else {
+                    alert('Failed to create invoice: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating invoice:', error);
+                alert('Failed to create invoice. Please try again.');
+            }
+        }
+
+        async function sendInvoiceEmail(jobId, invoiceNumber) {
+            if (!confirm(`Send invoice ${invoiceNumber} to client?`)) return;
+
+            try {
+                const response = await fetch(INVOICE_SEND_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        job_id: jobId,
+                        invoice_number: invoiceNumber
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    alert('Invoice sent successfully!');
+                    refreshData();
+                } else {
+                    alert('Failed to send invoice: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error sending invoice:', error);
+                alert('Failed to send invoice. Please try again.');
+            }
+        }
+
+        async function markInvoicePaid(jobId, invoiceNumber) {
+            if (!confirm(`Mark invoice ${invoiceNumber} as paid?`)) return;
+
+            try {
+                const response = await fetch(UPDATE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update_invoice',
+                        job_id: jobId,
+                        invoice_number: invoiceNumber,
+                        status: 'paid'
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Invoice marked as paid!');
+                    refreshData();
+                } else {
+                    alert('Failed to update invoice status.');
+                }
+            } catch (error) {
+                console.error('Error updating invoice:', error);
+                alert('Failed to update invoice. Please try again.');
+            }
         }
 
         function refreshData() {
