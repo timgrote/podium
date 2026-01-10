@@ -99,6 +99,10 @@
             align-items: center;
             margin-bottom: 20px;
         }
+        .section-actions {
+            display: flex;
+            gap: 10px;
+        }
         h2 {
             font-size: 1.25rem;
             color: #fff;
@@ -283,6 +287,141 @@
             gap: 12px;
             flex-wrap: wrap;
         }
+        .modal-wide {
+            max-width: 700px;
+        }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .form-group {
+            flex: 1;
+        }
+        .form-group label {
+            display: block;
+            color: #ccc;
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.875rem;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #6c63ff;
+        }
+        .form-group input::placeholder {
+            color: #666;
+        }
+        .tasks-section {
+            margin-bottom: 20px;
+        }
+        .tasks-section > label {
+            display: block;
+            color: #ccc;
+            margin-bottom: 10px;
+            font-size: 0.875rem;
+        }
+        .task-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .task-row input[type="text"] {
+            flex: 2;
+            padding: 8px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+        }
+        .task-row input[type="number"] {
+            flex: 1;
+            padding: 8px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+        }
+        .task-row .btn-remove {
+            background: #ef4444;
+            border: none;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+        }
+        .tasks-table {
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        .tasks-table th {
+            text-align: left;
+            color: #888;
+            font-weight: normal;
+            padding: 8px 0;
+            font-size: 0.75rem;
+        }
+        .tasks-table td {
+            padding: 8px 0;
+            border-top: 1px solid #333;
+        }
+        .tasks-table .task-name {
+            color: #fff;
+        }
+        .tasks-table .task-amount {
+            color: #4ade80;
+            text-align: right;
+        }
+        .tasks-table .task-percent {
+            color: #888;
+            text-align: right;
+            width: 60px;
+        }
+        .project-totals {
+            display: flex;
+            gap: 24px;
+            padding: 16px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .project-totals .total-item {
+            flex: 1;
+        }
+        .project-totals .total-label {
+            color: #888;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+        }
+        .project-totals .total-value {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .project-totals .total-value.success {
+            color: #4ade80;
+        }
         @media (max-width: 768px) {
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
@@ -300,9 +439,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>Podium <span class="admin-badge">Dashboard</span></h1>
+            <h1><img id="company-logo" src="" alt="" style="height: 40px; margin-right: 12px; vertical-align: middle; display: none;"><span id="company-name">Podium</span> <span class="admin-badge">Dashboard</span></h1>
             <div class="header-actions">
-                <a href="proposal.html" class="btn btn-primary">+ New Proposal</a>
                 <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
                 <a href="settings.html" class="btn btn-secondary">Settings</a>
             </div>
@@ -330,6 +468,10 @@
         <div class="section">
             <div class="section-header">
                 <h2>Projects</h2>
+                <div class="section-actions">
+                    <button class="btn btn-primary" onclick="openAddProjectModal()">+ Add Project</button>
+                    <a href="proposal.html" class="btn btn-secondary">+ New Proposal</a>
+                </div>
             </div>
             <div class="card">
                 <div id="projects-loading" class="loading">Loading projects</div>
@@ -339,9 +481,10 @@
                             <th>Job ID</th>
                             <th>Client</th>
                             <th>Project</th>
-                            <th>Amount</th>
+                            <th>Total</th>
+                            <th>Invoiced</th>
+                            <th>Paid</th>
                             <th>Status</th>
-                            <th>Date</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -349,14 +492,14 @@
                     </tbody>
                 </table>
                 <div id="projects-empty" class="empty-state" style="display: none;">
-                    <p>No projects yet. Send your first proposal to get started.</p>
-                    <a href="proposal.html" class="btn btn-primary">+ New Proposal</a>
+                    <p>No projects yet. Add a project or create a proposal to get started.</p>
+                    <button class="btn btn-primary" onclick="openAddProjectModal()">+ Add Project</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Project Modal -->
+    <!-- Project Details Modal -->
     <div id="project-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -365,18 +508,105 @@
             </div>
             <div class="modal-body">
                 <div class="project-info" id="modal-project-info"></div>
-                <p>Update project status:</p>
                 <div class="modal-actions" id="modal-actions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Project Modal -->
+    <div id="add-project-modal" class="modal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3>Add Project</h3>
+                <button class="modal-close" onclick="closeAddProjectModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-project-form" onsubmit="saveProject(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="new-job-id">Job ID</label>
+                            <input type="text" id="new-job-id" required placeholder="e.g., 2026-005">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-project-name">Project Name</label>
+                            <input type="text" id="new-project-name" required placeholder="e.g., Oak Valley HOA">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="new-client-name">Client Name</label>
+                            <input type="text" id="new-client-name" required placeholder="e.g., John Smith">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-client-email">Client Email</label>
+                            <input type="email" id="new-client-email" placeholder="e.g., john@example.com">
+                        </div>
+                    </div>
+
+                    <div class="tasks-section">
+                        <label>Billable Tasks</label>
+                        <div id="tasks-list"></div>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="addTaskRow()">+ Add Task</button>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="has-contract" onchange="toggleContractDate()">
+                                Has signed contract
+                            </label>
+                        </div>
+                        <div class="form-group" id="contract-date-group" style="display: none;">
+                            <label for="contract-date">Contract Date</label>
+                            <input type="date" id="contract-date">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="new-status">Initial Status</label>
+                        <select id="new-status">
+                            <option value="proposal">Proposal</option>
+                            <option value="contract">Contract Signed</option>
+                            <option value="invoiced">Invoiced</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddProjectModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Project</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
     <script>
         const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
+        const COMPANY_API = 'https://n8n.irrigationengineers.com/webhook/podium-company';
         const PROJECTS_API = API_BASE + '?action=list';
         const UPDATE_API = API_BASE;
 
         let allProjects = [];
+
+        async function loadCompany() {
+            try {
+                const response = await fetch(COMPANY_API);
+                const data = await response.json();
+                if (data.company_name) {
+                    document.getElementById('company-name').textContent = data.company_name;
+                    document.title = data.company_name + ' - Dashboard';
+                }
+                const logoSrc = data.logo_url || data.logo_data;
+                if (logoSrc) {
+                    const logo = document.getElementById('company-logo');
+                    logo.src = logoSrc;
+                    logo.alt = data.company_name || 'Logo';
+                    logo.style.display = 'inline';
+                }
+            } catch (error) {
+                console.error('Failed to load company info:', error);
+            }
+        }
 
         async function loadProjects() {
             const loading = document.getElementById('projects-loading');
@@ -401,14 +631,18 @@
                 tbody.innerHTML = '';
 
                 data.projects.forEach(project => {
+                    const total = getProjectTotal(project);
+                    const invoiced = getProjectInvoiced(project);
+                    const paid = getProjectPaid(project);
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td><strong>${escapeHtml(project.job_id)}</strong></td>
                         <td>${escapeHtml(project.client_name)}<br><span class="date">${escapeHtml(project.client_email)}</span></td>
                         <td>${escapeHtml(project.project_name || '-')}</td>
-                        <td class="amount">$${Number(project.amount || 0).toLocaleString()}</td>
+                        <td class="amount">$${total.toLocaleString()}</td>
+                        <td class="amount">$${invoiced.toLocaleString()}</td>
+                        <td class="amount">$${paid.toLocaleString()}</td>
                         <td><span class="status status-${project.status}">${formatStatus(project.status)}</span></td>
-                        <td class="date">${formatDate(project.created_at)}</td>
                         <td class="actions-cell">
                             ${getActionButtons(project)}
                         </td>
@@ -428,9 +662,9 @@
             const total = projects.length;
             const pending = projects.filter(p => ['proposal', 'contract', 'invoiced'].includes(p.status)).length;
             const paidProjects = projects.filter(p => ['paid', 'complete'].includes(p.status));
-            const revenue = paidProjects.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+            const revenue = paidProjects.reduce((sum, p) => sum + getProjectPaid(p), 0);
             const pipeline = projects.filter(p => !['paid', 'complete'].includes(p.status))
-                                    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+                                    .reduce((sum, p) => sum + getProjectTotal(p), 0);
 
             document.getElementById('stat-total').textContent = total;
             document.getElementById('stat-pending').textContent = pending;
@@ -453,6 +687,28 @@
             if (!dateStr) return '-';
             const date = new Date(dateStr);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // Compute totals from tasks array (with fallback to legacy amount field)
+        function getProjectTotal(project) {
+            if (project.tasks && project.tasks.length > 0) {
+                return project.tasks.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+            }
+            return Number(project.amount || 0);
+        }
+
+        function getProjectInvoiced(project) {
+            if (project.tasks && project.tasks.length > 0) {
+                return project.tasks.reduce((sum, t) => sum + (Number(t.amount || 0) * Number(t.invoiced_percent || 0) / 100), 0);
+            }
+            return Number(project.invoiced_amount || 0);
+        }
+
+        function getProjectPaid(project) {
+            if (project.tasks && project.tasks.length > 0) {
+                return project.tasks.reduce((sum, t) => sum + (Number(t.amount || 0) * Number(t.paid_percent || 0) / 100), 0);
+            }
+            return Number(project.paid_amount || 0);
         }
 
         function getActionButtons(project) {
@@ -505,14 +761,61 @@
             const project = allProjects.find(p => p.job_id === jobId);
             if (!project) return;
 
-            document.getElementById('modal-title').textContent = project.project_name || project.job_id;
+            const total = getProjectTotal(project);
+            const invoiced = getProjectInvoiced(project);
+            const paid = getProjectPaid(project);
+
+            document.getElementById('modal-title').textContent = `${project.job_id} - ${project.project_name || 'Project'}`;
+
+            let tasksHtml = '';
+            if (project.tasks && project.tasks.length > 0) {
+                tasksHtml = `
+                    <table class="tasks-table">
+                        <thead>
+                            <tr>
+                                <th>Task</th>
+                                <th style="text-align: right">Amount</th>
+                                <th style="text-align: right">Inv %</th>
+                                <th style="text-align: right">Paid %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${project.tasks.map(t => `
+                                <tr>
+                                    <td class="task-name">${escapeHtml(t.name)}</td>
+                                    <td class="task-amount">$${Number(t.amount).toLocaleString()}</td>
+                                    <td class="task-percent">${t.invoiced_percent || 0}%</td>
+                                    <td class="task-percent">${t.paid_percent || 0}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            const contractInfo = project.contract?.signed_date
+                ? `<p><strong>Contract:</strong> Signed ${formatDate(project.contract.signed_date)}</p>`
+                : '';
+
             document.getElementById('modal-project-info').innerHTML = `
-                <p><strong>Job ID:</strong> ${escapeHtml(project.job_id)}</p>
                 <p><strong>Client:</strong> ${escapeHtml(project.client_name)}</p>
                 <p><strong>Email:</strong> ${escapeHtml(project.client_email)}</p>
-                <p><strong>Amount:</strong> $${Number(project.amount).toLocaleString()}</p>
-                <p><strong>Status:</strong> ${formatStatus(project.status)}</p>
-                <p><strong>Created:</strong> ${formatDate(project.created_at)}</p>
+                ${contractInfo}
+                ${tasksHtml}
+                <div class="project-totals">
+                    <div class="total-item">
+                        <div class="total-label">Total</div>
+                        <div class="total-value">$${total.toLocaleString()}</div>
+                    </div>
+                    <div class="total-item">
+                        <div class="total-label">Invoiced</div>
+                        <div class="total-value">$${invoiced.toLocaleString()}</div>
+                    </div>
+                    <div class="total-item">
+                        <div class="total-label">Paid</div>
+                        <div class="total-value success">$${paid.toLocaleString()}</div>
+                    </div>
+                </div>
             `;
 
             const actionsDiv = document.getElementById('modal-actions');
@@ -542,6 +845,89 @@
             if (e.target.classList.contains('modal')) closeModal();
         });
 
+        // Add Project Modal functions
+        function openAddProjectModal() {
+            document.getElementById('add-project-form').reset();
+            document.getElementById('tasks-list').innerHTML = '';
+            document.getElementById('contract-date-group').style.display = 'none';
+            addTaskRow(); // Start with one empty task row
+            document.getElementById('add-project-modal').classList.add('active');
+        }
+
+        function closeAddProjectModal() {
+            document.getElementById('add-project-modal').classList.remove('active');
+        }
+
+        document.getElementById('add-project-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeAddProjectModal();
+        });
+
+        function toggleContractDate() {
+            const hasContract = document.getElementById('has-contract').checked;
+            document.getElementById('contract-date-group').style.display = hasContract ? 'block' : 'none';
+            if (hasContract) {
+                document.getElementById('contract-date').value = new Date().toISOString().split('T')[0];
+            }
+        }
+
+        function addTaskRow() {
+            const tasksList = document.getElementById('tasks-list');
+            const row = document.createElement('div');
+            row.className = 'task-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Task name" class="task-name-input" required>
+                <input type="number" placeholder="Amount" class="task-amount-input" min="0" step="0.01" required>
+                <button type="button" class="btn-remove" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            tasksList.appendChild(row);
+        }
+
+        async function saveProject(event) {
+            event.preventDefault();
+
+            const taskRows = document.querySelectorAll('#tasks-list .task-row');
+            const tasks = Array.from(taskRows).map(row => ({
+                name: row.querySelector('.task-name-input').value,
+                amount: parseFloat(row.querySelector('.task-amount-input').value) || 0,
+                invoiced_percent: 0,
+                paid_percent: 0
+            })).filter(t => t.name && t.amount > 0);
+
+            const project = {
+                job_id: document.getElementById('new-job-id').value.trim(),
+                project_name: document.getElementById('new-project-name').value.trim(),
+                client_name: document.getElementById('new-client-name').value.trim(),
+                client_email: document.getElementById('new-client-email').value.trim(),
+                status: document.getElementById('new-status').value,
+                tasks: tasks,
+                created_at: new Date().toISOString().split('T')[0]
+            };
+
+            if (document.getElementById('has-contract').checked) {
+                project.contract = {
+                    signed_date: document.getElementById('contract-date').value
+                };
+            }
+
+            try {
+                const response = await fetch(UPDATE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'create', ...project })
+                });
+
+                if (response.ok) {
+                    closeAddProjectModal();
+                    refreshData();
+                } else {
+                    alert('Failed to create project. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error creating project:', error);
+                alert('Failed to create project. Please try again.');
+            }
+        }
+
         function escapeHtml(text) {
             if (!text) return '';
             const div = document.createElement('div');
@@ -557,6 +943,7 @@
         }
 
         // Load on page load
+        loadCompany();
         loadProjects();
     </script>
 </body>
