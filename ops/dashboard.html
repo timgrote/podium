@@ -561,6 +561,7 @@
             <h1><img id="company-logo" src="" alt="" style="height: 40px; margin-right: 12px; vertical-align: middle; display: none;"><span id="company-name">Podium</span> <span class="admin-badge">Dashboard</span></h1>
             <div class="header-actions">
                 <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
+                <a href="clients.html" class="btn btn-secondary">Clients</a>
                 <a href="settings.html" class="btn btn-secondary">Settings</a>
             </div>
         </header>
@@ -679,6 +680,14 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
+                            <label for="client-select">Client</label>
+                            <select id="client-select" onchange="selectClient()">
+                                <option value="">-- Select existing or enter new --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
                             <label for="new-client-name">Client Name</label>
                             <input type="text" id="new-client-name" required placeholder="e.g., John Smith">
                         </div>
@@ -728,10 +737,12 @@
     <script>
         const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
         const COMPANY_API = 'https://n8n.irrigationengineers.com/webhook/podium-company';
+        const CLIENTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-clients';
         const PROJECTS_API = API_BASE + '?action=list';
         const UPDATE_API = API_BASE;
 
         let allProjects = [];
+        let allClients = [];
 
         async function loadCompany() {
             try {
@@ -1046,11 +1057,45 @@
                 paid_percent: 0
             })).filter(t => t.name && t.amount > 0);
 
+            const clientName = document.getElementById('new-client-name').value.trim();
+            const clientEmail = document.getElementById('new-client-email').value.trim();
+            const selectedClientId = document.getElementById('client-select').value;
+
+            // Auto-create client if new email entered
+            let clientId = selectedClientId;
+            if (!selectedClientId && clientEmail) {
+                const existingClient = allClients.find(c => c.email.toLowerCase() === clientEmail.toLowerCase());
+                if (!existingClient) {
+                    try {
+                        const clientRes = await fetch(CLIENTS_API, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'create',
+                                name: clientName,
+                                email: clientEmail
+                            })
+                        });
+                        const clientData = await clientRes.json();
+                        if (clientData.success) {
+                            clientId = clientData.client.id;
+                            allClients.push(clientData.client);
+                            populateClientDropdown();
+                        }
+                    } catch (e) {
+                        console.error('Failed to auto-create client:', e);
+                    }
+                } else {
+                    clientId = existingClient.id;
+                }
+            }
+
             const project = {
                 job_id: document.getElementById('new-job-id').value.trim(),
                 project_name: document.getElementById('new-project-name').value.trim(),
-                client_name: document.getElementById('new-client-name').value.trim(),
-                client_email: document.getElementById('new-client-email').value.trim(),
+                client_name: clientName,
+                client_email: clientEmail,
+                client_id: clientId || null,
                 status: document.getElementById('new-status').value,
                 tasks: tasks,
                 created_at: new Date().toISOString().split('T')[0]
@@ -1300,9 +1345,62 @@
             loadProjects();
         }
 
+        // Client functions
+        async function loadClients() {
+            try {
+                const response = await fetch(CLIENTS_API + '?action=list');
+                const data = await response.json();
+                allClients = data.clients || [];
+                populateClientDropdown();
+            } catch (error) {
+                console.error('Failed to load clients:', error);
+            }
+        }
+
+        function populateClientDropdown() {
+            const select = document.getElementById('client-select');
+            // Clear existing options
+            while (select.firstChild) {
+                select.removeChild(select.firstChild);
+            }
+            // Add default option
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = '-- Select existing or enter new --';
+            select.appendChild(defaultOpt);
+            // Add client options
+            allClients.forEach(client => {
+                const opt = document.createElement('option');
+                opt.value = client.id;
+                opt.textContent = client.company
+                    ? `${client.name} (${client.company})`
+                    : client.name;
+                select.appendChild(opt);
+            });
+        }
+
+        function selectClient() {
+            const select = document.getElementById('client-select');
+            const clientId = select.value;
+
+            if (!clientId) {
+                // Clear fields for new client entry
+                document.getElementById('new-client-name').value = '';
+                document.getElementById('new-client-email').value = '';
+                return;
+            }
+
+            const client = allClients.find(c => c.id === clientId);
+            if (client) {
+                document.getElementById('new-client-name').value = client.name;
+                document.getElementById('new-client-email').value = client.email;
+            }
+        }
+
         // Load on page load
         loadCompany();
         loadProjects();
+        loadClients();
     </script>
 </body>
 </html>

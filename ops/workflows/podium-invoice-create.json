@@ -41,7 +41,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const project = $('Get Project').first().json.project;\nconst webhookData = $('Webhook').first().json.body;\nconst jobId = webhookData.job_id;\n\n// Get existing invoices or empty array\nconst invoices = project.invoices || [];\n\n// Find highest invoice number for this project\nlet maxNum = 0;\ninvoices.forEach(inv => {\n  const match = inv.invoice_number.match(/-(\\d+)$/);\n  if (match) {\n    maxNum = Math.max(maxNum, parseInt(match[1]));\n  }\n});\n\nconst invoiceNumber = `${jobId}-${maxNum + 1}`;\n\n// Calculate invoice amounts\nconst tasks = webhookData.tasks;\nlet total = 0;\nconst lineItems = tasks.map(task => {\n  const currentBilling = (task.amount * task.percent) / 100;\n  total += currentBilling;\n  return {\n    name: task.name,\n    fee: task.amount,\n    percent: task.percent,\n    previousBilling: 0,\n    currentBilling: currentBilling\n  };\n});\n\nconst today = new Date().toISOString().split('T')[0];\n\nreturn {\n  invoice_number: invoiceNumber,\n  today: today,\n  total_amount: total,\n  line_items: lineItems,\n  tasks: webhookData.tasks,\n  send_to: webhookData.send_to || []\n};"
+        "jsCode": "const project = $('Get Project').first().json.project;\nconst company = $('Get Company').first().json;\nconst webhookData = $('Webhook').first().json.body;\nconst jobId = webhookData.job_id;\n\n// Get existing invoices or empty array\nconst invoices = project.invoices || [];\n\n// Find highest invoice number for this project\nlet maxNum = 0;\ninvoices.forEach(inv => {\n  const match = inv.invoice_number.match(/-(\\d+)$/);\n  if (match) {\n    maxNum = Math.max(maxNum, parseInt(match[1]));\n  }\n});\n\nconst invoiceNumber = `${jobId}-${maxNum + 1}`;\n\n// Calculate invoice amounts with previous billing from prior invoices\nconst tasks = webhookData.tasks;\nlet total = 0;\nconst lineItems = tasks.map(task => {\n  // Sum previous billing from sent/paid invoices for this task\n  let previousBilling = 0;\n  invoices.filter(inv => inv.status === 'sent' || inv.status === 'paid')\n    .forEach(inv => {\n      const prevTask = (inv.tasks_invoiced || []).find(t => t.name === task.name);\n      if (prevTask) {\n        previousBilling += (prevTask.amount * prevTask.percent) / 100;\n      }\n    });\n  \n  const currentBilling = (task.amount * task.percent) / 100;\n  total += currentBilling;\n  return {\n    name: task.name,\n    fee: task.amount,\n    percent: task.percent,\n    previousBilling: previousBilling,\n    currentBilling: currentBilling\n  };\n});\n\nconst today = new Date().toISOString().split('T')[0];\n\nreturn {\n  invoice_number: invoiceNumber,\n  today: today,\n  total_amount: total,\n  line_items: lineItems,\n  tasks: webhookData.tasks,\n  send_to: webhookData.send_to || [],\n  project_name: project.project_name,\n  client_name: project.client_name,\n  job_id: project.job_id,\n  company_email: company.company_email || ''\n};"
       },
       "id": "calculate-invoice",
       "name": "Calculate Invoice",
@@ -54,13 +54,11 @@
         "operation": "copy",
         "fileId": {
           "__rl": true,
-          "value": "1bEr2Mq2hYAG_nG4kjt3tlxRWEdxZ5NkMJ09ipzboSE4",
+          "value": "16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI",
           "mode": "id"
         },
-        "name": "={{ $('Calculate Invoice').first().json.invoice_number }}",
-        "options": {
-          "folderIdOption": "id"
-        }
+        "name": "={{ $('Calculate Invoice').first().json.invoice_number }} - {{ $('Calculate Invoice').first().json.client_name }}",
+        "options": {}
       },
       "id": "copy-template",
       "name": "Copy Template",
@@ -69,79 +67,54 @@
       "position": [900, 300],
       "credentials": {
         "googleDriveOAuth2Api": {
-          "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
-          "name": "Google Drive"
+          "id": "ZIC1FGpIB8eDerTb",
+          "name": "Google Drive account 2"
         }
       }
     },
     {
       "parameters": {
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "={{ $('Copy Template').first().json.id }}",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "gid=375814074",
-          "mode": "id"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": []
-        },
-        "options": {
-          "cellFormat": "USER_ENTERED",
-          "range": "B7:B11"
-        },
-        "dataMode": "raw",
-        "valueInputMode": "RAW",
-        "rawData": "={{ [[$('Get Project').first().json.project.project_name], [$('Get Project').first().json.project.job_id], [$('Calculate Invoice').first().json.today], [$('Calculate Invoice').first().json.invoice_number], [$('Get Company').first().json.company_email || '']] }}"
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!B7:B11?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"values\": [\n    [\"{{ $('Calculate Invoice').first().json.project_name }}\"],\n    [\"{{ $('Calculate Invoice').first().json.job_id }}\"],\n    [\"{{ $('Calculate Invoice').first().json.today }}\"],\n    [\"{{ $('Calculate Invoice').first().json.invoice_number }}\"],\n    [\"{{ $('Calculate Invoice').first().json.company_email }}\"]\n  ]\n}",
+        "options": {}
       },
       "id": "fill-project-info",
       "name": "Fill Project Info",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [1120, 200],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 200],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
-          "name": "Google Sheets"
+          "id": "YS39b92xVsoVEdGk",
+          "name": "Google Sheets account 2"
         }
       }
     },
     {
       "parameters": {
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "={{ $('Copy Template').first().json.id }}",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "gid=375814074",
-          "mode": "id"
-        },
-        "options": {
-          "cellFormat": "USER_ENTERED",
-          "range": "E7"
-        },
-        "dataMode": "raw",
-        "rawData": "={{ [[$('Get Project').first().json.project.client_name]] }}"
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!E7?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"values\": [\n    [\"{{ $('Calculate Invoice').first().json.client_name }}\"]\n  ]\n}",
+        "options": {}
       },
       "id": "fill-client-info",
       "name": "Fill Client Info",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [1120, 400],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 400],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
-          "name": "Google Sheets"
+          "id": "YS39b92xVsoVEdGk",
+          "name": "Google Sheets account 2"
         }
       }
     },
@@ -153,37 +126,28 @@
       "name": "Format Tasks",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 600]
+      "position": [1320, 600]
     },
     {
       "parameters": {
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "={{ $('Copy Template').first().json.id }}",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "gid=375814074",
-          "mode": "id"
-        },
-        "options": {
-          "cellFormat": "USER_ENTERED",
-          "range": "A14:E23"
-        },
-        "dataMode": "raw",
-        "rawData": "={{ $json.taskRows }}"
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!A14:E23?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"values\": {{ JSON.stringify($json.taskRows) }}\n}",
+        "options": {}
       },
       "id": "fill-tasks",
       "name": "Fill Tasks",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [1340, 600],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 600],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "GOOGLE_SHEETS_CREDENTIAL_ID",
-          "name": "Google Sheets"
+          "id": "YS39b92xVsoVEdGk",
+          "name": "Google Sheets account 2"
         }
       }
     },
@@ -200,7 +164,7 @@
       "name": "Save Invoice to Project",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 300]
+      "position": [1760, 300]
     },
     {
       "parameters": {
@@ -212,21 +176,20 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1780, 300]
+      "position": [1980, 300]
     }
   ],
   "connections": {
     "Webhook": {
       "main": [
         [
-          { "node": "Get Project", "type": "main", "index": 0 },
-          { "node": "Get Company", "type": "main", "index": 0 }
+          { "node": "Get Project", "type": "main", "index": 0 }
         ]
       ]
     },
     "Get Project": {
       "main": [
-        [{ "node": "Calculate Invoice", "type": "main", "index": 0 }]
+        [{ "node": "Get Company", "type": "main", "index": 0 }]
       ]
     },
     "Get Company": {
