@@ -1,0 +1,26 @@
+name: Deploy to Droplet
+
+on:
+  push:
+    branches:
+      - main
+      - feature/invoicing  # Remove this line once merged to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        with:
+          host: n8n.irrigationengineers.com
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          envs: BRANCH_NAME
+          script: |
+            cd /opt/n8n-docker-caddy/podium
+            git fetch origin
+            git reset --hard "origin/$BRANCH_NAME"
+            echo "Deployed commit: $(git rev-parse HEAD)"
