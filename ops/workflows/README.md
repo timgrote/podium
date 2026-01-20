@@ -8,7 +8,7 @@ Workflow definitions for Podium's n8n backend.
 
 1. n8n instance at `n8n.irrigationengineers.com`
 2. Google OAuth2 credentials with Sheets and Drive scopes
-3. Invoice template at: `1bEr2Mq2hYAG_nG4kjt3tlxRWEdxZ5NkMJ09ipzboSE4`
+3. Invoice template at: `16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI`
 
 ### Import Workflow
 
@@ -33,7 +33,7 @@ See `podium-api-updates.md` for code to add to the existing podium-api workflow.
 
 ## Invoice Template
 
-**Google Sheet ID:** `1bEr2Mq2hYAG_nG4kjt3tlxRWEdxZ5NkMJ09ipzboSE4`
+**Google Sheet ID:** `16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI`
 
 ### Cell Mapping
 

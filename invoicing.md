@@ -1,0 +1,10 @@
+The goal is to create some automations via N8N or some other method, but N8N may make sense, to have some tasks to create an invoice, given a set of tasks and client information, or a proposal, read the information from a proposal. to Sára. And then we need to create an initial invoice to be worked on. Then we need a process invoice which plots a PDF of the current invoice or a given file and creates a new Google Sheet with updated previous billing fees with something in the name like the invoice current or something with the project name in there probably.
+
+Starting Template:https://docs.google.com/spreadsheets/d/16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI/edit?usp=sharing
+When using, when starting a new project or given a proposal and the project manager and all the information we should be able to generate this first, a first invoice from this template. For now employees will update the percent complete on their own. Later we'll tie that to hours worked.
+
+First Invoice Example:https://docs.google.com/spreadsheets/d/1sTHhdbZZAAc3XZ3wW0tfE5LBBPAa39SkltLcFoVU7Js/edit?usp=sharing
+This invoice example shows a first invoice with 50% of the preliminary irrigation task done for a total bill of $1,000. So that invoice would get plotted to PDF and then sent out to the client emails.
+
+Second Invoice Example: https://docs.google.com/spreadsheets/d/1ePvgUjSTzad1t5bClQBQtKu5rU19VKa1vnpkYvLYkBU/edit?usp=sharing
+and here you can see the second invoice to be sent out. Note that the total invoice total or the task previous billing fee was filled out from the invoice beforehand. So we're going to need some kind of automation to when we process an invoice to take the numbers, take the current billing fees from the tasks and add them to the previous billing fee and create a new current invoice that will be updated and sent out later.

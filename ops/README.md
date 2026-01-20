@@ -25,7 +25,9 @@ python -m http.server 3000
 
 ## API
 
-Dashboard communicates with n8n CRUD API:
+Dashboard communicates with n8n CRUD APIs:
+
+### Projects API
 
 ```javascript
 const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
@@ -39,7 +41,7 @@ fetch(API_BASE + '?action=get&job_id=JBHL21')
 // Create project
 fetch(API_BASE, {
   method: 'POST',
-  body: JSON.stringify({ action: 'create', job_id: '...', ... })
+  body: JSON.stringify({ action: 'create', job_id: '...', client_id: '...', ... })
 })
 
 // Update status
@@ -58,6 +60,47 @@ fetch(API_BASE, {
 fetch(API_BASE, {
   method: 'POST',
   body: JSON.stringify({ action: 'update_invoice', job_id: '...', invoice_number: '...', status: '...' })
+})
+```
+
+### Clients API
+
+```javascript
+const CLIENTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-clients';
+
+// List all clients
+fetch(CLIENTS_API + '?action=list')
+
+// Search clients
+fetch(CLIENTS_API + '?action=search&q=birdsall')
+
+// Get single client
+fetch(CLIENTS_API + '?action=get&id=c-abc123')
+
+// Create client
+fetch(CLIENTS_API, {
+  method: 'POST',
+  body: JSON.stringify({
+    action: 'create',
+    name: 'Jim Birdsall',
+    email: 'jim@birdsall.com',
+    company: 'Birdsall Homes',  // optional
+    phone: '555-123-4567',      // optional
+    address: '123 Main St',     // optional
+    notes: '## Notes\n...'      // optional, markdown
+  })
+})
+
+// Update client
+fetch(CLIENTS_API, {
+  method: 'POST',
+  body: JSON.stringify({ action: 'update', id: 'c-abc123', phone: '555-999-0000' })
+})
+
+// Delete client
+fetch(CLIENTS_API, {
+  method: 'POST',
+  body: JSON.stringify({ action: 'delete', id: 'c-abc123' })
 })
 ```
 

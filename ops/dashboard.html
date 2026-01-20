@@ -222,6 +222,13 @@
         .action-paid:hover {
             background: #3d5a4d;
         }
+        .action-delete {
+            background: #4a2c2c;
+            color: #ff6b6b;
+        }
+        .action-delete:hover {
+            background: #5a3c3c;
+        }
         .action-complete {
             background: #1a3a2e;
             color: #10b981;
@@ -289,6 +296,33 @@
         }
         .modal-wide {
             max-width: 700px;
+        }
+        .modal-small {
+            max-width: 400px;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .delete-options {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: #2a2a3e;
+            border-radius: 6px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
         }
         .form-row {
             display: flex;
@@ -655,6 +689,29 @@
                     <button type="button" class="btn btn-secondary" onclick="closeCreateInvoiceModal()">Cancel</button>
                     <button type="button" class="btn btn-primary" onclick="createInvoice()">Create Invoice Sheet</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Invoice Modal -->
+    <div id="delete-invoice-modal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Delete Invoice</h3>
+                <button class="modal-close" onclick="closeDeleteInvoiceModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="delete-invoice-message">Are you sure you want to delete this invoice?</p>
+                <div class="delete-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="delete-sheet-checkbox" checked>
+                        <span>Also delete the Google Sheet</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteInvoiceModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteInvoice()">Delete</button>
             </div>
         </div>
     </div>
@@ -1155,6 +1212,7 @@
                             ${inv.sheet_url ? `<a href="${inv.sheet_url}" target="_blank" class="action-btn action-view">View</a>` : ''}
                             ${inv.status === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.job_id}', '${inv.invoice_number}')">Send</button>` : ''}
                             ${inv.status === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.job_id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
+                            ${inv.status === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.job_id}', '${inv.invoice_number}')">Delete</button>` : ''}
                         </div>
                     </div>
                 `).join('')}
@@ -1335,6 +1393,99 @@
             } catch (error) {
                 console.error('Error updating invoice:', error);
                 alert('Failed to update invoice. Please try again.');
+            }
+        }
+
+        // Delete invoice modal state
+        const SHEET_DELETE_API = 'https://n8n.irrigationengineers.com/webhook/podium-sheet-delete';
+        let deleteInvoiceState = { jobId: null, invoiceNumber: null, sheetUrl: null };
+
+        function deleteInvoice(jobId, invoiceNumber) {
+            const project = allProjects.find(p => p.job_id === jobId);
+            if (!project) return;
+
+            const invoice = project.invoices.find(inv => inv.invoice_number === invoiceNumber);
+            deleteInvoiceState = {
+                jobId,
+                invoiceNumber,
+                sheetUrl: invoice?.sheet_url || null
+            };
+
+            document.getElementById('delete-invoice-message').textContent =
+                `Are you sure you want to delete invoice ${invoiceNumber}?`;
+            document.getElementById('delete-sheet-checkbox').checked = true;
+            document.getElementById('delete-invoice-modal').classList.add('active');
+        }
+
+        function closeDeleteInvoiceModal() {
+            document.getElementById('delete-invoice-modal').classList.remove('active');
+            deleteInvoiceState = { jobId: null, invoiceNumber: null, sheetUrl: null };
+        }
+
+        document.getElementById('delete-invoice-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeDeleteInvoiceModal();
+        });
+
+        async function confirmDeleteInvoice() {
+            const { jobId, invoiceNumber, sheetUrl } = deleteInvoiceState;
+            const deleteSheet = document.getElementById('delete-sheet-checkbox').checked;
+
+            try {
+                const project = allProjects.find(p => p.job_id === jobId);
+                if (!project) return;
+
+                // Filter out the invoice to delete
+                const remainingInvoices = project.invoices.filter(inv => inv.invoice_number !== invoiceNumber);
+                const deletedInvoice = project.invoices.find(inv => inv.invoice_number === invoiceNumber);
+
+                // Recalculate task invoiced_percent
+                const updatedTasks = project.tasks.map(task => {
+                    const taskCopy = { ...task };
+                    if (deletedInvoice && deletedInvoice.tasks_invoiced) {
+                        const invoicedTask = deletedInvoice.tasks_invoiced.find(t => t.name === task.name);
+                        if (invoicedTask) {
+                            taskCopy.invoiced_percent = Math.max(0, (task.invoiced_percent || 0) - invoicedTask.percent);
+                        }
+                    }
+                    return taskCopy;
+                });
+
+                // Delete the Google Sheet if checkbox is checked
+                if (deleteSheet && sheetUrl) {
+                    try {
+                        await fetch(SHEET_DELETE_API, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ sheet_url: sheetUrl })
+                        });
+                    } catch (sheetError) {
+                        console.error('Error deleting sheet:', sheetError);
+                        // Continue with invoice deletion even if sheet deletion fails
+                    }
+                }
+
+                // Update project data
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update',
+                        job_id: jobId,
+                        invoices: remainingInvoices,
+                        tasks: updatedTasks
+                    })
+                });
+
+                if (response.ok) {
+                    closeDeleteInvoiceModal();
+                    alert(`Invoice ${invoiceNumber} deleted.`);
+                    refreshData();
+                } else {
+                    alert('Failed to delete invoice.');
+                }
+            } catch (error) {
+                console.error('Error deleting invoice:', error);
+                alert('Failed to delete invoice. Please try again.');
             }
         }
 

@@ -1,6 +1,49 @@
-# Podium API Updates for Invoicing
+# Podium API Updates
 
 Add these actions to the existing `podium-api` workflow's Code node.
+
+## Action: create
+
+```javascript
+case 'create': {
+  // Check for duplicate job_id
+  const existing = projects.find(p => p.job_id === body.job_id);
+  if (existing) {
+    return { error: 'Project with this job_id already exists' };
+  }
+
+  // Build project object
+  const newProject = {
+    job_id: body.job_id,
+    project_name: body.project_name || '',
+    client_name: body.client_name || '',
+    client_email: body.client_email || '',
+    status: body.status || 'proposal',
+    tasks: body.tasks || [],
+    invoices: [],
+    created_at: body.created_at || new Date().toISOString().split('T')[0],
+    updated_at: new Date().toISOString().split('T')[0]
+  };
+
+  // Add contract info if provided
+  if (body.contract) {
+    newProject.contract = body.contract;
+  }
+
+  // Compute total from tasks for legacy amount field
+  if (newProject.tasks.length > 0) {
+    newProject.amount = newProject.tasks.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  }
+
+  // Add to projects array
+  projects.push(newProject);
+
+  // Save projects back to static data
+  $getWorkflowStaticData('global').projects = projects;
+
+  return { success: true, project: newProject };
+}
+```
 
 ## Action: add_invoice
 
@@ -103,6 +146,21 @@ case 'get': {
 After updating, test with:
 
 ```bash
+# Create project
+curl -X POST https://n8n.irrigationengineers.com/webhook/podium-api \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "create",
+    "job_id": "TEST-001",
+    "project_name": "Test Project",
+    "client_name": "Test Client",
+    "client_email": "test@example.com",
+    "status": "proposal",
+    "tasks": [
+      { "name": "Design", "amount": 1000, "invoiced_percent": 0, "paid_percent": 0 }
+    ]
+  }'
+
 # Add invoice
 curl -X POST https://n8n.irrigationengineers.com/webhook/podium-api \
   -H "Content-Type: application/json" \

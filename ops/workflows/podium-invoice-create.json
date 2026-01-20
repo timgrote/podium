@@ -75,7 +75,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!B7:B11?valueInputOption=USER_ENTERED",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!B6:B10?valueInputOption=USER_ENTERED",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googleSheetsOAuth2Api",
         "sendBody": true,
@@ -87,7 +87,7 @@
       "name": "Fill Project Info",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 200],
+      "position": [1120, 300],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "YS39b92xVsoVEdGk",
@@ -98,7 +98,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!E7?valueInputOption=USER_ENTERED",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!F7?valueInputOption=USER_ENTERED",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googleSheetsOAuth2Api",
         "sendBody": true,
@@ -110,7 +110,7 @@
       "name": "Fill Client Info",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 400],
+      "position": [1340, 300],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "YS39b92xVsoVEdGk",
@@ -120,18 +120,18 @@
     },
     {
       "parameters": {
-        "jsCode": "const lineItems = $('Calculate Invoice').first().json.line_items;\n\n// Build 2D array for rows 14-23 (up to 10 tasks)\nconst rows = [];\nfor (let i = 0; i < 10; i++) {\n  if (i < lineItems.length) {\n    const item = lineItems[i];\n    rows.push([item.name, item.fee, item.percent + '%', item.previousBilling, item.currentBilling]);\n  } else {\n    rows.push(['', '', '', '', '']);\n  }\n}\n\nreturn { taskRows: rows };"
+        "jsCode": "const lineItems = $('Calculate Invoice').first().json.line_items;\n\n// Build 2D array for rows 14-23 (up to 10 tasks)\nconst rows = [];\nfor (let i = 0; i < 10; i++) {\n  if (i < lineItems.length) {\n    const item = lineItems[i];\n    rows.push([item.name, '', item.fee, item.percent + '%', item.previousBilling, item.currentBilling]);\n  } else {\n    rows.push(['', '', '', '', '', '']);\n  }\n}\n\nreturn { taskRows: rows };"
       },
       "id": "format-tasks",
       "name": "Format Tasks",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 600]
+      "position": [1560, 300]
     },
     {
       "parameters": {
         "method": "PUT",
-        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!A14:E23?valueInputOption=USER_ENTERED",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Copy Template').first().json.id }}/values/Invoice!A15:F24?valueInputOption=USER_ENTERED",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googleSheetsOAuth2Api",
         "sendBody": true,
@@ -143,7 +143,7 @@
       "name": "Fill Tasks",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1540, 600],
+      "position": [1780, 300],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "YS39b92xVsoVEdGk",
@@ -164,7 +164,7 @@
       "name": "Save Invoice to Project",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1760, 300]
+      "position": [2000, 300]
     },
     {
       "parameters": {
@@ -176,15 +176,13 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1980, 300]
+      "position": [2220, 300]
     }
   ],
   "connections": {
     "Webhook": {
       "main": [
-        [
-          { "node": "Get Project", "type": "main", "index": 0 }
-        ]
+        [{ "node": "Get Project", "type": "main", "index": 0 }]
       ]
     },
     "Get Project": {
@@ -204,21 +202,17 @@
     },
     "Copy Template": {
       "main": [
-        [
-          { "node": "Fill Project Info", "type": "main", "index": 0 },
-          { "node": "Fill Client Info", "type": "main", "index": 0 },
-          { "node": "Format Tasks", "type": "main", "index": 0 }
-        ]
+        [{ "node": "Fill Project Info", "type": "main", "index": 0 }]
       ]
     },
     "Fill Project Info": {
       "main": [
-        [{ "node": "Save Invoice to Project", "type": "main", "index": 0 }]
+        [{ "node": "Fill Client Info", "type": "main", "index": 0 }]
       ]
     },
     "Fill Client Info": {
       "main": [
-        [{ "node": "Save Invoice to Project", "type": "main", "index": 0 }]
+        [{ "node": "Format Tasks", "type": "main", "index": 0 }]
       ]
     },
     "Format Tasks": {
