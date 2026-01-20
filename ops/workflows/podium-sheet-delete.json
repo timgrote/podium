@@ -1,0 +1,82 @@
+{
+  "name": "podium-sheet-delete",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podium-sheet-delete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "podium-sheet-delete"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nlet sheetId = body.sheet_id;\n\n// Extract ID from URL if provided\nif (!sheetId && body.sheet_url) {\n  const match = body.sheet_url.match(/\\/d\\/([a-zA-Z0-9_-]+)/);\n  if (match) {\n    sheetId = match[1];\n  }\n}\n\nif (!sheetId) {\n  throw new Error('No sheet_id or sheet_url provided');\n}\n\nreturn { sheetId };"
+      },
+      "id": "extract-id",
+      "name": "Extract Sheet ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.sheetId }}",
+          "mode": "id"
+        }
+      },
+      "id": "delete-sheet",
+      "name": "Delete Sheet",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ZIC1FGpIB8eDerTb",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"deleted_sheet_id\": \"{{ $('Extract Sheet ID').first().json.sheetId }}\"\n}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Extract Sheet ID", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Sheet ID": {
+      "main": [
+        [{ "node": "Delete Sheet", "type": "main", "index": 0 }]
+      ]
+    },
+    "Delete Sheet": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

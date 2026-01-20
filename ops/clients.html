@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podium - Clients</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #fff;
+            background: #1a1a2e;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+        h1 {
+            font-size: 2rem;
+            color: #fff;
+        }
+        .admin-badge {
+            background: #6c63ff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            margin-left: 10px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-primary {
+            background: #6c63ff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5a52d5;
+        }
+        .btn-secondary {
+            background: #242442;
+            color: #ccc;
+            border: 1px solid #444;
+        }
+        .btn-secondary:hover {
+            background: #2d2d4a;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h2 {
+            font-size: 1.25rem;
+            color: #fff;
+        }
+        .card {
+            background: #242442;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .clients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .client-card {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .client-card:hover {
+            border-color: #6c63ff;
+        }
+        .client-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .client-company {
+            color: #6c63ff;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        .client-detail {
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .client-detail a {
+            color: #60a5fa;
+            text-decoration: none;
+        }
+        .client-detail a:hover {
+            text-decoration: underline;
+        }
+        .client-notes {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #333;
+            font-style: italic;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        .empty-state p {
+            margin-bottom: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #444;
+            border-top-color: #6c63ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: #242442;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .modal-header h3 {
+            color: #fff;
+            font-size: 1.25rem;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            color: #ccc;
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.875rem;
+            font-family: inherit;
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #6c63ff;
+        }
+        .form-group input::placeholder, .form-group textarea::placeholder {
+            color: #666;
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+        }
+        .modal-footer-left {
+            display: flex;
+            gap: 12px;
+        }
+        .modal-footer-right {
+            display: flex;
+            gap: 12px;
+        }
+        .search-box {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 10px 16px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: #6c63ff;
+        }
+        .client-projects {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #333;
+        }
+        .client-projects-title {
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .client-project-link {
+            display: inline-block;
+            background: #3b3b6d;
+            color: #a5a5ff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            text-decoration: none;
+        }
+        .client-project-link:hover {
+            background: #4b4b7d;
+        }
+        @media (max-width: 768px) {
+            .clients-grid {
+                grid-template-columns: 1fr;
+            }
+            .header-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Clients <span class="admin-badge">Directory</span></h1>
+            <div class="header-actions">
+                <a href="dashboard.html" class="btn btn-secondary">Dashboard</a>
+                <button class="btn btn-primary" onclick="openAddModal()">+ Add Client</button>
+            </div>
+        </header>
+
+        <div class="section">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search by name, email, or company..." oninput="filterClients()">
+            </div>
+            <div class="card">
+                <div id="clients-loading" class="loading">Loading clients</div>
+                <div id="clients-grid" class="clients-grid" style="display: none;"></div>
+                <div id="clients-empty" class="empty-state" style="display: none;">
+                    <p>No clients yet. Add your first client to get started.</p>
+                    <button class="btn btn-primary" onclick="openAddModal()">+ Add Client</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Client Modal -->
+    <div id="client-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Client</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="client-form" onsubmit="saveClient(event)">
+                <input type="hidden" id="client-id">
+                <div class="form-group">
+                    <label for="client-name">Name *</label>
+                    <input type="text" id="client-name" required placeholder="e.g., Jim Birdsall">
+                </div>
+                <div class="form-group">
+                    <label for="client-email">Email *</label>
+                    <input type="email" id="client-email" required placeholder="e.g., jim@birdsall.com">
+                </div>
+                <div class="form-group">
+                    <label for="client-company">Company</label>
+                    <input type="text" id="client-company" placeholder="e.g., Birdsall Homes">
+                </div>
+                <div class="form-group">
+                    <label for="client-phone">Phone</label>
+                    <input type="tel" id="client-phone" placeholder="e.g., 555-123-4567">
+                </div>
+                <div class="form-group">
+                    <label for="client-address">Address</label>
+                    <textarea id="client-address" placeholder="Street address..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="client-notes">Notes</label>
+                    <textarea id="client-notes" placeholder="Additional notes (supports markdown)..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <div class="modal-footer-left">
+                        <button type="button" id="delete-btn" class="btn btn-danger btn-small" style="display: none;" onclick="deleteClient()">Delete</button>
+                    </div>
+                    <div class="modal-footer-right">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const CLIENTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-clients';
+        const PROJECTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-api?action=list';
+
+        let allClients = [];
+        let allProjects = [];
+
+        async function loadClients() {
+            const loading = document.getElementById('clients-loading');
+            const grid = document.getElementById('clients-grid');
+            const empty = document.getElementById('clients-empty');
+
+            try {
+                const [clientsRes, projectsRes] = await Promise.all([
+                    fetch(CLIENTS_API + '?action=list'),
+                    fetch(PROJECTS_API)
+                ]);
+
+                const clientsData = await clientsRes.json();
+                const projectsData = await projectsRes.json();
+
+                allClients = clientsData.clients || [];
+                allProjects = projectsData.projects || [];
+
+                loading.style.display = 'none';
+
+                if (allClients.length === 0) {
+                    empty.style.display = 'block';
+                    return;
+                }
+
+                grid.style.display = 'grid';
+                renderClients(allClients);
+
+            } catch (error) {
+                console.error('Failed to load clients:', error);
+                loading.textContent = 'Failed to load clients. ';
+                const retryBtn = document.createElement('button');
+                retryBtn.className = 'btn btn-secondary';
+                retryBtn.textContent = 'Retry';
+                retryBtn.onclick = () => location.reload();
+                loading.appendChild(retryBtn);
+            }
+        }
+
+        function renderClients(clients) {
+            const grid = document.getElementById('clients-grid');
+            // Clear existing
+            while (grid.firstChild) {
+                grid.removeChild(grid.firstChild);
+            }
+
+            clients.forEach(client => {
+                const card = document.createElement('div');
+                card.className = 'client-card';
+                card.onclick = () => openEditModal(client);
+
+                const name = document.createElement('div');
+                name.className = 'client-name';
+                name.textContent = client.name;
+                card.appendChild(name);
+
+                if (client.company) {
+                    const company = document.createElement('div');
+                    company.className = 'client-company';
+                    company.textContent = client.company;
+                    card.appendChild(company);
+                }
+
+                if (client.email) {
+                    const emailDiv = document.createElement('div');
+                    emailDiv.className = 'client-detail';
+                    const emailLink = document.createElement('a');
+                    emailLink.href = 'mailto:' + client.email;
+                    emailLink.textContent = client.email;
+                    emailLink.onclick = (e) => e.stopPropagation();
+                    emailDiv.appendChild(emailLink);
+                    card.appendChild(emailDiv);
+                }
+
+                if (client.phone) {
+                    const phoneDiv = document.createElement('div');
+                    phoneDiv.className = 'client-detail';
+                    phoneDiv.textContent = client.phone;
+                    card.appendChild(phoneDiv);
+                }
+
+                if (client.notes) {
+                    const notesDiv = document.createElement('div');
+                    notesDiv.className = 'client-notes';
+                    notesDiv.textContent = client.notes.length > 100
+                        ? client.notes.substring(0, 100) + '...'
+                        : client.notes;
+                    card.appendChild(notesDiv);
+                }
+
+                // Show linked projects
+                const clientProjects = allProjects.filter(p =>
+                    p.client_id === client.id ||
+                    p.client_email?.toLowerCase() === client.email?.toLowerCase()
+                );
+
+                if (clientProjects.length > 0) {
+                    const projectsDiv = document.createElement('div');
+                    projectsDiv.className = 'client-projects';
+
+                    const title = document.createElement('div');
+                    title.className = 'client-projects-title';
+                    title.textContent = 'Projects';
+                    projectsDiv.appendChild(title);
+
+                    clientProjects.forEach(proj => {
+                        const link = document.createElement('a');
+                        link.className = 'client-project-link';
+                        link.href = 'dashboard.html#' + proj.job_id;
+                        link.textContent = proj.job_id;
+                        link.onclick = (e) => e.stopPropagation();
+                        projectsDiv.appendChild(link);
+                    });
+
+                    card.appendChild(projectsDiv);
+                }
+
+                grid.appendChild(card);
+            });
+        }
+
+        function filterClients() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            if (!query) {
+                renderClients(allClients);
+                return;
+            }
+
+            const filtered = allClients.filter(c =>
+                c.name.toLowerCase().includes(query) ||
+                (c.email && c.email.toLowerCase().includes(query)) ||
+                (c.company && c.company.toLowerCase().includes(query))
+            );
+            renderClients(filtered);
+        }
+
+        function openAddModal() {
+            document.getElementById('modal-title').textContent = 'Add Client';
+            document.getElementById('client-form').reset();
+            document.getElementById('client-id').value = '';
+            document.getElementById('delete-btn').style.display = 'none';
+            document.getElementById('client-modal').classList.add('active');
+        }
+
+        function openEditModal(client) {
+            document.getElementById('modal-title').textContent = 'Edit Client';
+            document.getElementById('client-id').value = client.id;
+            document.getElementById('client-name').value = client.name || '';
+            document.getElementById('client-email').value = client.email || '';
+            document.getElementById('client-company').value = client.company || '';
+            document.getElementById('client-phone').value = client.phone || '';
+            document.getElementById('client-address').value = client.address || '';
+            document.getElementById('client-notes').value = client.notes || '';
+            document.getElementById('delete-btn').style.display = 'block';
+            document.getElementById('client-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('client-modal').classList.remove('active');
+        }
+
+        document.getElementById('client-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeModal();
+        });
+
+        async function saveClient(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('client-id').value;
+            const action = id ? 'update' : 'create';
+
+            const payload = {
+                action: action,
+                name: document.getElementById('client-name').value.trim(),
+                email: document.getElementById('client-email').value.trim(),
+                company: document.getElementById('client-company').value.trim(),
+                phone: document.getElementById('client-phone').value.trim(),
+                address: document.getElementById('client-address').value.trim(),
+                notes: document.getElementById('client-notes').value.trim()
+            };
+
+            if (id) payload.id = id;
+
+            try {
+                const response = await fetch(CLIENTS_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to save client'));
+                }
+            } catch (error) {
+                console.error('Save error:', error);
+                alert('Failed to save client. Please try again.');
+            }
+        }
+
+        async function deleteClient() {
+            const id = document.getElementById('client-id').value;
+            const name = document.getElementById('client-name').value;
+
+            if (!confirm('Delete client "' + name + '"? This cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(CLIENTS_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', id: id })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to delete client'));
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert('Failed to delete client. Please try again.');
+            }
+        }
+
+        // Load on page load
+        loadClients();
+    </script>
+</body>
+</html>

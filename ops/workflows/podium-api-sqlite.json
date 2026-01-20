@@ -1,0 +1,85 @@
+{
+  "name": "Podium - Projects API (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "podium-api",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-get",
+      "name": "Webhook GET",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "podium-api"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podium-api",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-post",
+      "name": "Webhook POST",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 500],
+      "webhookId": "podium-api"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unified API handler - parses input and executes the right query\nconst input = $input.first().json;\nconst query = input.query || {};\nconst body = typeof input.body === 'string' ? JSON.parse(input.body) : (input.body || {});\n\n// Determine action\nconst action = query.action || body.action || 'list';\nconst job_id = query.job_id || body.job_id;\n\n// Build the SQL query based on action\nlet sql = '';\nlet result_type = 'rows';\n\nswitch(action) {\n  case 'list':\n    sql = `SELECT \n      p.id as job_id,\n      p.name as project_name,\n      p.status,\n      p.data_path,\n      p.notes,\n      p.created_at,\n      p.updated_at,\n      c.id as client_id,\n      c.name as client_name,\n      c.email as client_email,\n      c.company as client_company,\n      c.phone as client_phone,\n      COALESCE(inv.total_invoiced, 0) as total_invoiced,\n      COALESCE(inv.total_paid, 0) as total_paid\n    FROM projects p\n    LEFT JOIN clients c ON p.client_id = c.id\n    LEFT JOIN (\n      SELECT project_id,\n        SUM(total_due) as total_invoiced,\n        SUM(CASE WHEN paid_status = 'paid' THEN total_due ELSE 0 END) as total_paid\n      FROM invoices WHERE deleted_at IS NULL GROUP BY project_id\n    ) inv ON p.id = inv.project_id\n    WHERE p.deleted_at IS NULL\n    ORDER BY p.created_at DESC`;\n    break;\n    \n  case 'get':\n    sql = `SELECT \n      p.id as job_id,\n      p.name as project_name,\n      p.status,\n      p.data_path,\n      p.notes,\n      p.created_at,\n      p.updated_at,\n      c.id as client_id,\n      c.name as client_name,\n      c.email as client_email,\n      c.company as client_company\n    FROM projects p\n    LEFT JOIN clients c ON p.client_id = c.id\n    WHERE p.id = '${job_id}'\n      AND p.deleted_at IS NULL`;\n    result_type = 'single';\n    break;\n    \n  default:\n    sql = `SELECT 'unknown action: ${action}' as error`;\n    result_type = 'error';\n}\n\nreturn [{ json: { sql, action, result_type, job_id, body } }];"
+      },
+      "id": "parse-input",
+      "name": "Parse & Build Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "db_path": "/files/podium.db",
+        "query_type": "SELECT",
+        "query": "={{ $json.sql }}",
+        "spread": true
+      },
+      "id": "sql-query",
+      "name": "Execute SQL",
+      "type": "n8n-nodes-sqlite3.sqliteNode",
+      "typeVersion": 1,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst context = $('Parse & Build Query').first().json;\nconst action = context.action;\nconst result_type = context.result_type;\n\nif (result_type === 'error') {\n  return [{ json: { error: items[0]?.json?.error || 'Unknown error' } }];\n}\n\nconst rows = items.map(item => item.json);\n\nif (action === 'list') {\n  return [{ json: { projects: rows.map(p => ({ ...p, invoices: [] })) } }];\n}\n\nif (action === 'get') {\n  if (rows.length === 0) {\n    return [{ json: { error: 'Project not found' } }];\n  }\n  return [{ json: { project: rows[0] } }];\n}\n\nreturn [{ json: { success: true, data: rows } }];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 400]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1140, 400]
+    }
+  ],
+  "connections": {
+    "Webhook GET": { "main": [[{ "node": "Parse & Build Query", "type": "main", "index": 0 }]] },
+    "Webhook POST": { "main": [[{ "node": "Parse & Build Query", "type": "main", "index": 0 }]] },
+    "Parse & Build Query": { "main": [[{ "node": "Execute SQL", "type": "main", "index": 0 }]] },
+    "Execute SQL": { "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]] },
+    "Format Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null
+}
