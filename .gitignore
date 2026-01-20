@@ -1,0 +1,14 @@
+.env
+.env.*
+*.pem
+*.key
+test-results/
+
+# Database - don't commit actual data, only schema
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# Playwright
+.playwright-mcp/
