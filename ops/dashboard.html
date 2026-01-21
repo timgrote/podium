@@ -575,6 +575,109 @@
             font-weight: 600;
         }
 
+        /* Expandable detail rows */
+        .project-row {
+            cursor: pointer;
+        }
+        .project-row.expanded td {
+            background: #2a2a4a;
+            border-bottom: none;
+        }
+        .detail-row {
+            display: none;
+        }
+        .detail-row.expanded {
+            display: table-row;
+        }
+        .detail-row td {
+            background: #1e1e3a;
+            padding: 0;
+            border-bottom: 1px solid #333;
+        }
+        .detail-row:hover td {
+            background: #1e1e3a;
+        }
+        .detail-content {
+            padding: 20px 24px;
+        }
+        .detail-sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .detail-section {
+            background: #242442;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .detail-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .detail-section-title {
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .detail-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a1a2e;
+            padding: 10px 14px;
+            border-radius: 6px;
+        }
+        .detail-item-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .detail-item-primary {
+            color: #fff;
+            font-weight: 500;
+        }
+        .detail-item-secondary {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        .detail-item-amount {
+            color: #4ade80;
+            font-weight: 500;
+        }
+        .detail-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .detail-empty {
+            color: #666;
+            font-size: 0.875rem;
+            text-align: center;
+            padding: 16px;
+        }
+        .expand-icon {
+            display: inline-block;
+            width: 16px;
+            transition: transform 0.2s;
+        }
+        .project-row.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+        .detail-loading {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+        }
+
         @media (max-width: 768px) {
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
@@ -585,6 +688,9 @@
             }
             .header-actions {
                 flex-direction: column;
+            }
+            .detail-sections {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -791,6 +897,36 @@
         </div>
     </div>
 
+    <!-- Add Contract Modal -->
+    <div id="add-contract-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="add-contract-title">Add Contract</h3>
+                <button class="modal-close" onclick="closeAddContractModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-contract-form" onsubmit="saveContract(event)">
+                    <div class="form-group">
+                        <label for="contract-amount">Total Amount</label>
+                        <input type="number" id="contract-amount" required min="0" step="0.01" placeholder="e.g., 5000">
+                    </div>
+                    <div class="form-group">
+                        <label for="contract-signed-date">Signed Date</label>
+                        <input type="date" id="contract-signed-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="contract-file-path">File Path (optional)</label>
+                        <input type="text" id="contract-file-path" placeholder="e.g., /contracts/2026-005-contract.pdf">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddContractModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Contract</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
         const COMPANY_API = 'https://n8n.irrigationengineers.com/webhook/podium-company';
@@ -800,6 +936,189 @@
 
         let allProjects = [];
         let allClients = [];
+        const expandedProjects = new Set();
+        const projectDetailCache = new Map();
+
+        // Toggle expand/collapse for a project detail row
+        function toggleProjectDetail(jobId) {
+            const projectRow = document.querySelector(`.project-row[data-job-id="${jobId}"]`);
+            const detailRow = document.querySelector(`.detail-row[data-job-id="${jobId}"]`);
+
+            if (!projectRow || !detailRow) return;
+
+            if (expandedProjects.has(jobId)) {
+                // Collapse
+                expandedProjects.delete(jobId);
+                projectRow.classList.remove('expanded');
+                detailRow.classList.remove('expanded');
+            } else {
+                // Expand
+                expandedProjects.add(jobId);
+                projectRow.classList.add('expanded');
+                detailRow.classList.add('expanded');
+
+                // Load detail content if not cached
+                loadProjectDetail(jobId);
+            }
+        }
+
+        // Load and render project detail content
+        async function loadProjectDetail(jobId) {
+            const detailRow = document.querySelector(`.detail-row[data-job-id="${jobId}"]`);
+            if (!detailRow) return;
+
+            const contentDiv = detailRow.querySelector('.detail-content');
+
+            // Check cache first
+            if (projectDetailCache.has(jobId)) {
+                renderProjectDetail(jobId, projectDetailCache.get(jobId), contentDiv);
+                return;
+            }
+
+            // Show loading state
+            contentDiv.innerHTML = '<div class="detail-loading">Loading details...</div>';
+
+            try {
+                // Fetch detail from API
+                const response = await fetch(`${API_BASE}?action=get_detail&job_id=${encodeURIComponent(jobId)}`);
+                const data = await response.json();
+
+                if (data.project) {
+                    projectDetailCache.set(jobId, data.project);
+                    renderProjectDetail(jobId, data.project, contentDiv);
+                } else {
+                    // Fallback: use data from allProjects
+                    const project = allProjects.find(p => p.job_id === jobId);
+                    if (project) {
+                        projectDetailCache.set(jobId, project);
+                        renderProjectDetail(jobId, project, contentDiv);
+                    } else {
+                        contentDiv.innerHTML = '<div class="detail-empty">Could not load project details.</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load project detail:', error);
+                // Fallback: use data from allProjects
+                const project = allProjects.find(p => p.job_id === jobId);
+                if (project) {
+                    projectDetailCache.set(jobId, project);
+                    renderProjectDetail(jobId, project, contentDiv);
+                } else {
+                    contentDiv.innerHTML = '<div class="detail-empty">Failed to load details.</div>';
+                }
+            }
+        }
+
+        // Render the detail content with contracts and invoices sections
+        function renderProjectDetail(jobId, project, contentDiv) {
+            contentDiv.innerHTML = `
+                <div class="detail-sections">
+                    <div class="detail-section">
+                        <div class="detail-section-header">
+                            <span class="detail-section-title">Contracts</span>
+                            <button class="btn btn-primary btn-small" onclick="openAddContractModal('${jobId}')">+ Add Contract</button>
+                        </div>
+                        ${renderContractsSection(project)}
+                    </div>
+                    <div class="detail-section">
+                        <div class="detail-section-header">
+                            <span class="detail-section-title">Invoices</span>
+                            <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${jobId}')">+ Create Invoice</button>
+                        </div>
+                        ${renderInvoicesSection(project)}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render contracts section
+        function renderContractsSection(project) {
+            const contracts = project.contracts || [];
+
+            // Also check for legacy single contract field (old JSON format)
+            if (contracts.length === 0 && project.contract?.signed_date) {
+                contracts.push({
+                    id: 'legacy',
+                    total_amount: getProjectTotal(project),
+                    signed_at: project.contract.signed_date,
+                    file_path: project.contract.file_path || null
+                });
+            }
+
+            if (contracts.length === 0) {
+                return '<div class="detail-empty">No contracts yet</div>';
+            }
+
+            return `<div class="detail-list">
+                ${contracts.map(contract => {
+                    // Support both old field names (amount, signed_date) and new (total_amount, signed_at)
+                    const amount = contract.total_amount || contract.amount || 0;
+                    const signedDate = contract.signed_at || contract.signed_date;
+                    return `
+                    <div class="detail-item">
+                        <div class="detail-item-info">
+                            <span class="detail-item-amount">$${Number(amount).toLocaleString()}</span>
+                            <span class="detail-item-secondary">Signed ${formatDate(signedDate)}</span>
+                        </div>
+                        <div class="detail-item-actions">
+                            ${contract.file_path ? `<a href="${escapeHtml(contract.file_path)}" target="_blank" class="action-btn action-view">View</a>` : ''}
+                            <button class="action-btn action-invoice" onclick="createInvoiceFromContract('${project.job_id}', '${contract.id || 'legacy'}')">Create Invoice</button>
+                        </div>
+                    </div>
+                `}).join('')}
+            </div>`;
+        }
+
+        // Render invoices section with chain visualization
+        function renderInvoicesSection(project) {
+            const invoices = project.invoices || [];
+
+            if (invoices.length === 0) {
+                return '<div class="detail-empty">No invoices yet</div>';
+            }
+
+            // Sort invoices by date (most recent first)
+            const sortedInvoices = [...invoices].sort((a, b) => {
+                const dateA = new Date(a.created_at || 0);
+                const dateB = new Date(b.created_at || 0);
+                return dateB - dateA;
+            });
+
+            const mostRecent = sortedInvoices[0];
+
+            return `<div class="detail-list">
+                ${sortedInvoices.map((inv, idx) => {
+                    // Support both old field names and new DB schema names
+                    const amount = inv.total_due || inv.amount || 0;
+                    const sheetUrl = inv.data_path || inv.sheet_url;
+                    // Derive display status: paid > sent > draft/unsent
+                    const paidStatus = inv.paid_status || inv.status;
+                    const sentStatus = inv.sent_status;
+                    let displayStatus = 'draft';
+                    if (paidStatus === 'paid') displayStatus = 'paid';
+                    else if (sentStatus === 'sent' || paidStatus === 'sent') displayStatus = 'sent';
+                    else if (sentStatus === 'unsent' || paidStatus === 'draft') displayStatus = 'draft';
+
+                    const canCreateNext = idx === 0 && displayStatus !== 'paid';
+
+                    return `
+                    <div class="detail-item">
+                        <div class="detail-item-info">
+                            <span class="detail-item-primary">${escapeHtml(inv.invoice_number || inv.id)}</span>
+                            <span class="detail-item-amount">$${Number(amount).toLocaleString()}</span>
+                            <span class="invoice-status invoice-status-${displayStatus}">${displayStatus}</span>
+                        </div>
+                        <div class="detail-item-actions">
+                            ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">View</a>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.job_id}', '${inv.invoice_number}')">Send</button>` : ''}
+                            ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.job_id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
+                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="createNextInvoice('${project.job_id}', '${inv.invoice_number}')">Next Invoice</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.job_id}', '${inv.invoice_number}')">Delete</button>` : ''}
+                        </div>
+                    </div>
+                `}).join('')}
+            </div>`;
+        }
 
         async function loadCompany() {
             try {
@@ -847,9 +1166,20 @@
                     const total = getProjectTotal(project);
                     const invoiced = getProjectInvoiced(project);
                     const paid = getProjectPaid(project);
+                    const jobId = project.job_id;
+
+                    // Project row (clickable to expand)
                     const row = document.createElement('tr');
+                    row.className = 'project-row';
+                    row.dataset.jobId = jobId;
+                    row.onclick = (e) => {
+                        // Don't toggle if clicking action buttons
+                        if (e.target.closest('.action-btn')) return;
+                        toggleProjectDetail(jobId);
+                    };
+                    // Note: All user data sanitized via escapeHtml()
                     row.innerHTML = `
-                        <td><strong>${escapeHtml(project.job_id)}</strong></td>
+                        <td><span class="expand-icon">▶</span> <strong>${escapeHtml(jobId)}</strong></td>
                         <td>${escapeHtml(project.client_name)}<br><span class="date">${escapeHtml(project.client_email)}</span></td>
                         <td>${escapeHtml(project.project_name || '-')}</td>
                         <td class="amount">$${total.toLocaleString()}</td>
@@ -861,6 +1191,19 @@
                         </td>
                     `;
                     tbody.appendChild(row);
+
+                    // Detail row (hidden by default)
+                    const detailRow = document.createElement('tr');
+                    detailRow.className = 'detail-row';
+                    detailRow.dataset.jobId = jobId;
+                    detailRow.innerHTML = `
+                        <td colspan="8">
+                            <div class="detail-content">
+                                <div class="detail-loading">Loading details...</div>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(detailRow);
                 });
 
                 updateStats(data.projects);
@@ -902,15 +1245,26 @@
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
-        // Compute totals from tasks array (with fallback to legacy amount field)
+        // Compute totals - supports both old (tasks array) and new (SQLite) data models
         function getProjectTotal(project) {
+            // New schema: contracts have total_amount
+            if (project.contracts && project.contracts.length > 0) {
+                return project.contracts.reduce((sum, c) => sum + Number(c.total_amount || c.amount || 0), 0);
+            }
+            // Old schema: tasks array
             if (project.tasks && project.tasks.length > 0) {
                 return project.tasks.reduce((sum, t) => sum + Number(t.amount || 0), 0);
             }
-            return Number(project.amount || 0);
+            // Fallback to direct amount field
+            return Number(project.amount || project.total_contracted || 0);
         }
 
         function getProjectInvoiced(project) {
+            // New schema: API returns computed total_invoiced
+            if (project.total_invoiced !== undefined) {
+                return Number(project.total_invoiced || 0);
+            }
+            // Old schema: compute from tasks
             if (project.tasks && project.tasks.length > 0) {
                 return project.tasks.reduce((sum, t) => sum + (Number(t.amount || 0) * Number(t.invoiced_percent || 0) / 100), 0);
             }
@@ -918,6 +1272,11 @@
         }
 
         function getProjectPaid(project) {
+            // New schema: API returns computed total_paid
+            if (project.total_paid !== undefined) {
+                return Number(project.total_paid || 0);
+            }
+            // Old schema: compute from tasks
             if (project.tasks && project.tasks.length > 0) {
                 return project.tasks.reduce((sum, t) => sum + (Number(t.amount || 0) * Number(t.paid_percent || 0) / 100), 0);
             }
@@ -932,7 +1291,8 @@
                 buttons.push(`<button class="action-btn action-${nextStatus.class}" onclick="event.stopPropagation(); updateStatus('${project.job_id}', '${nextStatus.status}')">${nextStatus.label}</button>`);
             }
 
-            buttons.push(`<button class="action-btn action-view" onclick="event.stopPropagation(); viewProject('${project.job_id}')">Details</button>`);
+            // Details button toggles inline expansion (row click also works)
+            buttons.push(`<button class="action-btn action-view" onclick="event.stopPropagation(); toggleProjectDetail('${project.job_id}')">Details</button>`);
 
             return buttons.join('');
         }
@@ -1493,7 +1853,101 @@
             document.getElementById('projects-loading').style.display = 'block';
             document.getElementById('projects-table').style.display = 'none';
             document.getElementById('projects-empty').style.display = 'none';
+            // Clear cache so expanded projects reload fresh data
+            projectDetailCache.clear();
             loadProjects();
+        }
+
+        // Add Contract Modal functions
+        let currentContractJobId = null;
+
+        function openAddContractModal(jobId) {
+            currentContractJobId = jobId;
+            const project = allProjects.find(p => p.job_id === jobId);
+
+            document.getElementById('add-contract-title').textContent = `Add Contract - ${jobId}`;
+            document.getElementById('add-contract-form').reset();
+
+            // Pre-fill with project total if available
+            if (project) {
+                document.getElementById('contract-amount').value = getProjectTotal(project);
+            }
+
+            // Default to today's date
+            document.getElementById('contract-signed-date').value = new Date().toISOString().split('T')[0];
+
+            document.getElementById('add-contract-modal').classList.add('active');
+        }
+
+        function closeAddContractModal() {
+            document.getElementById('add-contract-modal').classList.remove('active');
+            currentContractJobId = null;
+        }
+
+        document.getElementById('add-contract-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeAddContractModal();
+        });
+
+        async function saveContract(event) {
+            event.preventDefault();
+
+            if (!currentContractJobId) return;
+
+            const contract = {
+                id: 'contract-' + Date.now(),
+                amount: parseFloat(document.getElementById('contract-amount').value) || 0,
+                signed_date: document.getElementById('contract-signed-date').value,
+                file_path: document.getElementById('contract-file-path').value.trim() || null
+            };
+
+            try {
+                const project = allProjects.find(p => p.job_id === currentContractJobId);
+                const existingContracts = project?.contracts || [];
+
+                const response = await fetch(UPDATE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update',
+                        job_id: currentContractJobId,
+                        contracts: [...existingContracts, contract],
+                        // Also update legacy contract field for backwards compatibility
+                        contract: {
+                            signed_date: contract.signed_date,
+                            file_path: contract.file_path
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    closeAddContractModal();
+                    // Invalidate cache and refresh
+                    projectDetailCache.delete(currentContractJobId);
+                    refreshData();
+                } else {
+                    alert('Failed to save contract. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error saving contract:', error);
+                alert('Failed to save contract. Please try again.');
+            }
+        }
+
+        // Invoice from Contract (stub - creates first invoice linked to contract)
+        function createInvoiceFromContract(jobId, contractId) {
+            // For now, open the create invoice modal
+            // Future: could pre-select all tasks at 100%
+            alert(`Creating invoice from contract ${contractId}...\n\nThis will open the invoice creation modal.`);
+            openCreateInvoiceModal(jobId);
+        }
+
+        // Create Next Invoice (stub - creates invoice in chain)
+        function createNextInvoice(jobId, previousInvoiceNumber) {
+            alert(`Creating next invoice after ${previousInvoiceNumber}...\n\nThis will create a new invoice with:\n- Previous Billing = Previous + Current from last invoice\n- Current = remaining billable amount\n\nThis feature is coming soon.`);
+
+            // Future implementation:
+            // POST to API with action=create_next_invoice
+            // API calculates previous_billing from invoice chain
         }
 
         // Client functions
