@@ -962,50 +962,19 @@
             }
         }
 
-        // Load and render project detail content
-        async function loadProjectDetail(jobId) {
+        // Render project detail content (uses data already loaded in allProjects)
+        function loadProjectDetail(jobId) {
             const detailRow = document.querySelector(`.detail-row[data-job-id="${jobId}"]`);
             if (!detailRow) return;
 
             const contentDiv = detailRow.querySelector('.detail-content');
 
-            // Check cache first
-            if (projectDetailCache.has(jobId)) {
-                renderProjectDetail(jobId, projectDetailCache.get(jobId), contentDiv);
-                return;
-            }
-
-            // Show loading state
-            contentDiv.innerHTML = '<div class="detail-loading">Loading details...</div>';
-
-            try {
-                // Fetch detail from API
-                const response = await fetch(`${API_BASE}?action=get_detail&job_id=${encodeURIComponent(jobId)}`);
-                const data = await response.json();
-
-                if (data.project) {
-                    projectDetailCache.set(jobId, data.project);
-                    renderProjectDetail(jobId, data.project, contentDiv);
-                } else {
-                    // Fallback: use data from allProjects
-                    const project = allProjects.find(p => p.job_id === jobId);
-                    if (project) {
-                        projectDetailCache.set(jobId, project);
-                        renderProjectDetail(jobId, project, contentDiv);
-                    } else {
-                        contentDiv.innerHTML = '<div class="detail-empty">Could not load project details.</div>';
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to load project detail:', error);
-                // Fallback: use data from allProjects
-                const project = allProjects.find(p => p.job_id === jobId);
-                if (project) {
-                    projectDetailCache.set(jobId, project);
-                    renderProjectDetail(jobId, project, contentDiv);
-                } else {
-                    contentDiv.innerHTML = '<div class="detail-empty">Failed to load details.</div>';
-                }
+            // Use data from allProjects (already includes contracts/invoices from list API)
+            const project = allProjects.find(p => p.job_id === jobId);
+            if (project) {
+                renderProjectDetail(jobId, project, contentDiv);
+            } else {
+                contentDiv.innerHTML = '<div class="detail-empty">Project not found.</div>';
             }
         }
 

@@ -3,8 +3,9 @@ name: Deploy to Droplet
 on:
   push:
     branches:
+      - master
       - main
-      - feature/invoicing  # Remove this line once merged to main
+      - feature/db-schema
 
 jobs:
   deploy:
