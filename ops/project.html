@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Detail - Podium</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #fff;
+            background: #1a1a2e;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .back-link {
+            color: #6c63ff;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 {
+            font-size: 1.75rem;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .project-meta {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-left: 12px;
+        }
+        .status-proposal { background: #3b3b6d; color: #a5a5ff; }
+        .status-contract { background: #3d4b3d; color: #a5d6a5; }
+        .status-invoiced { background: #4b4b3d; color: #ffd700; }
+        .status-paid { background: #2d4a3d; color: #4ade80; }
+        .status-complete { background: #1a3a2e; color: #10b981; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: #6c63ff; color: white; }
+        .btn-primary:hover { background: #5a52d5; }
+        .btn-secondary { background: #242442; color: #ccc; border: 1px solid #444; }
+        .btn-secondary:hover { background: #2d2d4a; }
+        .btn-success { background: #2d4a3d; color: #4ade80; }
+        .btn-success:hover { background: #3d5a4d; }
+        .btn-warning { background: #4b4b3d; color: #ffd700; }
+        .btn-warning:hover { background: #5b5b4d; }
+        .btn-danger { background: #4a2c2c; color: #ff6b6b; }
+        .btn-danger:hover { background: #5a3c3c; }
+        .btn-small { padding: 6px 12px; font-size: 0.8rem; }
+
+        .section {
+            background: #242442;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 1rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Client Info */
+        .client-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .info-item label {
+            display: block;
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .info-item span {
+            color: #fff;
+        }
+        .info-item a {
+            color: #6c63ff;
+        }
+
+        /* Financials */
+        .financials {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            text-align: center;
+        }
+        .financial-item {
+            background: #1a1a2e;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .financial-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #6c63ff;
+        }
+        .financial-label {
+            color: #888;
+            font-size: 0.8rem;
+            margin-top: 4px;
+        }
+        .financial-item.success .financial-value { color: #4ade80; }
+        .financial-item.warning .financial-value { color: #fbbf24; }
+
+        /* Lists */
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a1a2e;
+            padding: 12px 16px;
+            border-radius: 8px;
+        }
+        .list-item-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .list-item-primary {
+            color: #fff;
+            font-weight: 500;
+        }
+        .list-item-secondary {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        .list-item-amount {
+            color: #4ade80;
+            font-weight: 600;
+        }
+        .list-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .empty-state {
+            color: #666;
+            text-align: center;
+            padding: 24px;
+        }
+
+        /* Invoice Chain */
+        .invoice-chain {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .invoice-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a1a2e;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+        }
+        .invoice-item.current {
+            border-left-color: #6c63ff;
+            background: #2a2a4a;
+        }
+        .invoice-item.paid {
+            border-left-color: #4ade80;
+        }
+        .invoice-item.sent {
+            border-left-color: #ffd700;
+        }
+        .invoice-number {
+            font-weight: 600;
+            color: #fff;
+        }
+        .invoice-details {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .invoice-amount {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .invoice-status {
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .invoice-status-unpaid { background: #3b3b6d; color: #a5a5ff; }
+        .invoice-status-sent { background: #4b4b3d; color: #ffd700; }
+        .invoice-status-paid { background: #2d4a3d; color: #4ade80; }
+        .invoice-date {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        .chain-arrow {
+            text-align: center;
+            color: #444;
+            font-size: 1.2rem;
+        }
+        .current-badge {
+            color: #6c63ff;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+
+        /* Current Invoice Section */
+        .current-invoice-section {
+            background: linear-gradient(135deg, #2a2a4a 0%, #242442 100%);
+            border: 1px solid #6c63ff;
+        }
+        .current-invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        .current-invoice-title {
+            font-size: 1.25rem;
+            color: #fff;
+            font-weight: 600;
+        }
+        .current-invoice-subtitle {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .current-invoice-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .current-invoice-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #4ade80;
+        }
+        .current-invoice-dates {
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #242442;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .modal-header h3 { color: #fff; font-size: 1.25rem; }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            color: #ccc;
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.875rem;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #6c63ff;
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #888;
+        }
+        .error {
+            text-align: center;
+            padding: 60px;
+            color: #ff6b6b;
+        }
+        .error a {
+            color: #6c63ff;
+        }
+
+        @media (max-width: 768px) {
+            .financials { grid-template-columns: repeat(2, 1fr); }
+            .client-info { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <a href="dashboard.html" class="back-link">&larr; Back to Dashboard</a>
+                <h1 id="project-title">Loading...</h1>
+                <div class="project-meta" id="project-meta"></div>
+            </div>
+            <div id="header-actions"></div>
+        </header>
+
+        <div id="loading" class="loading">Loading project details...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="content" style="display: none;">
+
+            <!-- Client Info -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">Client</span>
+                </div>
+                <div class="client-info" id="client-info"></div>
+            </div>
+
+            <!-- Financials -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">Financials</span>
+                </div>
+                <div class="financials" id="financials"></div>
+            </div>
+
+            <!-- Current Invoice -->
+            <div class="section current-invoice-section" id="current-invoice-section" style="display: none;">
+                <div class="current-invoice-header">
+                    <div>
+                        <div class="current-invoice-title" id="current-invoice-title">Current Invoice</div>
+                        <div class="current-invoice-subtitle" id="current-invoice-subtitle"></div>
+                    </div>
+                    <div class="current-invoice-actions" id="current-invoice-actions"></div>
+                </div>
+                <div id="current-invoice-content"></div>
+            </div>
+
+            <!-- Proposals -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">Proposals</span>
+                    <button class="btn btn-primary btn-small" onclick="openAddProposalModal()">+ Add Proposal</button>
+                </div>
+                <div class="item-list" id="proposals-list"></div>
+            </div>
+
+            <!-- Contracts -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">Contracts</span>
+                    <button class="btn btn-primary btn-small" onclick="openAddContractModal()">+ Add Contract</button>
+                </div>
+                <div class="item-list" id="contracts-list"></div>
+            </div>
+
+            <!-- Invoice History -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-title">Invoice History</span>
+                    <button class="btn btn-primary btn-small" onclick="createNewInvoice()">+ Create Invoice</button>
+                </div>
+                <div class="invoice-chain" id="invoices-list"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Add Proposal Modal -->
+    <div id="add-proposal-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Proposal</h3>
+                <button class="modal-close" onclick="closeModal('add-proposal-modal')">&times;</button>
+            </div>
+            <form id="add-proposal-form" onsubmit="saveProposal(event)">
+                <div class="form-group">
+                    <label>Total Fee</label>
+                    <input type="number" id="proposal-fee" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="proposal-status">
+                        <option value="draft">Draft</option>
+                        <option value="sent">Sent</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('add-proposal-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Proposal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Contract Modal -->
+    <div id="add-contract-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Contract</h3>
+                <button class="modal-close" onclick="closeModal('add-contract-modal')">&times;</button>
+            </div>
+            <form id="add-contract-form" onsubmit="saveContract(event)">
+                <div class="form-group">
+                    <label>Total Amount</label>
+                    <input type="number" id="contract-amount" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Signed Date</label>
+                    <input type="date" id="contract-signed-date">
+                </div>
+                <div class="form-group">
+                    <label>File Path (optional)</label>
+                    <input type="text" id="contract-file-path" placeholder="/dropbox/path/to/contract.pdf">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('add-contract-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Contract</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
+
+        let project = null;
+        let jobId = null;
+
+        // Get job_id from URL
+        function getJobIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('job') || params.get('job_id');
+        }
+
+        async function loadProject() {
+            jobId = getJobIdFromUrl();
+            if (!jobId) {
+                showError('No project ID specified.');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '?action=get_detail&job_id=' + encodeURIComponent(jobId));
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                project = data.project;
+                renderProject();
+            } catch (error) {
+                console.error('Failed to load project:', error);
+                showError('Failed to load project.');
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            // Add back link safely
+            const link = document.createElement('a');
+            link.href = 'dashboard.html';
+            link.textContent = ' Back to dashboard';
+            errorDiv.appendChild(link);
+            errorDiv.style.display = 'block';
+        }
+
+        function renderProject() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+
+            // Title
+            const titleEl = document.getElementById('project-title');
+            titleEl.textContent = '';
+            titleEl.appendChild(document.createTextNode(project.project_name + ' '));
+            const statusSpan = document.createElement('span');
+            statusSpan.className = 'status status-' + project.status;
+            statusSpan.textContent = formatStatus(project.status);
+            titleEl.appendChild(statusSpan);
+
+            document.getElementById('project-meta').textContent = 'Job ID: ' + project.job_id;
+            document.title = project.project_name + ' - Podium';
+
+            // Header actions
+            const headerActions = document.getElementById('header-actions');
+            headerActions.textContent = '';
+            const refreshBtn = document.createElement('button');
+            refreshBtn.className = 'btn btn-secondary';
+            refreshBtn.textContent = 'Refresh';
+            refreshBtn.onclick = function() { location.reload(); };
+            headerActions.appendChild(refreshBtn);
+
+            // Render sections
+            renderClientInfo();
+            renderFinancials();
+            renderCurrentInvoice();
+            renderProposals();
+            renderContracts();
+            renderInvoices();
+        }
+
+        function renderClientInfo() {
+            const container = document.getElementById('client-info');
+            container.textContent = '';
+
+            const fields = [
+                { label: 'Name', value: project.client_name },
+                { label: 'Company', value: project.client_company },
+                { label: 'Email', value: project.client_email, isEmail: true },
+                { label: 'Phone', value: project.client_phone }
+            ];
+
+            fields.forEach(function(field) {
+                const item = document.createElement('div');
+                item.className = 'info-item';
+
+                const label = document.createElement('label');
+                label.textContent = field.label;
+                item.appendChild(label);
+
+                const span = document.createElement('span');
+                if (field.isEmail && field.value) {
+                    const link = document.createElement('a');
+                    link.href = 'mailto:' + field.value;
+                    link.textContent = field.value;
+                    span.appendChild(link);
+                } else {
+                    span.textContent = field.value || '-';
+                }
+                item.appendChild(span);
+
+                container.appendChild(item);
+            });
+        }
+
+        function renderFinancials() {
+            const contracts = project.contracts || [];
+            const invoices = project.invoices || [];
+
+            const totalContracted = contracts.reduce(function(sum, c) { return sum + (c.total_amount || 0); }, 0);
+            const totalInvoiced = invoices.reduce(function(sum, i) { return sum + (i.total_due || 0); }, 0);
+            const totalPaid = invoices
+                .filter(function(i) { return i.paid_status === 'paid'; })
+                .reduce(function(sum, i) { return sum + (i.total_due || 0); }, 0);
+            const outstanding = totalInvoiced - totalPaid;
+
+            const container = document.getElementById('financials');
+            container.textContent = '';
+
+            const items = [
+                { value: totalContracted, label: 'Contracted', class: '' },
+                { value: totalInvoiced, label: 'Invoiced', class: '' },
+                { value: totalPaid, label: 'Paid', class: 'success' },
+                { value: outstanding, label: 'Outstanding', class: outstanding > 0 ? 'warning' : '' }
+            ];
+
+            items.forEach(function(item) {
+                const div = document.createElement('div');
+                div.className = 'financial-item' + (item.class ? ' ' + item.class : '');
+
+                const valueDiv = document.createElement('div');
+                valueDiv.className = 'financial-value';
+                valueDiv.textContent = '$' + item.value.toLocaleString();
+                div.appendChild(valueDiv);
+
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'financial-label';
+                labelDiv.textContent = item.label;
+                div.appendChild(labelDiv);
+
+                container.appendChild(div);
+            });
+        }
+
+        function renderCurrentInvoice() {
+            const section = document.getElementById('current-invoice-section');
+            const invoices = project.invoices || [];
+
+            // Find current invoice
+            var currentInvoice = null;
+            if (project.current_invoice_id) {
+                currentInvoice = invoices.find(function(i) { return i.id === project.current_invoice_id; });
+            }
+            if (!currentInvoice) {
+                currentInvoice = invoices.find(function(i) { return i.paid_status !== 'paid'; });
+            }
+
+            if (!currentInvoice) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+
+            document.getElementById('current-invoice-title').textContent =
+                'Current Invoice: ' + currentInvoice.invoice_number;
+            document.getElementById('current-invoice-subtitle').textContent =
+                'Status: ' + currentInvoice.sent_status + ' / ' + currentInvoice.paid_status;
+
+            // Actions
+            const actionsDiv = document.getElementById('current-invoice-actions');
+            actionsDiv.textContent = '';
+
+            if (currentInvoice.data_path) {
+                const viewBtn = document.createElement('a');
+                viewBtn.href = currentInvoice.data_path;
+                viewBtn.target = '_blank';
+                viewBtn.className = 'btn btn-secondary btn-small';
+                viewBtn.textContent = 'Open Sheet';
+                actionsDiv.appendChild(viewBtn);
+            }
+
+            if (currentInvoice.sent_status === 'unsent') {
+                const sendBtn = document.createElement('button');
+                sendBtn.className = 'btn btn-warning btn-small';
+                sendBtn.textContent = 'Send Invoice';
+                sendBtn.onclick = function() { sendInvoice(currentInvoice.id); };
+                actionsDiv.appendChild(sendBtn);
+            }
+
+            if (currentInvoice.paid_status !== 'paid' && currentInvoice.sent_status === 'sent') {
+                const paidBtn = document.createElement('button');
+                paidBtn.className = 'btn btn-success btn-small';
+                paidBtn.textContent = 'Mark Paid';
+                paidBtn.onclick = function() { markPaid(currentInvoice.id); };
+                actionsDiv.appendChild(paidBtn);
+            }
+
+            if (currentInvoice.paid_status === 'paid') {
+                const processBtn = document.createElement('button');
+                processBtn.className = 'btn btn-primary btn-small';
+                processBtn.textContent = 'Process & Create Next';
+                processBtn.onclick = function() { processInvoice(currentInvoice.id); };
+                actionsDiv.appendChild(processBtn);
+            }
+
+            // Content
+            const contentDiv = document.getElementById('current-invoice-content');
+            contentDiv.textContent = '';
+
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+
+            const amountDiv = document.createElement('div');
+            const amountValue = document.createElement('div');
+            amountValue.className = 'current-invoice-amount';
+            amountValue.textContent = '$' + (currentInvoice.total_due || 0).toLocaleString();
+            amountDiv.appendChild(amountValue);
+
+            const datesDiv = document.createElement('div');
+            datesDiv.className = 'current-invoice-dates';
+            var dateText = currentInvoice.sent_at ? 'Sent: ' + formatDate(currentInvoice.sent_at) : 'Not sent yet';
+            if (currentInvoice.paid_at) {
+                dateText += ' | Paid: ' + formatDate(currentInvoice.paid_at);
+            }
+            datesDiv.textContent = dateText;
+            amountDiv.appendChild(datesDiv);
+
+            wrapper.appendChild(amountDiv);
+            contentDiv.appendChild(wrapper);
+        }
+
+        function renderProposals() {
+            const container = document.getElementById('proposals-list');
+            const proposals = project.proposals || [];
+
+            container.textContent = '';
+
+            if (proposals.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'No proposals yet';
+                container.appendChild(empty);
+                return;
+            }
+
+            proposals.forEach(function(p) {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+
+                const info = document.createElement('div');
+                info.className = 'list-item-info';
+
+                const primary = document.createElement('span');
+                primary.className = 'list-item-primary';
+                primary.textContent = p.id;
+                info.appendChild(primary);
+
+                const secondary = document.createElement('span');
+                secondary.className = 'list-item-secondary';
+                secondary.textContent = p.status + ' | ' + formatDate(p.created_at);
+                info.appendChild(secondary);
+
+                item.appendChild(info);
+
+                const right = document.createElement('div');
+                right.style.cssText = 'display: flex; align-items: center; gap: 16px;';
+
+                const amount = document.createElement('span');
+                amount.className = 'list-item-amount';
+                amount.textContent = '$' + (p.total_fee || 0).toLocaleString();
+                right.appendChild(amount);
+
+                const actions = document.createElement('div');
+                actions.className = 'list-item-actions';
+
+                if (p.status === 'accepted') {
+                    const convertBtn = document.createElement('button');
+                    convertBtn.className = 'btn btn-success btn-small';
+                    convertBtn.textContent = 'Convert to Contract';
+                    convertBtn.onclick = function() { convertToContract(p.id); };
+                    actions.appendChild(convertBtn);
+                }
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-danger btn-small';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = function() { deleteProposal(p.id); };
+                actions.appendChild(deleteBtn);
+
+                right.appendChild(actions);
+                item.appendChild(right);
+                container.appendChild(item);
+            });
+        }
+
+        function renderContracts() {
+            const container = document.getElementById('contracts-list');
+            const contracts = project.contracts || [];
+
+            container.textContent = '';
+
+            if (contracts.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'No contracts yet';
+                container.appendChild(empty);
+                return;
+            }
+
+            contracts.forEach(function(c) {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+
+                const info = document.createElement('div');
+                info.className = 'list-item-info';
+
+                const primary = document.createElement('span');
+                primary.className = 'list-item-primary';
+                primary.textContent = c.id;
+                info.appendChild(primary);
+
+                const secondary = document.createElement('span');
+                secondary.className = 'list-item-secondary';
+                secondary.textContent = 'Signed: ' + (c.signed_at ? formatDate(c.signed_at) : 'Not signed');
+                info.appendChild(secondary);
+
+                item.appendChild(info);
+
+                const right = document.createElement('div');
+                right.style.cssText = 'display: flex; align-items: center; gap: 16px;';
+
+                const amount = document.createElement('span');
+                amount.className = 'list-item-amount';
+                amount.textContent = '$' + (c.total_amount || 0).toLocaleString();
+                right.appendChild(amount);
+
+                const actions = document.createElement('div');
+                actions.className = 'list-item-actions';
+
+                if (c.file_path) {
+                    const viewLink = document.createElement('a');
+                    viewLink.href = c.file_path;
+                    viewLink.target = '_blank';
+                    viewLink.className = 'btn btn-secondary btn-small';
+                    viewLink.textContent = 'View';
+                    actions.appendChild(viewLink);
+                }
+
+                const invoiceBtn = document.createElement('button');
+                invoiceBtn.className = 'btn btn-primary btn-small';
+                invoiceBtn.textContent = 'Create Invoice';
+                invoiceBtn.onclick = function() { createInvoiceFromContract(c.id); };
+                actions.appendChild(invoiceBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-danger btn-small';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = function() { deleteContract(c.id); };
+                actions.appendChild(deleteBtn);
+
+                right.appendChild(actions);
+                item.appendChild(right);
+                container.appendChild(item);
+            });
+        }
+
+        function renderInvoices() {
+            const container = document.getElementById('invoices-list');
+            const invoices = project.invoices || [];
+
+            container.textContent = '';
+
+            if (invoices.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'No invoices yet';
+                container.appendChild(empty);
+                return;
+            }
+
+            // Sort newest first
+            const sorted = invoices.slice().sort(function(a, b) {
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
+
+            sorted.forEach(function(inv, idx) {
+                const isCurrent = project.current_invoice_id === inv.id;
+                const statusClass = inv.paid_status === 'paid' ? 'paid' :
+                                   inv.sent_status === 'sent' ? 'sent' : '';
+
+                const item = document.createElement('div');
+                item.className = 'invoice-item' + (isCurrent ? ' current' : '') + (statusClass ? ' ' + statusClass : '');
+
+                // Left side
+                const left = document.createElement('div');
+
+                const numSpan = document.createElement('span');
+                numSpan.className = 'invoice-number';
+                numSpan.textContent = inv.invoice_number;
+                left.appendChild(numSpan);
+
+                if (isCurrent) {
+                    const badge = document.createElement('span');
+                    badge.className = 'current-badge';
+                    badge.textContent = '(Current)';
+                    left.appendChild(badge);
+                }
+
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'invoice-date';
+                dateDiv.textContent = 'Created: ' + formatDate(inv.created_at);
+                left.appendChild(dateDiv);
+
+                item.appendChild(left);
+
+                // Right side
+                const details = document.createElement('div');
+                details.className = 'invoice-details';
+
+                const amountSpan = document.createElement('span');
+                amountSpan.className = 'invoice-amount';
+                amountSpan.style.color = inv.paid_status === 'paid' ? '#4ade80' : '#fff';
+                amountSpan.textContent = '$' + (inv.total_due || 0).toLocaleString();
+                details.appendChild(amountSpan);
+
+                const statusSpan = document.createElement('span');
+                statusSpan.className = 'invoice-status invoice-status-' + inv.paid_status;
+                statusSpan.textContent = inv.paid_status;
+                details.appendChild(statusSpan);
+
+                const actions = document.createElement('div');
+                actions.className = 'list-item-actions';
+
+                if (inv.data_path) {
+                    const viewLink = document.createElement('a');
+                    viewLink.href = inv.data_path;
+                    viewLink.target = '_blank';
+                    viewLink.className = 'btn btn-secondary btn-small';
+                    viewLink.textContent = 'View';
+                    actions.appendChild(viewLink);
+                }
+
+                details.appendChild(actions);
+                item.appendChild(details);
+                container.appendChild(item);
+
+                // Chain arrow
+                if (idx < sorted.length - 1 && inv.previous_invoice_id) {
+                    const arrow = document.createElement('div');
+                    arrow.className = 'chain-arrow';
+                    arrow.textContent = '\u2193';
+                    container.appendChild(arrow);
+                }
+            });
+        }
+
+        // Utility functions
+        function formatStatus(status) {
+            const labels = {
+                'proposal': 'Proposal',
+                'contract': 'Contract',
+                'invoiced': 'Invoiced',
+                'paid': 'Paid',
+                'complete': 'Complete'
+            };
+            return labels[status] || status;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // Modal functions
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function openAddProposalModal() {
+            document.getElementById('add-proposal-form').reset();
+            document.getElementById('add-proposal-modal').classList.add('active');
+        }
+
+        function openAddContractModal() {
+            document.getElementById('add-contract-form').reset();
+            document.getElementById('contract-signed-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('add-contract-modal').classList.add('active');
+        }
+
+        // Close modals on backdrop click
+        document.querySelectorAll('.modal').forEach(function(modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target.classList.contains('modal')) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // Action stubs (to be implemented with API calls)
+        async function saveProposal(event) {
+            event.preventDefault();
+            alert('Proposal creation will be implemented with the write API');
+            closeModal('add-proposal-modal');
+        }
+
+        async function saveContract(event) {
+            event.preventDefault();
+            alert('Contract creation will be implemented with the write API');
+            closeModal('add-contract-modal');
+        }
+
+        function deleteProposal(id) {
+            if (confirm('Delete this proposal?')) {
+                alert('Delete will be implemented with the write API');
+            }
+        }
+
+        function deleteContract(id) {
+            if (confirm('Delete this contract?')) {
+                alert('Delete will be implemented with the write API');
+            }
+        }
+
+        function convertToContract(proposalId) {
+            alert('Convert to contract will be implemented');
+        }
+
+        function createInvoiceFromContract(contractId) {
+            alert('Create invoice from contract will be implemented');
+        }
+
+        function createNewInvoice() {
+            alert('Create new invoice will redirect to the invoice creation flow');
+        }
+
+        function sendInvoice(invoiceId) {
+            if (confirm('Send this invoice to the client?')) {
+                alert('Send invoice will be implemented');
+            }
+        }
+
+        function markPaid(invoiceId) {
+            if (confirm('Mark this invoice as paid?')) {
+                alert('Mark paid will be implemented');
+            }
+        }
+
+        function processInvoice(invoiceId) {
+            if (confirm('Process this invoice and create the next one in the chain?')) {
+                alert('Process invoice will create a new invoice with Previous Billing = Previous + Current from this invoice');
+            }
+        }
+
+        // Load on page load
+        loadProject();
+    </script>
+</body>
+</html>

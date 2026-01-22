@@ -61,6 +61,7 @@ CREATE TABLE projects (
     status TEXT DEFAULT 'proposal',         -- proposal, contract, invoiced, paid, complete
     data_path TEXT,                         -- dropbox folder path, e.g., 'TBG/HeronLakes'
     notes TEXT,                             -- markdown
+    current_invoice_id TEXT,                -- active/working invoice (FK added after invoices table)
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     deleted_at TEXT
@@ -146,9 +147,10 @@ CREATE TABLE invoices (
     invoice_number TEXT NOT NULL,           -- e.g., 'JBHL21-1' (project_id + sequence)
     project_id TEXT NOT NULL REFERENCES projects(id),
     contract_id TEXT REFERENCES contracts(id),  -- optional link to contract
+    previous_invoice_id TEXT REFERENCES invoices(id),  -- links invoices in a chain
     type TEXT DEFAULT 'task',               -- 'task' or 'list'
     description TEXT,                       -- mainly for list invoices
-    data_path TEXT,                         -- excel/google sheet
+    data_path TEXT,                         -- excel/google sheet (URL)
     pdf_path TEXT,                          -- generated PDF
     sent_status TEXT DEFAULT 'unsent',      -- unsent, sent
     paid_status TEXT DEFAULT 'unpaid',      -- unpaid, partial, paid
@@ -163,6 +165,7 @@ CREATE TABLE invoices (
 CREATE UNIQUE INDEX idx_invoices_number ON invoices(invoice_number);
 CREATE INDEX idx_invoices_project ON invoices(project_id);
 CREATE INDEX idx_invoices_status ON invoices(sent_status, paid_status);
+CREATE INDEX idx_invoices_previous ON invoices(previous_invoice_id);
 
 -- ============================================================================
 -- INVOICE_LINE_ITEMS
@@ -176,9 +179,10 @@ CREATE TABLE invoice_line_items (
     sort_order INTEGER DEFAULT 0,
     name TEXT NOT NULL,
     description TEXT,
-    quantity REAL DEFAULT 1,                -- hours, units, etc.
-    unit_price REAL DEFAULT 0,              -- rate per unit
-    amount REAL DEFAULT 0,                  -- total (quantity * unit_price, or flat)
+    quantity REAL DEFAULT 1,                -- hours, units, etc. (or percent complete)
+    unit_price REAL DEFAULT 0,              -- rate per unit (or task fee)
+    amount REAL DEFAULT 0,                  -- current billing (quantity * unit_price, or flat)
+    previous_billing REAL DEFAULT 0,        -- cumulative billing from prior invoices
     created_at TEXT DEFAULT (datetime('now'))
 );
 
