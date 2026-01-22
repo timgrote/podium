@@ -1,12 +1,37 @@
 # Database
 
-SQLite database for Podium.
+SQLite database for Podium, running on the n8n DigitalOcean droplet.
+
+## Production Database
+
+| Component | Path |
+|-----------|------|
+| **Host** | `n8n.irrigationengineers.com` (DigitalOcean droplet) |
+| **Database file (host)** | `/opt/n8n-docker-caddy/local_files/podium.db` |
+| **Database file (n8n container)** | `/files/podium.db` |
+| **SSH key** | `~/.ssh/digitalocean_n8n` |
+
+### Quick Access
+
+```bash
+# SSH to droplet and query database
+ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
+  "sqlite3 /opt/n8n-docker-caddy/local_files/podium.db 'SELECT id, name, status FROM projects'"
+
+# Interactive SQLite shell
+ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
+  "sqlite3 /opt/n8n-docker-caddy/local_files/podium.db"
+
+# Via n8n API (no SSH needed)
+curl 'https://n8n.irrigationengineers.com/webhook/podium-api?action=list'
+```
 
 ## Files
 
 - `schema.sql` - Database schema (tables, indexes, views)
+- `migrations/` - SQL migration scripts
 - `init_db.py` - Initialize database with schema and optional seed data
-- `podium.db` - The actual database file (gitignored)
+- `podium.db` - Local database file (gitignored)
 
 ## Local Development
 
@@ -21,27 +46,29 @@ python3 init_db.py --no-seed
 python3 init_db.py --seed-only
 ```
 
-## Deployment
+## Production Deployment
 
 The database file lives on the server at:
 ```
-/opt/n8n-docker-caddy/data/podium.db
+/opt/n8n-docker-caddy/local_files/podium.db
 ```
+
+This is mounted into the n8n Docker container as `/files/podium.db`.
 
 ### First-time setup on server
 
 ```bash
-ssh root@n8n.irrigationengineers.com
+ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com
 
-# Create data directory if needed
-mkdir -p /opt/n8n-docker-caddy/data
+# Create local_files directory if needed
+mkdir -p /opt/n8n-docker-caddy/local_files
 
 # Copy init script and schema
 cd /opt/n8n-docker-caddy/podium/db
 python3 init_db.py --no-seed
 
-# Move to data directory
-mv podium.db /opt/n8n-docker-caddy/data/
+# Move to local_files directory
+mv podium.db /opt/n8n-docker-caddy/local_files/
 ```
 
 ### n8n SQLite Node Setup
@@ -52,21 +79,22 @@ mv podium.db /opt/n8n-docker-caddy/data/
 
 2. Configure the node with path:
    ```
-   /data/podium.db
+   /files/podium.db
    ```
-   (The n8n container mounts `/opt/n8n-docker-caddy/data` as `/data`)
+   (The n8n container mounts `/opt/n8n-docker-caddy/local_files` as `/files`)
 
 ## Backup
 
 ### Manual backup
 ```bash
-cp /opt/n8n-docker-caddy/data/podium.db /backups/podium-$(date +%Y%m%d-%H%M).db
+ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
+  "cp /opt/n8n-docker-caddy/local_files/podium.db /opt/n8n-docker-caddy/backups/podium-\$(date +%Y%m%d-%H%M).db"
 ```
 
 ### Automated backup (cron)
 ```bash
-# Add to crontab: backup every hour
-0 * * * * cp /opt/n8n-docker-caddy/data/podium.db /opt/n8n-docker-caddy/backups/podium-$(date +\%Y\%m\%d-\%H\%M).db
+# Add to crontab on droplet: backup every hour
+0 * * * * cp /opt/n8n-docker-caddy/local_files/podium.db /opt/n8n-docker-caddy/backups/podium-$(date +\%Y\%m\%d-\%H\%M).db
 ```
 
 ### Export to Google Sheets
@@ -77,11 +105,13 @@ Use the `podium-db-export` n8n workflow to dump tables to Google Sheets for manu
 When adding columns or tables:
 
 1. Update `schema.sql` with the change
-2. Run migration on server:
+2. Create a migration script in `migrations/` (e.g., `002_add_my_column.sql`)
+3. Run migration on server:
    ```bash
-   sqlite3 /opt/n8n-docker-caddy/data/podium.db "ALTER TABLE projects ADD COLUMN new_field TEXT;"
+   ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
+     "sqlite3 /opt/n8n-docker-caddy/local_files/podium.db 'ALTER TABLE projects ADD COLUMN new_field TEXT;'"
    ```
-3. Update n8n workflows if needed
+4. Update n8n workflows if needed
 
 ## Tables
 

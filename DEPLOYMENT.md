@@ -21,6 +21,7 @@ Podium runs on a DigitalOcean droplet alongside n8n, using Docker Compose for or
 │   │                                                          │   │
 │   │   Volumes:                                               │   │
 │   │   - /opt/n8n-docker-caddy/podium (static files)         │   │
+│   │   - /opt/n8n-docker-caddy/local_files → /files (SQLite) │   │
 │   │   - n8n_data (n8n workflows & credentials)              │   │
 │   │   - caddy_data (TLS certificates)                       │   │
 │   │                                                          │   │
@@ -103,19 +104,19 @@ After successful auth, OAuth2 Proxy adds headers to requests:
 
 ## Data Flow
 
-The dashboard is a static HTML/JS application that communicates with n8n webhooks for all data operations.
+The dashboard is a static HTML/JS application that communicates with n8n webhooks for all data operations. Data is stored in SQLite on the droplet.
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│    Browser      │     │      n8n        │     │  Google Sheets  │
-│  (dashboard.js) │     │   (webhooks)    │     │   (storage)     │
+│    Browser      │     │      n8n        │     │     SQLite      │
+│  (dashboard.js) │     │   (webhooks)    │     │   (podium.db)   │
 └────────┬────────┘     └────────┬────────┘     └────────┬────────┘
          │                       │                       │
          │  fetch(/webhook/      │                       │
          │    podium-api)        │                       │
          │──────────────────────►│                       │
          │                       │                       │
-         │                       │  Read/Write data      │
+         │                       │  SQL query            │
          │                       │──────────────────────►│
          │                       │◄──────────────────────│
          │                       │                       │
@@ -123,6 +124,16 @@ The dashboard is a static HTML/JS application that communicates with n8n webhook
          │◄──────────────────────│                       │
          │                       │                       │
 ```
+
+### Database Location
+
+| Component | Path |
+|-----------|------|
+| **Host path** | `/opt/n8n-docker-caddy/local_files/podium.db` |
+| **n8n container path** | `/files/podium.db` |
+| **SSH access** | `ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com` |
+
+See `db/README.md` for database documentation.
 
 ### API Endpoints
 

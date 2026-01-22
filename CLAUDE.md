@@ -12,10 +12,11 @@ Podium is a multi-tenant SaaS platform for project-based service businesses. The
 
 ## Tech Stack
 
-- **Frontend**: Static HTML/CSS/JS hosted on GitHub Pages
+- **Frontend**: Static HTML/CSS/JS served by Caddy
 - **Backend**: n8n workflows at `n8n.irrigationengineers.com`
-- **Storage**: n8n workflow static data (dev) → Google Sheets/DB (production)
-- **Hosting**: GitHub Pages at `timgrote.github.io/podium`
+- **Storage**: SQLite at `/opt/n8n-docker-caddy/local_files/podium.db` (mounted as `/files/podium.db` in n8n)
+- **Hosting**: DigitalOcean droplet at `pm.irrigationengineers.com`
+- **Auth**: Google OAuth via OAuth2 Proxy (@irrigationengineers.com only)
 
 ## Key Files
 
@@ -49,9 +50,24 @@ This project borrows patterns from the TIE Obsidian vault:
 - Status workflow: proposal → contract → invoiced → paid → complete
 - Task integration (Todoist instead of Obsidian tasks)
 
+## Infrastructure Access
+
+```bash
+# SSH to droplet
+ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com
+
+# Query database directly
+ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
+  "sqlite3 /opt/n8n-docker-caddy/local_files/podium.db 'SELECT * FROM projects'"
+
+# n8n API helper (list workflows, etc.)
+~/.claude/skills/N8n/Tools/n8n-api.sh list
+```
+
 ## What AI Should Know
 
 - n8n is the orchestration layer - it abstracts storage backends
+- Data is stored in SQLite, accessed via n8n's `n8n-nodes-sqlite3` community node
 - Projects have a `notes` field that stores markdown content
 - Status changes trigger workflow automations
 - The dashboard reads from and writes to the CRUD API

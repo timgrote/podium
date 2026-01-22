@@ -32,8 +32,8 @@ Multi-tenant SaaS platform for service businesses. Start with irrigation design,
 ## Backend
 
 - **n8n** at `n8n.irrigationengineers.com` handles all API operations
-- **Workflow static data** for JSON storage (dev mode)
-- Future: Google Sheets or database for production
+- **SQLite** database at `/files/podium.db` (on droplet: `/opt/n8n-docker-caddy/local_files/podium.db`)
+- See `db/README.md` for database access and schema
 
 ## API Endpoints
 
