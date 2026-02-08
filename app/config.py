@@ -10,9 +10,10 @@ class Settings(BaseSettings):
     upload_dir: str = os.path.join(os.path.dirname(__file__), "..", "uploads")
 
     # Google API settings
-    google_service_account_path: str = os.path.join(
-        os.path.dirname(__file__), "..", "credentials", "google-service-account.json"
-    )
+    # Option 1: base64-encoded JSON (for production / env vars)
+    google_service_account_json: str = ""
+    # Option 2: path to JSON file (for local dev)
+    google_service_account_path: str = ""
     invoice_template_id: str = "16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI"
     invoice_drive_folder_id: str = ""
 

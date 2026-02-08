@@ -1,6 +1,7 @@
 """Google Sheets/Drive/Gmail integration for invoice creation and delivery."""
 
 import base64
+import json
 import logging
 import os
 from email.mime.application import MIMEApplication
@@ -32,16 +33,26 @@ def _get_credentials():
         _credentials.refresh(Request())
         return _credentials
 
-    path = settings.google_service_account_path
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            f"Google service account key not found at {path}. "
-            "See Step 1 in the setup instructions."
+    # Option 1: base64-encoded JSON string (production)
+    if settings.google_service_account_json:
+        info = json.loads(base64.b64decode(settings.google_service_account_json))
+        _credentials = service_account.Credentials.from_service_account_info(
+            info, scopes=SCOPES
         )
-    _credentials = service_account.Credentials.from_service_account_file(
-        path, scopes=SCOPES
+        return _credentials
+
+    # Option 2: file path (local dev)
+    path = settings.google_service_account_path
+    if path and os.path.exists(path):
+        _credentials = service_account.Credentials.from_service_account_file(
+            path, scopes=SCOPES
+        )
+        return _credentials
+
+    raise FileNotFoundError(
+        "No Google credentials configured. Set PODIUM_GOOGLE_SERVICE_ACCOUNT_JSON "
+        "(base64) or PODIUM_GOOGLE_SERVICE_ACCOUNT_PATH (file path)."
     )
-    return _credentials
 
 
 def get_drive_service():
@@ -64,6 +75,7 @@ def create_invoice_sheet(
     company_email: str,
     client_name: str,
     tasks: list[dict],
+    folder_id: str = "",
 ) -> str:
     """Copy the invoice template and populate it with invoice data.
 
@@ -75,6 +87,7 @@ def create_invoice_sheet(
         company_email: Sender's email
         client_name: Client/company name
         tasks: List of dicts with keys: name, unit_price, quantity, previous_billing, amount
+        folder_id: Google Drive folder ID (overrides config default)
 
     Returns:
         URL of the new Google Sheet
@@ -83,9 +96,10 @@ def create_invoice_sheet(
     sheets = get_sheets_service()
 
     # 1. Copy the template
+    dest_folder = folder_id or settings.invoice_drive_folder_id
     copy_metadata = {"name": f"Invoice {invoice_number}"}
-    if settings.invoice_drive_folder_id:
-        copy_metadata["parents"] = [settings.invoice_drive_folder_id]
+    if dest_folder:
+        copy_metadata["parents"] = [dest_folder]
 
     copied = drive.files().copy(
         fileId=settings.invoice_template_id,
