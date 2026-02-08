@@ -200,9 +200,10 @@
                         document.getElementById('primary_color_hex').value = data.primary_color;
                     }
 
-                    if (data.logo_url) {
+                    const logoSrc = data.logo_url || data.logo_data;
+                    if (logoSrc) {
                         const preview = document.getElementById('logo-preview');
-                        preview.innerHTML = `<img src="${data.logo_url}" alt="Logo preview" style="max-width:100%;max-height:100%;object-fit:contain">`;
+                        preview.innerHTML = `<img src="${logoSrc}" alt="Logo preview" style="max-width:100%;max-height:100%;object-fit:contain">`;
                         preview.classList.remove('empty');
                     }
                 }
@@ -232,16 +233,16 @@
                 invoice_drive_folder_id: document.getElementById('invoice_drive_folder_id').value
             };
 
-            // Handle logo upload separately if there's a new file
-            const logoInput = document.getElementById('logo');
-            if (logoInput.files.length > 0) {
-                const file = logoInput.files[0];
-                const base64 = await fileToBase64(file);
-                formData.logo_data = base64;
-                formData.logo_filename = file.name;
-            }
-
             try {
+                // Upload logo file first if selected
+                const logoInput = document.getElementById('logo');
+                if (logoInput.files.length > 0) {
+                    const logoForm = new FormData();
+                    logoForm.append('file', logoInput.files[0]);
+                    const logoResp = await fetch(API_BASE + '/logo', { method: 'POST', body: logoForm });
+                    if (!logoResp.ok) throw new Error('Logo upload failed');
+                }
+
                 const response = await fetch(API_BASE, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -261,15 +262,6 @@
                 setTimeout(() => errorMsg.classList.add('hidden'), 5000);
             }
         });
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-        }
 
         // Load settings on page load
         loadSettings();
