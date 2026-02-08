@@ -253,11 +253,19 @@ def create_invoice_from_contract(
         ).fetchone()
 
         company_email = ""
-        company_row = db.execute(
-            "SELECT value FROM company_settings WHERE key = 'company_email'"
-        ).fetchone()
-        if company_row:
-            company_email = company_row["value"]
+        drive_folder_id = ""
+        template_id = ""
+        for key in ("company_email", "invoice_drive_folder_id", "invoice_template_id"):
+            row = db.execute(
+                "SELECT value FROM company_settings WHERE key = ?", (key,)
+            ).fetchone()
+            if row and row["value"]:
+                if key == "company_email":
+                    company_email = row["value"]
+                elif key == "invoice_drive_folder_id":
+                    drive_folder_id = row["value"]
+                elif key == "invoice_template_id":
+                    template_id = row["value"]
 
         client_display = (
             dict(project).get("client_company")
@@ -273,6 +281,8 @@ def create_invoice_from_contract(
             company_email=company_email,
             client_name=client_display,
             tasks=line_items,
+            folder_id=drive_folder_id,
+            template_id=template_id,
         )
         db.execute(
             "UPDATE invoices SET data_path = ?, updated_at = ? WHERE id = ?",

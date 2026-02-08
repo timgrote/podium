@@ -76,6 +76,7 @@ def create_invoice_sheet(
     client_name: str,
     tasks: list[dict],
     folder_id: str = "",
+    template_id: str = "",
 ) -> str:
     """Copy the invoice template and populate it with invoice data.
 
@@ -88,6 +89,7 @@ def create_invoice_sheet(
         client_name: Client/company name
         tasks: List of dicts with keys: name, unit_price, quantity, previous_billing, amount
         folder_id: Google Drive folder ID (overrides config default)
+        template_id: Template sheet ID (overrides config default)
 
     Returns:
         URL of the new Google Sheet
@@ -96,13 +98,14 @@ def create_invoice_sheet(
     sheets = get_sheets_service()
 
     # 1. Copy the template
+    src_template = template_id or settings.invoice_template_id
     dest_folder = folder_id or settings.invoice_drive_folder_id
     copy_metadata = {"name": f"Invoice {invoice_number}"}
     if dest_folder:
         copy_metadata["parents"] = [dest_folder]
 
     copied = drive.files().copy(
-        fileId=settings.invoice_template_id,
+        fileId=src_template,
         body=copy_metadata,
     ).execute()
     spreadsheet_id = copied["id"]
