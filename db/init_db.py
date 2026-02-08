@@ -82,6 +82,22 @@ def seed_data(conn):
     ''', contracts)
     print(f"Added {len(contracts)} contracts")
 
+    # --- Contract Tasks ---
+    contract_tasks = [
+        # con-001 (JBHL21 - Heron Lakes Phase 2, $45,000 total)
+        ('ctask-001', 'con-001', 1, 'Preliminary Design', 'Schematic irrigation design and layout', 15000.00, 15000.00, 100.0, now, now),
+        ('ctask-002', 'con-001', 2, 'Construction Documents', 'Full CD set for bidding', 20000.00, 7500.00, 37.5, now, now),
+        ('ctask-003', 'con-001', 3, 'Construction Administration', 'CA services during installation', 10000.00, 0.00, 0.0, now, now),
+        # con-002 (JBTH22 - Thompson House, $8,500 total)
+        ('ctask-004', 'con-002', 1, 'Irrigation Design', 'Residential irrigation design', 6000.00, 4250.00, 70.8, now, now),
+        ('ctask-005', 'con-002', 2, 'As-Built Documentation', 'Final as-built drawings', 2500.00, 0.00, 0.0, now, now),
+    ]
+    cur.executemany('''
+        INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, billed_amount, billed_percent, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', contract_tasks)
+    print(f"Added {len(contract_tasks)} contract tasks")
+
     # --- Proposals ---
     proposals = [
         ('prop-001', 'JBTBG23', '/dropbox/TBG/OfficeCampus/proposal.docx', '/dropbox/TBG/OfficeCampus/proposal.pdf', 'TBG Partners', 'tom@tbgpartners.com', 125000.00, now, 'sent', now, now, None),
@@ -141,7 +157,7 @@ def verify_data(conn):
     print("\n--- Verification ---")
 
     # Count records
-    tables = ['clients', 'contacts', 'projects', 'contracts', 'proposals', 'invoices']
+    tables = ['clients', 'contacts', 'projects', 'contracts', 'contract_tasks', 'proposals', 'invoices']
     for table in tables:
         cur.execute(f"SELECT COUNT(*) FROM {table}")
         count = cur.fetchone()[0]

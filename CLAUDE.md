@@ -16,10 +16,6 @@ Caddy (TLS/Auth)           Workflow Logic      /files/podium.db
 
 **Three layers:**
 1. **Ops** (`/ops`) - Project management dashboard (protected by OAuth)
-   - `dashboard.html` - Main project list with expandable details
-   - `project.html` - Individual project view
-   - `clients.html` - Client management
-   - `settings.html` - Company settings
 2. **Flows** (`/flows`) - Client-facing pages (public): proposal, contract, invoice, payment
 3. **Integrations** (`/integrations`) - External services (Todoist, Gmail)
 
@@ -29,12 +25,6 @@ Caddy (TLS/Auth)           Workflow Logic      /files/podium.db
 # Local server
 python -m http.server 3000
 # Open: http://localhost:3000/ops/dashboard.html
-
-# Initialize local dev database with seed data
-cd db && python3 init_db.py
-
-# Init without seed data
-cd db && python3 init_db.py --no-seed
 ```
 
 ## Deployment
@@ -53,6 +43,9 @@ ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
 # Query database directly
 ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
   "sqlite3 /opt/n8n-docker-caddy/local_files/podium.db 'SELECT id, name, status FROM projects'"
+
+# Initialize local dev database
+cd db && python3 init_db.py
 ```
 
 The database file is at `/opt/n8n-docker-caddy/local_files/podium.db` on the host, mounted as `/files/podium.db` in the n8n container.
@@ -63,12 +56,27 @@ All APIs are n8n webhooks at `https://n8n.irrigationengineers.com`:
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/webhook/podium-api` | Project CRUD (action: list, get, create, update, add_invoice, update_invoice) |
+| `/webhook/podium-api` | Project CRUD + contract tasks (see actions below) |
 | `/webhook/podium-clients` | Client CRUD (action: list, search, get, create, update, delete) |
 | `/webhook/podium-company` | Company settings |
 | `/webhook/podium-invoice-create` | Create invoice from Google Sheets template |
 | `/webhook/podium-invoice-send` | Export PDF and email invoice |
-| `/webhook/podium-sheet-delete` | Delete a Google Sheet by URL |
+
+### podium-api Actions
+
+| Action | Method | Purpose |
+|--------|--------|---------|
+| `list` | GET | List all projects |
+| `get_detail` | GET | Get project with contracts, proposals, invoices |
+| `create` | POST | Create new project |
+| `update` | POST | Update project |
+| `add_invoice` | POST | Add invoice to project |
+| `update_invoice` | POST | Update invoice status |
+| `get_contract` | GET | Get contract with tasks |
+| `add_contract_task` | POST | Add task to contract |
+| `update_contract_task` | POST | Update contract task |
+| `delete_contract_task` | POST | Remove task from contract |
+| `create_invoice_from_contract` | POST | Generate invoice from contract tasks |
 
 ## Database Schema
 
@@ -76,28 +84,21 @@ Key tables (see `db/schema.sql` for full schema):
 - `clients` - Companies/people we bill
 - `contacts` - Individual people (PMs, engineers)
 - `projects` - Jobs with status workflow
-- `invoices` - Both task-based and list-based invoices (type: 'task' or 'list')
+- `contracts` - Signed agreements
+- `contract_tasks` - Tasks/phases on contracts with billing tracking
+- `invoices` - Both task-based and list-based invoices
 - `invoice_line_items` - Line items on invoices
-- `contracts`, `proposals`, `proposal_tasks`
-
-Views: `v_project_summary`, `v_invoices`
+- `proposals`, `proposal_tasks`
 
 Status workflow: `proposal → contract → invoiced → paid → complete`
 
 ## Key Patterns
 
-- **n8n orchestration** - All data operations go through webhooks. See `ops/workflows/n8n-code-snippets/` for reusable SQL query builders.
-- **Invoice chaining** - Task-based invoices link via `previous_invoice_id`. Line items track `previous_billing` for cumulative totals.
-- **Invoice storage** - `data_path` stores Google Sheet URLs, `pdf_path` stores generated PDF paths.
-- **Soft deletes** - All tables use `deleted_at` for soft deletion.
-- **Invoice template** - Google Sheet ID `16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI`
-
-## Frontend Data Flow
-
-The dashboard fetches project lists with nested contracts/invoices via JSON aggregation in SQLite:
-```
-API call → n8n webhook → Code node (parse-and-build-query.js) → SQLite → format-response.js → JSON
-```
+- n8n is the orchestration layer - all data operations go through webhooks
+- Projects have a `notes` field storing markdown content
+- Invoice chaining via `previous_invoice_id` for task-based invoices
+- Contract tasks track `billed_amount` and `billed_percent` for partial billing
+- Invoice template: Google Sheet ID `16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI`
 
 ## What AI Should NOT Do
 

@@ -1,0 +1,94 @@
+{
+  "name": "Podium - Projects API (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "podium-api",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-get",
+      "name": "Webhook GET",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "podium-api-get"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podium-api",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-post",
+      "name": "Webhook POST",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 500],
+      "webhookId": "podium-api-post"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unified API handler - parses input and builds SQL\nconst input = $input.first().json;\nconst query = input.query || {};\nlet body;\ntry {\n  body = typeof input.body === 'string' ? JSON.parse(input.body) : (input.body || {});\n} catch (e) {\n  return [{ json: { sql: '', action: 'error', query_type: 'select', result_type: 'error', error: `Failed to parse body: ${e.message}`, raw_body: input.body } }];\n}\n\n// Determine action\nconst action = query.action || body.action || 'list';\nconst job_id = query.job_id || body.job_id;\n\n// Helper to escape SQL strings\nconst esc = (val) => val ? String(val).replace(/'/g, \"''\") : '';\n\n// Build the SQL query based on action\nlet sql = '';\nlet query_type = 'select';\nlet result_type = 'rows';\nlet debug = { action, job_id, body_keys: Object.keys(body) };\n\ntry {\n  switch(action) {\n    case 'list':\n      sql = `SELECT \n        p.id as job_id, p.name as project_name, p.status, p.data_path, p.notes,\n        p.current_invoice_id, p.created_at, p.updated_at,\n        c.id as client_id, c.name as client_name, c.email as client_email,\n        c.company as client_company, c.phone as client_phone,\n        COALESCE(inv_totals.total_invoiced, 0) as total_invoiced,\n        COALESCE(inv_totals.total_paid, 0) as total_paid,\n        COALESCE((SELECT json_group_array(json_object(\n          'id', ct.id, 'total_amount', ct.total_amount, 'signed_at', ct.signed_at,\n          'file_path', ct.file_path, 'created_at', ct.created_at\n        )) FROM contracts ct WHERE ct.project_id = p.id AND ct.deleted_at IS NULL), '[]') as contracts_json,\n        COALESCE((SELECT json_group_array(json_object(\n          'id', inv.id, 'invoice_number', inv.invoice_number, 'total_due', inv.total_due,\n          'sent_status', inv.sent_status, 'paid_status', inv.paid_status,\n          'data_path', inv.data_path, 'previous_invoice_id', inv.previous_invoice_id,\n          'sent_at', inv.sent_at, 'paid_at', inv.paid_at, 'created_at', inv.created_at\n        )) FROM invoices inv WHERE inv.project_id = p.id AND inv.deleted_at IS NULL ORDER BY inv.created_at DESC), '[]') as invoices_json\n      FROM projects p\n      LEFT JOIN clients c ON p.client_id = c.id\n      LEFT JOIN (\n        SELECT project_id, SUM(total_due) as total_invoiced,\n          SUM(CASE WHEN paid_status = 'paid' THEN total_due ELSE 0 END) as total_paid\n        FROM invoices WHERE deleted_at IS NULL GROUP BY project_id\n      ) inv_totals ON p.id = inv_totals.project_id\n      WHERE p.deleted_at IS NULL ORDER BY p.created_at DESC`;\n      break;\n      \n    case 'get':\n      sql = `SELECT \n        p.id as job_id, p.name as project_name, p.status, p.data_path, p.notes,\n        p.current_invoice_id, p.created_at, p.updated_at,\n        c.id as client_id, c.name as client_name, c.email as client_email, c.company as client_company\n      FROM projects p\n      LEFT JOIN clients c ON p.client_id = c.id\n      WHERE p.id = '${esc(job_id)}' AND p.deleted_at IS NULL`;\n      result_type = 'single';\n      break;\n\n    case 'create':\n      if (!body.job_id) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing required field: job_id', debug } }];\n      }\n      const newId = esc(body.job_id);\n      const newName = esc(body.project_name || body.name || '');\n      const newClientId = body.client_id ? `'${esc(body.client_id)}'` : 'NULL';\n      const newStatus = esc(body.status || 'proposal');\n      const newDataPath = body.data_path ? `'${esc(body.data_path)}'` : 'NULL';\n      const newNotes = body.notes ? `'${esc(body.notes)}'` : 'NULL';\n      \n      debug.parsed = { newId, newName, newClientId, newStatus };\n      \n      sql = `INSERT INTO projects (id, name, client_id, status, data_path, notes, created_at, updated_at)\n             VALUES ('${newId}', '${newName}', ${newClientId}, '${newStatus}', ${newDataPath}, ${newNotes}, datetime('now'), datetime('now'))`;\n      query_type = 'write';\n      result_type = 'write';\n      break;\n\n    case 'update':\n      if (!job_id) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing required field: job_id for update', debug } }];\n      }\n      const updates = [];\n      if (body.project_name !== undefined) updates.push(`name = '${esc(body.project_name)}'`);\n      if (body.name !== undefined) updates.push(`name = '${esc(body.name)}'`);\n      if (body.status !== undefined) updates.push(`status = '${esc(body.status)}'`);\n      if (body.client_id !== undefined) updates.push(`client_id = ${body.client_id ? \"'\" + esc(body.client_id) + \"'\" : 'NULL'}`);\n      if (body.data_path !== undefined) updates.push(`data_path = ${body.data_path ? \"'\" + esc(body.data_path) + \"'\" : 'NULL'}`);\n      if (body.notes !== undefined) updates.push(`notes = ${body.notes ? \"'\" + esc(body.notes) + \"'\" : 'NULL'}`);\n      updates.push(`updated_at = datetime('now')`);\n      \n      debug.updates = updates;\n      \n      sql = `UPDATE projects SET ${updates.join(', ')} WHERE id = '${esc(job_id)}' AND deleted_at IS NULL`;\n      query_type = 'write';\n      result_type = 'write';\n      break;\n\n    case 'delete':\n      if (!job_id) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing required field: job_id for delete', debug } }];\n      }\n      // Soft-delete the project. Associated contracts/invoices remain but won't appear in queries.\n      sql = `UPDATE projects SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = '${esc(job_id)}'`;\n      query_type = 'write';\n      result_type = 'write';\n      break;\n\n    case 'get_detail':\n      sql = `SELECT\n        p.id as job_id, p.name as project_name, p.status, p.data_path, p.notes,\n        p.current_invoice_id, p.created_at, p.updated_at,\n        c.id as client_id, c.name as client_name, c.email as client_email,\n        c.company as client_company, c.phone as client_phone, c.address as client_address,\n        COALESCE((SELECT json_group_array(json_object(\n          'id', pr.id, 'status', pr.status, 'total_fee', pr.total_fee,\n          'sent_at', pr.sent_at, 'created_at', pr.created_at\n        )) FROM proposals pr WHERE pr.project_id = p.id AND pr.deleted_at IS NULL), '[]') as proposals_json,\n        COALESCE((SELECT json_group_array(json_object(\n          'id', ct.id, 'total_amount', ct.total_amount, 'signed_at', ct.signed_at,\n          'file_path', ct.file_path, 'created_at', ct.created_at,\n          'tasks', (SELECT json_group_array(json_object(\n            'id', ctt.id, 'name', ctt.name, 'description', ctt.description,\n            'amount', ctt.amount, 'billed_amount', ctt.billed_amount,\n            'billed_percent', ctt.billed_percent, 'sort_order', ctt.sort_order\n          )) FROM contract_tasks ctt WHERE ctt.contract_id = ct.id ORDER BY ctt.sort_order)\n        )) FROM contracts ct WHERE ct.project_id = p.id AND ct.deleted_at IS NULL), '[]') as contracts_json,\n        COALESCE((SELECT json_group_array(json_object(\n          'id', inv.id, 'invoice_number', inv.invoice_number, 'total_due', inv.total_due,\n          'sent_status', inv.sent_status, 'paid_status', inv.paid_status,\n          'data_path', inv.data_path, 'previous_invoice_id', inv.previous_invoice_id,\n          'sent_at', inv.sent_at, 'paid_at', inv.paid_at, 'created_at', inv.created_at\n        )) FROM invoices inv WHERE inv.project_id = p.id AND inv.deleted_at IS NULL ORDER BY inv.created_at DESC), '[]') as invoices_json\n      FROM projects p\n      LEFT JOIN clients c ON p.client_id = c.id\n      WHERE p.id = '${esc(job_id)}' AND p.deleted_at IS NULL`;\n      result_type = 'detail';\n      break;\n\n    // CONTRACT TASK ACTIONS\n    case 'get_contract':\n      if (!body.contract_id) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing contract_id', debug } }];\n      }\n      sql = `SELECT\n        c.id, c.project_id, c.file_path, c.total_amount, c.signed_at, c.notes,\n        c.created_at, c.updated_at,\n        COALESCE((SELECT json_group_array(json_object(\n          'id', ct.id, 'name', ct.name, 'description', ct.description,\n          'amount', ct.amount, 'billed_amount', ct.billed_amount,\n          'billed_percent', ct.billed_percent, 'sort_order', ct.sort_order\n        )) FROM contract_tasks ct WHERE ct.contract_id = c.id ORDER BY ct.sort_order), '[]') as tasks_json\n      FROM contracts c\n      WHERE c.id = '${esc(body.contract_id)}' AND c.deleted_at IS NULL`;\n      result_type = 'contract';\n      break;\n\n    case 'add_contract_task':\n      if (!body.contract_id || !body.task) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing contract_id or task', debug } }];\n      }\n      const newTaskId = 'ctask-' + Date.now().toString(36);\n      const taskName = esc(body.task.name || '');\n      const taskDesc = body.task.description ? `'${esc(body.task.description)}'` : 'NULL';\n      const taskAmount = Number(body.task.amount) || 0;\n      const taskOrder = Number(body.task.sort_order) || 0;\n      sql = `INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, billed_amount, billed_percent, created_at, updated_at)\n             VALUES ('${newTaskId}', '${esc(body.contract_id)}', ${taskOrder}, '${taskName}', ${taskDesc}, ${taskAmount}, 0, 0, datetime('now'), datetime('now'))`;\n      query_type = 'write';\n      result_type = 'write';\n      debug.new_task_id = newTaskId;\n      break;\n\n    case 'update_contract_task':\n      if (!body.task_id) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing task_id', debug } }];\n      }\n      const taskUpdates = [];\n      if (body.task) {\n        if (body.task.name !== undefined) taskUpdates.push(`name = '${esc(body.task.name)}'`);\n        if (body.task.description !== undefined) taskUpdates.push(`description = ${body.task.description ? \"'\" + esc(body.task.description) + \"'\" : 'NULL'}`);\n        if (body.task.amount !== undefined) taskUpdates.push(`amount = ${Number(body.task.amount) || 0}`);\n        if (body.task.sort_order !== undefined) taskUpdates.push(`sort_order = ${Number(body.task.sort_order) || 0}`);\n      }\n      taskUpdates.push(`updated_at = datetime('now')`);\n      sql = `UPDATE contract_tasks SET ${taskUpdates.join(', ')} WHERE id = '${esc(body.task_id)}'`;\n      query_type = 'write';\n      result_type = 'write';\n      break;\n\n    case 'delete_contract_task':\n      if (!body.task_id) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing task_id', debug } }];\n      }\n      sql = `DELETE FROM contract_tasks WHERE id = '${esc(body.task_id)}'`;\n      query_type = 'write';\n      result_type = 'write';\n      break;\n\n    case 'create_invoice_from_contract':\n      if (!body.contract_id || !body.tasks || !Array.isArray(body.tasks)) {\n        return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: 'Missing contract_id or tasks array', debug } }];\n      }\n      sql = `SELECT\n        c.id as contract_id, c.project_id, c.total_amount,\n        p.id as job_id, p.name as project_name,\n        (SELECT COUNT(*) + 1 FROM invoices WHERE project_id = c.project_id AND deleted_at IS NULL) as next_invoice_num,\n        COALESCE((SELECT json_group_array(json_object(\n          'id', ct.id, 'name', ct.name, 'amount', ct.amount,\n          'billed_amount', ct.billed_amount, 'billed_percent', ct.billed_percent\n        )) FROM contract_tasks ct WHERE ct.contract_id = c.id), '[]') as tasks_json\n      FROM contracts c\n      JOIN projects p ON c.project_id = p.id\n      WHERE c.id = '${esc(body.contract_id)}' AND c.deleted_at IS NULL`;\n      result_type = 'invoice_prep';\n      debug.requested_tasks = body.tasks;\n      break;\n      \n    default:\n      return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: `Unknown action: ${action}`, debug } }];\n  }\n} catch (e) {\n  return [{ json: { sql: '', action, query_type: 'select', result_type: 'error', error: `Error building query: ${e.message}`, debug } }];\n}\n\nreturn [{ json: { sql, action, query_type, result_type, job_id, body, debug } }];"
+      },
+      "id": "parse-input",
+      "name": "Parse & Build Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "db_path": "/files/podium.db",
+        "query_type": "={{ $json.query_type === 'write' ? 'WRITE' : 'SELECT' }}",
+        "query": "={{ $json.sql }}",
+        "spread": true
+      },
+      "id": "sql-query",
+      "name": "Execute SQL",
+      "type": "n8n-nodes-sqlite3.sqliteNode",
+      "typeVersion": 1,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst context = $('Parse & Build Query').first().json;\nconst action = context.action;\nconst result_type = context.result_type;\nconst job_id = context.job_id;\nconst debug = context.debug || {};\n\n// Check for errors from parse stage\nif (result_type === 'error') {\n  return [{ json: {\n    success: false,\n    error: context.error || 'Unknown error in query building',\n    debug\n  } }];\n}\n\n// Check for SQL execution errors\nif (items.length > 0 && items[0].json && items[0].json.error) {\n  return [{ json: {\n    success: false,\n    error: `SQL Error: ${items[0].json.error}`,\n    sql: context.sql,\n    debug\n  } }];\n}\n\nif (result_type === 'write') {\n  return [{ json: { success: true, action, job_id, debug } }];\n}\n\nconst rows = items.map(item => item.json);\n\nif (action === 'list') {\n  const projects = rows.map(row => {\n    const project = { ...row };\n    try {\n      project.contracts = JSON.parse(row.contracts_json || '[]');\n      project.invoices = JSON.parse(row.invoices_json || '[]');\n    } catch (e) {\n      project.contracts = [];\n      project.invoices = [];\n      project._parse_error = e.message;\n    }\n    delete project.contracts_json;\n    delete project.invoices_json;\n    return project;\n  });\n  return [{ json: { projects } }];\n}\n\nif (action === 'get') {\n  if (rows.length === 0) return [{ json: { success: false, error: 'Project not found' } }];\n  return [{ json: { project: rows[0] } }];\n}\n\nif (action === 'get_detail') {\n  if (rows.length === 0) return [{ json: { success: false, error: 'Project not found' } }];\n  const row = rows[0];\n  const project = {\n    ...row,\n    proposals: JSON.parse(row.proposals_json || '[]'),\n    contracts: JSON.parse(row.contracts_json || '[]'),\n    invoices: JSON.parse(row.invoices_json || '[]')\n  };\n  delete project.proposals_json;\n  delete project.contracts_json;\n  delete project.invoices_json;\n  return [{ json: { project } }];\n}\n\nif (action === 'get_contract') {\n  if (rows.length === 0) return [{ json: { success: false, error: 'Contract not found' } }];\n  const row = rows[0];\n  const contract = {\n    ...row,\n    tasks: JSON.parse(row.tasks_json || '[]')\n  };\n  delete contract.tasks_json;\n  return [{ json: { contract } }];\n}\n\nif (result_type === 'invoice_prep') {\n  if (rows.length === 0) return [{ json: { success: false, error: 'Contract not found' } }];\n  const row = rows[0];\n  const contractTasks = JSON.parse(row.tasks_json || '[]');\n  const requestedTasks = context.debug.requested_tasks || [];\n\n  let totalDue = 0;\n  const lineItems = requestedTasks.map((req, idx) => {\n    const task = contractTasks.find(t => t.id === req.task_id);\n    if (!task) return null;\n    const percentThisInvoice = Number(req.percent_this_invoice) || 0;\n    const currentBilling = (task.amount * percentThisInvoice) / 100;\n    totalDue += currentBilling;\n    return {\n      task_id: task.id,\n      name: task.name,\n      amount: task.amount,\n      percent_this_invoice: percentThisInvoice,\n      previous_billing: task.billed_amount,\n      current_billing: currentBilling,\n      sort_order: idx + 1\n    };\n  }).filter(Boolean);\n\n  const invoiceNumber = `${row.job_id}-${row.next_invoice_num}`;\n\n  return [{ json: {\n    success: true,\n    invoice_prep: {\n      contract_id: row.contract_id,\n      project_id: row.project_id,\n      job_id: row.job_id,\n      project_name: row.project_name,\n      invoice_number: invoiceNumber,\n      total_due: totalDue,\n      line_items: lineItems\n    }\n  } }];\n}\n\nreturn [{ json: { success: true, data: rows } }];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 400]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1140, 400]
+    }
+  ],
+  "connections": {
+    "Webhook GET": {
+      "main": [[{"node": "Parse & Build Query", "type": "main", "index": 0}]]
+    },
+    "Webhook POST": {
+      "main": [[{"node": "Parse & Build Query", "type": "main", "index": 0}]]
+    },
+    "Parse & Build Query": {
+      "main": [[{"node": "Execute SQL", "type": "main", "index": 0}]]
+    },
+    "Execute SQL": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    },
+    "Format Response": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {}
+}

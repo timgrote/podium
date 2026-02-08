@@ -897,6 +897,42 @@
         </div>
     </div>
 
+    <!-- Delete Project Modal -->
+    <div id="delete-project-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3>Delete Project</h3>
+                <button class="modal-close" onclick="closeDeleteProjectModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px;">
+                    Are you sure you want to delete project <strong id="delete-project-id"></strong>?
+                </p>
+                <p id="delete-project-name" style="color: #888; margin-bottom: 20px;"></p>
+
+                <div id="delete-associated-warning" style="background: #2a2a4a; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                    <p style="color: #fbbf24; margin-bottom: 8px;">This project has associated data:</p>
+                    <ul id="delete-associated-list" style="color: #888; margin-left: 20px; font-size: 0.9rem;"></ul>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="delete-cascade" style="width: auto;">
+                        <span>Also delete all associated contracts and invoices</span>
+                    </label>
+                </div>
+
+                <p style="color: #ff6b6b; font-size: 0.85rem;">
+                    This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteProjectModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteProject()">Delete Project</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Contract Modal -->
     <div id="add-contract-modal" class="modal">
         <div class="modal-content">
@@ -1263,6 +1299,9 @@
             // Details button toggles inline expansion (row click also works)
             buttons.push(`<button class="action-btn action-view" onclick="event.stopPropagation(); toggleProjectDetail('${project.job_id}')">Details</button>`);
 
+            // Delete button
+            buttons.push(`<button class="action-btn action-delete" onclick="event.stopPropagation(); openDeleteProjectModal('${project.job_id}')" title="Delete Project">Delete</button>`);
+
             return buttons.join('');
         }
 
@@ -1411,6 +1450,92 @@
         document.getElementById('add-project-modal').addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) closeAddProjectModal();
         });
+
+        // Delete Project functions
+        let deleteProjectJobId = null;
+
+        function openDeleteProjectModal(jobId) {
+            const project = allProjects.find(p => p.job_id === jobId);
+            if (!project) return;
+
+            deleteProjectJobId = jobId;
+            document.getElementById('delete-project-id').textContent = jobId;
+            document.getElementById('delete-project-name').textContent = project.project_name || '';
+            document.getElementById('delete-cascade').checked = false;
+
+            // Check for associated data
+            const contracts = project.contracts || [];
+            const invoices = project.invoices || [];
+            const warningDiv = document.getElementById('delete-associated-warning');
+            const listEl = document.getElementById('delete-associated-list');
+
+            if (contracts.length > 0 || invoices.length > 0) {
+                warningDiv.style.display = 'block';
+                listEl.textContent = '';
+                if (contracts.length > 0) {
+                    const li = document.createElement('li');
+                    li.textContent = contracts.length + ' contract' + (contracts.length !== 1 ? 's' : '');
+                    listEl.appendChild(li);
+                }
+                if (invoices.length > 0) {
+                    const li = document.createElement('li');
+                    li.textContent = invoices.length + ' invoice' + (invoices.length !== 1 ? 's' : '');
+                    listEl.appendChild(li);
+                }
+            } else {
+                warningDiv.style.display = 'none';
+            }
+
+            document.getElementById('delete-project-modal').classList.add('active');
+        }
+
+        function closeDeleteProjectModal() {
+            document.getElementById('delete-project-modal').classList.remove('active');
+            deleteProjectJobId = null;
+        }
+
+        document.getElementById('delete-project-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeDeleteProjectModal();
+        });
+
+        async function confirmDeleteProject() {
+            if (!deleteProjectJobId) return;
+
+            const cascade = document.getElementById('delete-cascade').checked;
+            const project = allProjects.find(p => p.job_id === deleteProjectJobId);
+
+            // If project has associated data and cascade is not checked, warn
+            const hasData = (project.contracts && project.contracts.length > 0) ||
+                           (project.invoices && project.invoices.length > 0);
+            if (hasData && !cascade) {
+                alert('This project has associated contracts or invoices. Please check the box to confirm deletion of all associated data.');
+                return;
+            }
+
+            try {
+                const response = await fetch(UPDATE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        job_id: deleteProjectJobId,
+                        cascade: cascade
+                    })
+                });
+
+                const data = await response.json();
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                closeDeleteProjectModal();
+                refreshData();
+            } catch (error) {
+                console.error('Delete failed:', error);
+                alert('Failed to delete project');
+            }
+        }
 
         function toggleContractDate() {
             const hasContract = document.getElementById('has-contract').checked;

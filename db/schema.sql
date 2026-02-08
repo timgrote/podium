@@ -100,6 +100,26 @@ CREATE TABLE contracts (
 CREATE INDEX idx_contracts_project ON contracts(project_id);
 
 -- ============================================================================
+-- CONTRACT_TASKS
+-- Line items on a contract (tasks/phases to be billed)
+-- Tracks cumulative billing for invoice chaining
+-- ============================================================================
+CREATE TABLE contract_tasks (
+    id TEXT PRIMARY KEY,
+    contract_id TEXT NOT NULL REFERENCES contracts(id),
+    sort_order INTEGER DEFAULT 0,           -- display order (1, 2, 3...)
+    name TEXT NOT NULL,
+    description TEXT,
+    amount REAL DEFAULT 0,                  -- total fee for this task
+    billed_amount REAL DEFAULT 0,           -- cumulative amount already billed
+    billed_percent REAL DEFAULT 0,          -- cumulative percent already billed (0-100)
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_contract_tasks_contract ON contract_tasks(contract_id);
+
+-- ============================================================================
 -- PROPOSALS
 -- Unsigned contracts / quotes sent to clients
 -- ============================================================================

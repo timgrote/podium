@@ -361,9 +361,129 @@
             color: #6c63ff;
         }
 
+        /* Contract Tasks */
+        .contract-card {
+            background: #1a1a2e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .contract-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+        }
+        .contract-header:hover {
+            background: #222244;
+        }
+        .contract-tasks-section {
+            border-top: 1px solid #333;
+            padding: 12px 16px;
+            background: #161630;
+        }
+        .contract-tasks-section.hidden {
+            display: none;
+        }
+        .contract-task-row {
+            display: grid;
+            grid-template-columns: 1fr 100px 80px 60px;
+            gap: 12px;
+            align-items: center;
+            padding: 8px 12px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .contract-task-name {
+            color: #fff;
+            font-weight: 500;
+        }
+        .contract-task-amount {
+            color: #4ade80;
+            text-align: right;
+        }
+        .contract-task-billed {
+            color: #888;
+            font-size: 0.85rem;
+            text-align: right;
+        }
+        .contract-task-actions {
+            display: flex;
+            gap: 4px;
+            justify-content: flex-end;
+        }
+        .contract-task-actions button {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+        .contract-tasks-footer {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #333;
+        }
+        .expand-icon {
+            color: #888;
+            transition: transform 0.2s;
+        }
+        .expand-icon.expanded {
+            transform: rotate(180deg);
+        }
+
+        /* Invoice Task Selection */
+        .invoice-task-select {
+            padding: 12px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .invoice-task-select-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .invoice-task-select-name {
+            color: #fff;
+            font-weight: 500;
+        }
+        .invoice-task-select-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+        .invoice-task-select-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .invoice-task-select-input input {
+            width: 80px;
+            padding: 6px 8px;
+            background: #242442;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+        }
+        .invoice-total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px;
+            background: #242442;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
         @media (max-width: 768px) {
             .financials { grid-template-columns: repeat(2, 1fr); }
             .client-info { grid-template-columns: 1fr; }
+            .contract-task-row { grid-template-columns: 1fr; gap: 4px; }
         }
     </style>
 </head>
@@ -497,11 +617,66 @@
         </div>
     </div>
 
+    <!-- Contract Task Modal -->
+    <div id="contract-task-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="contract-task-modal-title">Add Task</h3>
+                <button class="modal-close" onclick="closeModal('contract-task-modal')">&times;</button>
+            </div>
+            <form id="contract-task-form" onsubmit="saveContractTask(event)">
+                <input type="hidden" id="ct-contract-id">
+                <input type="hidden" id="ct-task-id">
+                <div class="form-group">
+                    <label>Task Name</label>
+                    <input type="text" id="ct-name" required placeholder="e.g., Preliminary Design">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="ct-description" rows="2" placeholder="Optional description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Amount ($)</label>
+                    <input type="number" id="ct-amount" step="0.01" min="0" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('contract-task-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Invoice from Contract Modal -->
+    <div id="create-contract-invoice-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="contract-invoice-title">Create Invoice from Contract</h3>
+                <button class="modal-close" onclick="closeModal('create-contract-invoice-modal')">&times;</button>
+            </div>
+            <div id="contract-invoice-content">
+                <div class="form-group">
+                    <label>Select tasks to invoice and enter percent to bill this invoice:</label>
+                </div>
+                <div id="contract-invoice-tasks-list"></div>
+                <div class="invoice-total-row">
+                    <span>Invoice Total:</span>
+                    <span id="contract-invoice-total">$0</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('create-contract-invoice-modal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitContractInvoice()">Create Invoice</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
 
         let project = null;
         let jobId = null;
+        let expandContractAfterRender = null;  // Contract ID to expand after next render
 
         // Get job_id from URL
         function getJobIdFromUrl() {
@@ -808,6 +983,15 @@
             const container = document.getElementById('contracts-list');
             const contracts = project.contracts || [];
 
+            // Remember which sections were expanded before re-render
+            const expandedSections = new Set();
+            contracts.forEach(function(c) {
+                const section = document.getElementById('tasks-section-' + c.id);
+                if (section && !section.classList.contains('hidden')) {
+                    expandedSections.add(c.id);
+                }
+            });
+
             container.textContent = '';
 
             if (contracts.length === 0) {
@@ -819,8 +1003,12 @@
             }
 
             contracts.forEach(function(c) {
-                const item = document.createElement('div');
-                item.className = 'list-item';
+                const card = document.createElement('div');
+                card.className = 'contract-card';
+
+                // Header row (clickable to expand)
+                const header = document.createElement('div');
+                header.className = 'contract-header';
 
                 const info = document.createElement('div');
                 info.className = 'list-item-info';
@@ -832,10 +1020,12 @@
 
                 const secondary = document.createElement('span');
                 secondary.className = 'list-item-secondary';
-                secondary.textContent = 'Signed: ' + (c.signed_at ? formatDate(c.signed_at) : 'Not signed');
+                const taskCount = (c.tasks || []).length;
+                secondary.textContent = 'Signed: ' + (c.signed_at ? formatDate(c.signed_at) : 'Not signed') +
+                    ' | ' + taskCount + ' task' + (taskCount !== 1 ? 's' : '');
                 info.appendChild(secondary);
 
-                item.appendChild(info);
+                header.appendChild(info);
 
                 const right = document.createElement('div');
                 right.style.cssText = 'display: flex; align-items: center; gap: 16px;';
@@ -845,34 +1035,143 @@
                 amount.textContent = '$' + (c.total_amount || 0).toLocaleString();
                 right.appendChild(amount);
 
-                const actions = document.createElement('div');
-                actions.className = 'list-item-actions';
+                const expandIcon = document.createElement('span');
+                expandIcon.className = 'expand-icon';
+                expandIcon.textContent = '▼';
+                expandIcon.id = 'expand-icon-' + c.id;
+                right.appendChild(expandIcon);
+
+                header.appendChild(right);
+                card.appendChild(header);
+
+                // Tasks section (expandable)
+                const tasksSection = document.createElement('div');
+                tasksSection.className = 'contract-tasks-section hidden';
+                tasksSection.id = 'tasks-section-' + c.id;
+
+                // Render tasks
+                const tasks = c.tasks || [];
+                tasks.forEach(function(task) {
+                    const taskRow = document.createElement('div');
+                    taskRow.className = 'contract-task-row';
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'contract-task-name';
+                    nameDiv.textContent = task.name;
+                    if (task.description) {
+                        nameDiv.title = task.description;
+                    }
+                    taskRow.appendChild(nameDiv);
+
+                    const amountDiv = document.createElement('div');
+                    amountDiv.className = 'contract-task-amount';
+                    amountDiv.textContent = '$' + (task.amount || 0).toLocaleString();
+                    taskRow.appendChild(amountDiv);
+
+                    const billedDiv = document.createElement('div');
+                    billedDiv.className = 'contract-task-billed';
+                    billedDiv.textContent = (task.billed_percent || 0).toFixed(0) + '% billed';
+                    taskRow.appendChild(billedDiv);
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'contract-task-actions';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn btn-secondary btn-small';
+                    editBtn.textContent = 'Edit';
+                    editBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        editContractTask(c.id, task);
+                    };
+                    actionsDiv.appendChild(editBtn);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn btn-danger btn-small';
+                    delBtn.textContent = '×';
+                    delBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        deleteContractTask(c.id, task.id);
+                    };
+                    actionsDiv.appendChild(delBtn);
+
+                    taskRow.appendChild(actionsDiv);
+                    tasksSection.appendChild(taskRow);
+                });
+
+                // Footer with action buttons
+                const footer = document.createElement('div');
+                footer.className = 'contract-tasks-footer';
+
+                const addTaskBtn = document.createElement('button');
+                addTaskBtn.className = 'btn btn-secondary btn-small';
+                addTaskBtn.textContent = '+ Add Task';
+                addTaskBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    openAddContractTaskModal(c.id);
+                };
+                footer.appendChild(addTaskBtn);
+
+                if (tasks.length > 0) {
+                    const createInvBtn = document.createElement('button');
+                    createInvBtn.className = 'btn btn-primary btn-small';
+                    createInvBtn.textContent = 'Create Invoice';
+                    createInvBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        createInvoiceFromContract(c.id);
+                    };
+                    footer.appendChild(createInvBtn);
+                }
 
                 if (c.file_path) {
                     const viewLink = document.createElement('a');
                     viewLink.href = c.file_path;
                     viewLink.target = '_blank';
                     viewLink.className = 'btn btn-secondary btn-small';
-                    viewLink.textContent = 'View';
-                    actions.appendChild(viewLink);
+                    viewLink.textContent = 'View PDF';
+                    viewLink.onclick = function(e) { e.stopPropagation(); };
+                    footer.appendChild(viewLink);
                 }
-
-                const invoiceBtn = document.createElement('button');
-                invoiceBtn.className = 'btn btn-primary btn-small';
-                invoiceBtn.textContent = 'Create Invoice';
-                invoiceBtn.onclick = function() { createInvoiceFromContract(c.id); };
-                actions.appendChild(invoiceBtn);
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'btn btn-danger btn-small';
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = function() { deleteContract(c.id); };
-                actions.appendChild(deleteBtn);
+                deleteBtn.textContent = 'Delete Contract';
+                deleteBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    deleteContract(c.id);
+                };
+                footer.appendChild(deleteBtn);
 
-                right.appendChild(actions);
-                item.appendChild(right);
-                container.appendChild(item);
+                tasksSection.appendChild(footer);
+                card.appendChild(tasksSection);
+
+                // Click header to expand/collapse
+                header.onclick = function() {
+                    toggleContractTasks(c.id);
+                };
+
+                container.appendChild(card);
+
+                // Restore expanded state if it was expanded before, or if we just edited this contract
+                if (expandedSections.has(c.id) || expandContractAfterRender === c.id) {
+                    tasksSection.classList.remove('hidden');
+                    expandIcon.classList.add('expanded');
+                }
             });
+
+            // Clear the expand-after-render flag
+            expandContractAfterRender = null;
+        }
+
+        function toggleContractTasks(contractId) {
+            const section = document.getElementById('tasks-section-' + contractId);
+            const icon = document.getElementById('expand-icon-' + contractId);
+            if (section.classList.contains('hidden')) {
+                section.classList.remove('hidden');
+                icon.classList.add('expanded');
+            } else {
+                section.classList.add('hidden');
+                icon.classList.remove('expanded');
+            }
         }
 
         function renderInvoices() {
@@ -988,6 +1287,10 @@
             document.getElementById(id).classList.remove('active');
         }
 
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
         function openAddProposalModal() {
             document.getElementById('add-proposal-form').reset();
             document.getElementById('add-proposal-modal').classList.add('active');
@@ -1037,8 +1340,237 @@
             alert('Convert to contract will be implemented');
         }
 
+        // --- Contract Tasks ---
+
+        let currentContractForInvoice = null;
+
+        function openAddContractTaskModal(contractId) {
+            document.getElementById('contract-task-modal-title').textContent = 'Add Task';
+            document.getElementById('ct-contract-id').value = contractId;
+            document.getElementById('ct-task-id').value = '';
+            document.getElementById('ct-name').value = '';
+            document.getElementById('ct-description').value = '';
+            document.getElementById('ct-amount').value = '';
+            openModal('contract-task-modal');
+        }
+
+        function editContractTask(contractId, task) {
+            document.getElementById('contract-task-modal-title').textContent = 'Edit Task';
+            document.getElementById('ct-contract-id').value = contractId;
+            document.getElementById('ct-task-id').value = task.id;
+            document.getElementById('ct-name').value = task.name || '';
+            document.getElementById('ct-description').value = task.description || '';
+            document.getElementById('ct-amount').value = task.amount || '';
+            openModal('contract-task-modal');
+        }
+
+        async function saveContractTask(event) {
+            event.preventDefault();
+            const contractId = document.getElementById('ct-contract-id').value;
+            const taskId = document.getElementById('ct-task-id').value;
+            const name = document.getElementById('ct-name').value;
+            const description = document.getElementById('ct-description').value;
+            const amount = parseFloat(document.getElementById('ct-amount').value) || 0;
+
+            const action = taskId ? 'update_contract_task' : 'add_contract_task';
+            const payload = {
+                action: action,
+                contract_id: contractId,
+                task: { name, description, amount }
+            };
+            if (taskId) {
+                payload.task_id = taskId;
+            }
+
+            try {
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                closeModal('contract-task-modal');
+                expandContractAfterRender = contractId;  // Auto-expand after refresh
+                loadProject();
+            } catch (error) {
+                console.error('Failed to save task:', error);
+                alert('Failed to save task');
+            }
+        }
+
+        async function deleteContractTask(contractId, taskId) {
+            if (!confirm('Delete this task?')) return;
+
+            try {
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'delete_contract_task',
+                        contract_id: contractId,
+                        task_id: taskId
+                    })
+                });
+                const data = await response.json();
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                loadProject(); // Refresh
+            } catch (error) {
+                console.error('Failed to delete task:', error);
+                alert('Failed to delete task');
+            }
+        }
+
         function createInvoiceFromContract(contractId) {
-            alert('Create invoice from contract will be implemented');
+            // Find the contract
+            const contract = (project.contracts || []).find(function(c) { return c.id === contractId; });
+            if (!contract) {
+                alert('Contract not found');
+                return;
+            }
+
+            const tasks = contract.tasks || [];
+            if (tasks.length === 0) {
+                alert('This contract has no tasks. Add tasks first.');
+                return;
+            }
+
+            currentContractForInvoice = contract;
+
+            // Populate the modal
+            document.getElementById('contract-invoice-title').textContent =
+                'Create Invoice from ' + contract.id;
+
+            const listContainer = document.getElementById('contract-invoice-tasks-list');
+            listContainer.textContent = '';
+
+            tasks.forEach(function(task) {
+                const remaining = 100 - (task.billed_percent || 0);
+                const remainingAmount = (task.amount || 0) * remaining / 100;
+
+                const taskEl = document.createElement('div');
+                taskEl.className = 'invoice-task-select';
+
+                // Header
+                const header = document.createElement('div');
+                header.className = 'invoice-task-select-header';
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'invoice-task-select-name';
+                nameSpan.textContent = task.name;
+                header.appendChild(nameSpan);
+                const amountSpan = document.createElement('span');
+                amountSpan.textContent = '$' + (task.amount || 0).toLocaleString();
+                header.appendChild(amountSpan);
+                taskEl.appendChild(header);
+
+                // Details
+                const details = document.createElement('div');
+                details.className = 'invoice-task-select-details';
+                const billedDiv = document.createElement('div');
+                billedDiv.textContent = 'Billed: ' + (task.billed_percent || 0).toFixed(0) + '%';
+                details.appendChild(billedDiv);
+                const remainingDiv = document.createElement('div');
+                remainingDiv.textContent = 'Remaining: ' + remaining.toFixed(0) + '%';
+                details.appendChild(remainingDiv);
+                const remainingAmtDiv = document.createElement('div');
+                remainingAmtDiv.textContent = '$' + remainingAmount.toLocaleString() + ' left';
+                details.appendChild(remainingAmtDiv);
+                taskEl.appendChild(details);
+
+                // Input
+                const inputDiv = document.createElement('div');
+                inputDiv.className = 'invoice-task-select-input';
+                const label = document.createElement('label');
+                label.textContent = 'Bill this invoice:';
+                inputDiv.appendChild(label);
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = 'invoice-task-' + task.id;
+                input.min = '0';
+                input.max = String(remaining);
+                input.value = '0';
+                input.step = '1';
+                input.dataset.taskId = task.id;
+                input.dataset.taskAmount = String(task.amount || 0);
+                input.oninput = updateInvoiceTotal;
+                inputDiv.appendChild(input);
+                const percentLabel = document.createTextNode(' %');
+                inputDiv.appendChild(percentLabel);
+                taskEl.appendChild(inputDiv);
+
+                listContainer.appendChild(taskEl);
+            });
+
+            updateInvoiceTotal();
+            openModal('create-contract-invoice-modal');
+        }
+
+        function updateInvoiceTotal() {
+            let total = 0;
+            const inputs = document.querySelectorAll('#contract-invoice-tasks-list input[type="number"]');
+            inputs.forEach(function(input) {
+                const percent = parseFloat(input.value) || 0;
+                const amount = parseFloat(input.dataset.taskAmount) || 0;
+                total += amount * percent / 100;
+            });
+            document.getElementById('contract-invoice-total').textContent = '$' + total.toLocaleString();
+        }
+
+        async function submitContractInvoice() {
+            if (!currentContractForInvoice) return;
+
+            const tasks = [];
+            const inputs = document.querySelectorAll('#contract-invoice-tasks-list input[type="number"]');
+            inputs.forEach(function(input) {
+                const percent = parseFloat(input.value) || 0;
+                if (percent > 0) {
+                    tasks.push({
+                        task_id: input.dataset.taskId,
+                        percent_this_invoice: percent
+                    });
+                }
+            });
+
+            if (tasks.length === 0) {
+                alert('Please enter a percentage for at least one task');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'create_invoice_from_contract',
+                        contract_id: currentContractForInvoice.id,
+                        tasks: tasks
+                    })
+                });
+                const data = await response.json();
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                closeModal('create-contract-invoice-modal');
+                currentContractForInvoice = null;
+
+                // If we got a sheet URL, open it
+                if (data.data_path) {
+                    window.open(data.data_path, '_blank');
+                }
+
+                loadProject(); // Refresh
+            } catch (error) {
+                console.error('Failed to create invoice:', error);
+                alert('Failed to create invoice');
+            }
         }
 
         function createNewInvoice() {
