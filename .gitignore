@@ -10,5 +10,8 @@ db/*.db-journal
 db/*.db-wal
 db/*.db-shm
 
+# Google service account credentials
+credentials/
+
 # Playwright
 .playwright-mcp/

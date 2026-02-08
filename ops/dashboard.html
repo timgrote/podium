@@ -3,43 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#6c63ff',
+              'primary-hover': '#5a52d5',
+              'dark-bg': '#1a1a2e',
+              'dark-card': '#242442',
+              'dark-border': '#444',
+            }
+          }
+        }
+      }
+    </script>
     <title>Podium - Dashboard</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #fff;
-            background: #1a1a2e;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 40px;
-        }
-        h1 {
-            font-size: 2rem;
-            color: #fff;
-        }
-        .admin-badge {
-            background: #6c63ff;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            margin-left: 10px;
-        }
-        .header-actions {
-            display: flex;
-            gap: 12px;
-        }
         .btn {
             padding: 10px 20px;
             border-radius: 6px;
@@ -64,53 +45,6 @@
         }
         .btn-secondary:hover {
             background: #2d2d4a;
-        }
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-        .stat-card {
-            background: #242442;
-            border-radius: 12px;
-            padding: 24px;
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #6c63ff;
-        }
-        .stat-label {
-            color: #888;
-            font-size: 0.9rem;
-            margin-top: 4px;
-        }
-        .stat-card.success .stat-value { color: #4ade80; }
-        .stat-card.warning .stat-value { color: #fbbf24; }
-        .stat-card.info .stat-value { color: #60a5fa; }
-        .section {
-            margin-bottom: 40px;
-        }
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .section-actions {
-            display: flex;
-            gap: 10px;
-        }
-        h2 {
-            font-size: 1.25rem;
-            color: #fff;
-        }
-        .card {
-            background: #242442;
-            border-radius: 12px;
-            overflow: hidden;
         }
         table {
             width: 100%;
@@ -154,19 +88,6 @@
             color: #888;
             font-size: 0.9rem;
         }
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-        .empty-state p {
-            margin-bottom: 20px;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
         .loading::after {
             content: '';
             display: inline-block;
@@ -207,6 +128,13 @@
         }
         .action-view:hover {
             background: #4b4b7d;
+        }
+        .action-secondary {
+            background: #333355;
+            color: #aaa;
+        }
+        .action-secondary:hover {
+            background: #444466;
         }
         .action-contract {
             background: #3d4b3d;
@@ -678,63 +606,106 @@
             color: #888;
         }
 
+        /* Proposal status badges */
+        .proposal-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+        .proposal-status-draft { background: #3b3b6d; color: #a5a5ff; }
+        .proposal-status-sent { background: #4b4b3d; color: #ffd700; }
+        .proposal-status-accepted { background: #2d4a3d; color: #4ade80; }
+        .proposal-status-rejected { background: #4a2c2c; color: #ff6b6b; }
+
+        .action-promote {
+            background: #3d4b3d;
+            color: #a5d6a5;
+        }
+        .action-promote:hover {
+            background: #4d5b4d;
+        }
+
+        .proposal-task-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: flex-start;
+        }
+        .proposal-task-row input[type="text"] {
+            padding: 8px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+        }
+        .proposal-task-row .ptask-name { flex: 2; }
+        .proposal-task-row .ptask-desc { flex: 3; }
+        .proposal-task-row input[type="number"] {
+            width: 100px;
+            padding: 8px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+        }
+        .proposal-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            margin: 12px 0;
+            font-weight: 600;
+        }
+        .proposal-total .total-amount { color: #4ade80; }
+
         @media (max-width: 768px) {
-            .stats-row {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            table {
-                display: block;
-                overflow-x: auto;
-            }
-            .header-actions {
-                flex-direction: column;
-            }
-            .detail-sections {
-                grid-template-columns: 1fr;
-            }
+            table { display: block; overflow-x: auto; }
+            .detail-sections { grid-template-columns: 1fr; }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1><img id="company-logo" src="" alt="" style="height: 40px; margin-right: 12px; vertical-align: middle; display: none;"><span id="company-name">Podium</span> <span class="admin-badge">Dashboard</span></h1>
-            <div class="header-actions">
+<body class="font-sans leading-relaxed text-white bg-dark-bg min-h-screen">
+    <div class="max-w-[1200px] mx-auto px-5 py-10">
+        <header class="flex justify-between items-center mb-10 max-md:flex-col max-md:items-start max-md:gap-4">
+            <h1 class="text-2xl font-bold text-white"><img id="company-logo" src="" alt="" style="height: 40px; margin-right: 12px; vertical-align: middle; display: none;"><span id="company-name">Podium</span> <span class="bg-primary text-white px-3 py-1 rounded-full text-xs ml-2.5 align-middle">Dashboard</span></h1>
+            <div class="flex gap-3 max-md:flex-col">
                 <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
                 <a href="clients.html" class="btn btn-secondary">Clients</a>
                 <a href="settings.html" class="btn btn-secondary">Settings</a>
             </div>
         </header>
 
-        <div class="stats-row">
-            <div class="stat-card">
-                <div class="stat-value" id="stat-total">-</div>
-                <div class="stat-label">Total Projects</div>
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5 mb-10 max-md:grid-cols-2">
+            <div class="bg-dark-card rounded-xl p-6 text-center">
+                <div class="text-[2.5rem] font-bold text-primary" id="stat-total">-</div>
+                <div class="text-gray-500 text-sm mt-1">Total Projects</div>
             </div>
-            <div class="stat-card warning">
-                <div class="stat-value" id="stat-pending">-</div>
-                <div class="stat-label">Awaiting Payment</div>
+            <div class="bg-dark-card rounded-xl p-6 text-center">
+                <div class="text-[2.5rem] font-bold text-yellow-400" id="stat-pending">-</div>
+                <div class="text-gray-500 text-sm mt-1">Awaiting Payment</div>
             </div>
-            <div class="stat-card success">
-                <div class="stat-value" id="stat-revenue">-</div>
-                <div class="stat-label">Revenue (Paid)</div>
+            <div class="bg-dark-card rounded-xl p-6 text-center">
+                <div class="text-[2.5rem] font-bold text-green-400" id="stat-revenue">-</div>
+                <div class="text-gray-500 text-sm mt-1">Revenue (Paid)</div>
             </div>
-            <div class="stat-card info">
-                <div class="stat-value" id="stat-pipeline">-</div>
-                <div class="stat-label">Pipeline Value</div>
+            <div class="bg-dark-card rounded-xl p-6 text-center">
+                <div class="text-[2.5rem] font-bold text-blue-400" id="stat-pipeline">-</div>
+                <div class="text-gray-500 text-sm mt-1">Pipeline Value</div>
             </div>
         </div>
 
-        <div class="section">
-            <div class="section-header">
-                <h2>Projects</h2>
-                <div class="section-actions">
+        <div class="mb-10">
+            <div class="flex justify-between items-center mb-5">
+                <h2 class="text-xl text-white font-semibold">Projects</h2>
+                <div class="flex gap-2.5">
                     <button class="btn btn-primary" onclick="openAddProjectModal()">+ Add Project</button>
-                    <a href="proposal.html" class="btn btn-secondary">+ New Proposal</a>
+                    <button class="btn btn-secondary" onclick="openAddProposalModal()">+ New Proposal</button>
                 </div>
             </div>
-            <div class="card">
-                <div id="projects-loading" class="loading">Loading projects</div>
+            <div class="bg-dark-card rounded-xl overflow-hidden">
+                <div id="projects-loading" class="loading text-center p-10 text-gray-500">Loading projects</div>
                 <table id="projects-table" style="display: none;">
                     <thead>
                         <tr>
@@ -751,8 +722,8 @@
                     <tbody id="projects-body">
                     </tbody>
                 </table>
-                <div id="projects-empty" class="empty-state" style="display: none;">
-                    <p>No projects yet. Add a project or create a proposal to get started.</p>
+                <div id="projects-empty" class="text-center py-16 px-5 text-gray-600" style="display: none;">
+                    <p class="mb-5">No projects yet. Add a project or create a proposal to get started.</p>
                     <button class="btn btn-primary" onclick="openAddProjectModal()">+ Add Project</button>
                 </div>
             </div>
@@ -963,12 +934,85 @@
         </div>
     </div>
 
+    <!-- Add Proposal Modal -->
+    <div id="add-proposal-modal" class="modal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3 id="add-proposal-title">New Proposal</h3>
+                <button class="modal-close" onclick="closeAddProposalModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-proposal-form" onsubmit="saveProposal(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="proposal-project-select">Project</label>
+                            <select id="proposal-project-select" required onchange="prefillProposalClient()">
+                                <option value="">-- Select project --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="proposal-client-company">Client Company</label>
+                            <input type="text" id="proposal-client-company" placeholder="e.g., Acme Corp">
+                        </div>
+                        <div class="form-group">
+                            <label for="proposal-client-email">Client Email</label>
+                            <input type="email" id="proposal-client-email" placeholder="e.g., client@example.com">
+                        </div>
+                    </div>
+
+                    <div class="tasks-section">
+                        <label>Tasks &amp; Fees</label>
+                        <div id="proposal-tasks-list"></div>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="addProposalTaskRow()">+ Add Task</button>
+                    </div>
+
+                    <div class="proposal-total">
+                        <span>Total Fee:</span>
+                        <span class="total-amount" id="proposal-total-display">$0</span>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddProposalModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create Proposal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Promote Proposal Modal -->
+    <div id="promote-proposal-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="promote-modal-title">Promote to Contract</h3>
+                <button class="modal-close" onclick="closePromoteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="promote-tasks-summary" class="project-info"></div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="promote-signed-date">Signed Date</label>
+                        <input type="date" id="promote-signed-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="promote-file-path">File Path (optional)</label>
+                        <input type="text" id="promote-file-path" placeholder="e.g., /contracts/signed.pdf">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closePromoteModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmPromote()">Promote to Contract</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
-        const COMPANY_API = 'https://n8n.irrigationengineers.com/webhook/podium-company';
-        const CLIENTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-clients';
-        const PROJECTS_API = API_BASE + '?action=list';
-        const UPDATE_API = API_BASE;
+        const PROJECTS_API = '/api/projects';
+        const COMPANY_API = '/api/company';
+        const CLIENTS_API = '/api/clients';
 
         let allProjects = [];
         let allClients = [];
@@ -1014,21 +1058,28 @@
             }
         }
 
-        // Render the detail content with contracts and invoices sections
+        // Render the detail content with proposals, contracts, and invoices sections
         function renderProjectDetail(jobId, project, contentDiv) {
             contentDiv.innerHTML = `
-                <div class="detail-sections">
+                <div class="detail-sections" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="detail-section">
+                        <div class="detail-section-header">
+                            <span class="detail-section-title">Proposals</span>
+                            <button class="btn btn-primary btn-small" onclick="openAddProposalModal('${jobId}')">+ Add</button>
+                        </div>
+                        ${renderProposalsSection(project)}
+                    </div>
                     <div class="detail-section">
                         <div class="detail-section-header">
                             <span class="detail-section-title">Contracts</span>
-                            <button class="btn btn-primary btn-small" onclick="openAddContractModal('${jobId}')">+ Add Contract</button>
+                            <button class="btn btn-primary btn-small" onclick="openAddContractModal('${jobId}')">+ Add</button>
                         </div>
                         ${renderContractsSection(project)}
                     </div>
                     <div class="detail-section">
                         <div class="detail-section-header">
                             <span class="detail-section-title">Invoices</span>
-                            <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${jobId}')">+ Create Invoice</button>
+                            <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${jobId}')">+ Create</button>
                         </div>
                         ${renderInvoicesSection(project)}
                     </div>
@@ -1056,19 +1107,38 @@
 
             return `<div class="detail-list">
                 ${contracts.map(contract => {
-                    // Support both old field names (amount, signed_date) and new (total_amount, signed_at)
                     const amount = contract.total_amount || contract.amount || 0;
                     const signedDate = contract.signed_at || contract.signed_date;
+                    const tasks = contract.tasks || [];
                     return `
-                    <div class="detail-item">
-                        <div class="detail-item-info">
-                            <span class="detail-item-amount">$${Number(amount).toLocaleString()}</span>
-                            <span class="detail-item-secondary">Signed ${formatDate(signedDate)}</span>
+                    <div class="detail-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="detail-item-info">
+                                <span class="detail-item-secondary">Signed ${formatDate(signedDate)}</span>
+                            </div>
+                            <div class="detail-item-actions">
+                                <button class="action-btn action-invoice" onclick="event.stopPropagation(); createInvoiceFromContract('${project.job_id}', '${contract.id || 'legacy'}')">Create Invoice</button>
+                            </div>
                         </div>
-                        <div class="detail-item-actions">
-                            ${contract.file_path ? `<a href="${escapeHtml(contract.file_path)}" target="_blank" class="action-btn action-view">View</a>` : ''}
-                            <button class="action-btn action-invoice" onclick="createInvoiceFromContract('${project.job_id}', '${contract.id || 'legacy'}')">Create Invoice</button>
+                        ${tasks.length > 0 ? `
+                        <div style="font-size: 0.8rem;">
+                            ${tasks.map(t => {
+                                const billedPct = t.billed_percent || 0;
+                                return `
+                                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-top: 1px solid #333;">
+                                    <span style="color: #ccc;">${escapeHtml(t.name)}</span>
+                                    <span style="display: flex; gap: 12px;">
+                                        ${billedPct > 0 ? `<span style="color: #888; font-size: 0.75rem;">${Math.round(billedPct)}% billed</span>` : ''}
+                                        <span style="color: #4ade80;">$${Number(t.amount || 0).toLocaleString()}</span>
+                                    </span>
+                                </div>`;
+                            }).join('')}
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px solid #555; font-weight: 600;">
+                                <span style="color: #fff;">Total</span>
+                                <span style="color: #4ade80;">$${Number(amount).toLocaleString()}</span>
+                            </div>
                         </div>
+                        ` : `<div style="color: #666; font-size: 0.8rem;">$${Number(amount).toLocaleString()}</div>`}
                     </div>
                 `}).join('')}
             </div>`;
@@ -1114,8 +1184,11 @@
                             <span class="invoice-status invoice-status-${displayStatus}">${displayStatus}</span>
                         </div>
                         <div class="detail-item-actions">
-                            ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">View</a>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.job_id}', '${inv.invoice_number}')">Send</button>` : ''}
+                            ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">Sheet</a>` : ''}
+                            ${inv.pdf_path ? `<a href="${inv.pdf_path}" target="_blank" class="action-btn action-view">PDF</a>` : ''}
+                            ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${inv.id}')">Export PDF</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceViaGoogle('${inv.id}')">Send</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.job_id}', '${inv.invoice_number}')">Mark Sent</button>` : ''}
                             ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.job_id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
                             ${canCreateNext ? `<button class="action-btn action-contract" onclick="createNextInvoice('${project.job_id}', '${inv.invoice_number}')">Next Invoice</button>` : ''}
                             ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.job_id}', '${inv.invoice_number}')">Delete</button>` : ''}
@@ -1145,6 +1218,17 @@
             }
         }
 
+        // Helper: map API project response to frontend field names
+        function mapProject(p) {
+            return {
+                ...p,
+                job_id: p.job_id,
+                project_name: p.project_name,
+                client_name: p.client_name || '',
+                client_email: p.client_email || '',
+            };
+        }
+
         async function loadProjects() {
             const loading = document.getElementById('projects-loading');
             const table = document.getElementById('projects-table');
@@ -1153,21 +1237,21 @@
 
             try {
                 const response = await fetch(PROJECTS_API);
-                const data = await response.json();
+                const projects = await response.json();
 
                 loading.style.display = 'none';
 
-                if (!data.projects || data.projects.length === 0) {
+                if (!projects || projects.length === 0) {
                     empty.style.display = 'block';
                     updateStats([]);
                     return;
                 }
 
-                allProjects = data.projects;
+                allProjects = projects.map(mapProject);
                 table.style.display = 'table';
                 tbody.innerHTML = '';
 
-                data.projects.forEach(project => {
+                allProjects.forEach(project => {
                     const total = getProjectTotal(project);
                     const invoiced = getProjectInvoiced(project);
                     const paid = getProjectPaid(project);
@@ -1211,7 +1295,7 @@
                     tbody.appendChild(detailRow);
                 });
 
-                updateStats(data.projects);
+                updateStats(allProjects);
 
             } catch (error) {
                 console.error('Failed to load projects:', error);
@@ -1317,10 +1401,10 @@
 
         async function updateStatus(jobId, newStatus) {
             try {
-                const response = await fetch(UPDATE_API, {
-                    method: 'POST',
+                const response = await fetch(PROJECTS_API + '/' + encodeURIComponent(jobId), {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'update', job_id: jobId, status: newStatus })
+                    body: JSON.stringify({ status: newStatus })
                 });
 
                 if (response.ok) {
@@ -1513,15 +1597,8 @@
             }
 
             try {
-                const response = await fetch(UPDATE_API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'delete',
-                        job_id: deleteProjectJobId,
-                        cascade: cascade
-                    })
-                });
+                const url = PROJECTS_API + '/' + encodeURIComponent(deleteProjectJobId) + '?cascade=' + cascade;
+                const response = await fetch(url, { method: 'DELETE' });
 
                 const data = await response.json();
                 if (data.error) {
@@ -1582,15 +1659,14 @@
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                action: 'create',
                                 name: clientName,
                                 email: clientEmail
                             })
                         });
                         const clientData = await clientRes.json();
-                        if (clientData.success) {
-                            clientId = clientData.client.id;
-                            allClients.push(clientData.client);
+                        if (clientData.id) {
+                            clientId = clientData.id;
+                            allClients.push(clientData);
                             populateClientDropdown();
                         }
                     } catch (e) {
@@ -1609,7 +1685,6 @@
                 client_id: clientId || null,
                 status: document.getElementById('new-status').value,
                 tasks: tasks,
-                created_at: new Date().toISOString().split('T')[0]
             };
 
             if (document.getElementById('has-contract').checked) {
@@ -1619,10 +1694,10 @@
             }
 
             try {
-                const response = await fetch(UPDATE_API, {
+                const response = await fetch(PROJECTS_API, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'create', ...project })
+                    body: JSON.stringify(project)
                 });
 
                 if (response.ok) {
@@ -1645,8 +1720,8 @@
         }
 
         // Invoice functions
-        const INVOICE_CREATE_API = 'https://n8n.irrigationengineers.com/webhook/podium-invoice-create';
-        const INVOICE_SEND_API = 'https://n8n.irrigationengineers.com/webhook/podium-invoice-send';
+        const INVOICE_CREATE_API = '/api/contracts';
+        const INVOICE_SEND_API = '/api/invoices';
         let currentInvoiceJobId = null;
 
         function getInvoicesHtml(project) {
@@ -1769,26 +1844,38 @@
                 .map(e => e.trim())
                 .filter(e => e);
 
+            // Find the first contract for this project to create invoice from
+            const contract = project?.contracts?.[0];
+            if (!contract) {
+                alert('No contract found for this project. Create a contract first.');
+                return;
+            }
+
+            // Map old task format to contract task IDs
+            const contractTasks = contract.tasks || [];
+            const invoiceTasks = [];
+            tasksToInvoice.forEach(t => {
+                const ct = contractTasks.find(ct => ct.name === t.name);
+                if (ct) {
+                    invoiceTasks.push({ task_id: ct.id, percent_this_invoice: t.percent });
+                }
+            });
+
             try {
-                const response = await fetch(INVOICE_CREATE_API, {
+                const response = await fetch(INVOICE_CREATE_API + '/' + contract.id + '/invoices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        job_id: currentInvoiceJobId,
-                        tasks: tasksToInvoice,
-                        send_to: emails
-                    })
+                    body: JSON.stringify({ tasks: invoiceTasks })
                 });
 
                 const result = await response.json();
 
-                if (response.ok && result.sheet_url) {
+                if (response.ok) {
                     closeCreateInvoiceModal();
-                    alert(`Invoice ${result.invoice_number} created!\nOpening Google Sheet...`);
-                    window.open(result.sheet_url, '_blank');
+                    alert(`Invoice ${result.invoice_number} created!`);
                     refreshData();
                 } else {
-                    alert('Failed to create invoice: ' + (result.error || 'Unknown error'));
+                    alert('Failed to create invoice: ' + (result.detail || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error creating invoice:', error);
@@ -1797,25 +1884,24 @@
         }
 
         async function sendInvoiceEmail(jobId, invoiceNumber) {
-            if (!confirm(`Send invoice ${invoiceNumber} to client?`)) return;
+            if (!confirm(`Mark invoice ${invoiceNumber} as sent?`)) return;
 
             try {
-                const response = await fetch(INVOICE_SEND_API, {
-                    method: 'POST',
+                // Look up invoice by number to get its ID
+                const lookupRes = await fetch(INVOICE_SEND_API + '/by-number/' + encodeURIComponent(invoiceNumber));
+                const inv = await lookupRes.json();
+
+                const response = await fetch(INVOICE_SEND_API + '/' + inv.id, {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        job_id: jobId,
-                        invoice_number: invoiceNumber
-                    })
+                    body: JSON.stringify({ sent_status: 'sent' })
                 });
 
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    alert('Invoice sent successfully!');
+                if (response.ok) {
+                    alert('Invoice marked as sent!');
                     refreshData();
                 } else {
-                    alert('Failed to send invoice: ' + (result.error || 'Unknown error'));
+                    alert('Failed to update invoice status.');
                 }
             } catch (error) {
                 console.error('Error sending invoice:', error);
@@ -1823,19 +1909,55 @@
             }
         }
 
+        async function exportInvoicePdf(invoiceId) {
+            try {
+                const response = await fetch(INVOICE_SEND_API + '/' + invoiceId + '/export-pdf', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('PDF exported: ' + result.pdf_path);
+                    refreshData();
+                } else {
+                    alert('Failed to export PDF: ' + (result.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                alert('Failed to export PDF. Is the Google service account configured?');
+            }
+        }
+
+        async function sendInvoiceViaGoogle(invoiceId) {
+            if (!confirm('Export PDF and email this invoice to the client?')) return;
+            try {
+                const response = await fetch(INVOICE_SEND_API + '/' + invoiceId + '/send', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Invoice sent to: ' + result.sent_to.join(', '));
+                    refreshData();
+                } else {
+                    alert('Failed to send invoice: ' + (result.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error sending invoice:', error);
+                alert('Failed to send invoice. Is the Google service account configured?');
+            }
+        }
+
         async function markInvoicePaid(jobId, invoiceNumber) {
             if (!confirm(`Mark invoice ${invoiceNumber} as paid?`)) return;
 
             try {
-                const response = await fetch(UPDATE_API, {
-                    method: 'POST',
+                // Look up invoice by number to get its ID
+                const lookupRes = await fetch(INVOICE_SEND_API + '/by-number/' + encodeURIComponent(invoiceNumber));
+                const inv = await lookupRes.json();
+
+                const response = await fetch(INVOICE_SEND_API + '/' + inv.id, {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'update_invoice',
-                        job_id: jobId,
-                        invoice_number: invoiceNumber,
-                        status: 'paid'
-                    })
+                    body: JSON.stringify({ paid_status: 'paid' })
                 });
 
                 if (response.ok) {
@@ -1851,7 +1973,6 @@
         }
 
         // Delete invoice modal state
-        const SHEET_DELETE_API = 'https://n8n.irrigationengineers.com/webhook/podium-sheet-delete';
         let deleteInvoiceState = { jobId: null, invoiceNumber: null, sheetUrl: null };
 
         function deleteInvoice(jobId, invoiceNumber) {
@@ -1881,53 +2002,15 @@
         });
 
         async function confirmDeleteInvoice() {
-            const { jobId, invoiceNumber, sheetUrl } = deleteInvoiceState;
-            const deleteSheet = document.getElementById('delete-sheet-checkbox').checked;
+            const { jobId, invoiceNumber } = deleteInvoiceState;
 
             try {
-                const project = allProjects.find(p => p.job_id === jobId);
-                if (!project) return;
+                // Look up invoice by number to get its ID
+                const lookupRes = await fetch(INVOICE_SEND_API + '/by-number/' + encodeURIComponent(invoiceNumber));
+                const inv = await lookupRes.json();
 
-                // Filter out the invoice to delete
-                const remainingInvoices = project.invoices.filter(inv => inv.invoice_number !== invoiceNumber);
-                const deletedInvoice = project.invoices.find(inv => inv.invoice_number === invoiceNumber);
-
-                // Recalculate task invoiced_percent
-                const updatedTasks = project.tasks.map(task => {
-                    const taskCopy = { ...task };
-                    if (deletedInvoice && deletedInvoice.tasks_invoiced) {
-                        const invoicedTask = deletedInvoice.tasks_invoiced.find(t => t.name === task.name);
-                        if (invoicedTask) {
-                            taskCopy.invoiced_percent = Math.max(0, (task.invoiced_percent || 0) - invoicedTask.percent);
-                        }
-                    }
-                    return taskCopy;
-                });
-
-                // Delete the Google Sheet if checkbox is checked
-                if (deleteSheet && sheetUrl) {
-                    try {
-                        await fetch(SHEET_DELETE_API, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ sheet_url: sheetUrl })
-                        });
-                    } catch (sheetError) {
-                        console.error('Error deleting sheet:', sheetError);
-                        // Continue with invoice deletion even if sheet deletion fails
-                    }
-                }
-
-                // Update project data
-                const response = await fetch(API_BASE, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'update',
-                        job_id: jobId,
-                        invoices: remainingInvoices,
-                        tasks: updatedTasks
-                    })
+                const response = await fetch(INVOICE_SEND_API + '/' + inv.id, {
+                    method: 'DELETE'
                 });
 
                 if (response.ok) {
@@ -1988,34 +2071,21 @@
             if (!currentContractJobId) return;
 
             const contract = {
-                id: 'contract-' + Date.now(),
-                amount: parseFloat(document.getElementById('contract-amount').value) || 0,
-                signed_date: document.getElementById('contract-signed-date').value,
+                project_id: currentContractJobId,
+                total_amount: parseFloat(document.getElementById('contract-amount').value) || 0,
+                signed_at: document.getElementById('contract-signed-date').value || null,
                 file_path: document.getElementById('contract-file-path').value.trim() || null
             };
 
             try {
-                const project = allProjects.find(p => p.job_id === currentContractJobId);
-                const existingContracts = project?.contracts || [];
-
-                const response = await fetch(UPDATE_API, {
+                const response = await fetch('/api/contracts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'update',
-                        job_id: currentContractJobId,
-                        contracts: [...existingContracts, contract],
-                        // Also update legacy contract field for backwards compatibility
-                        contract: {
-                            signed_date: contract.signed_date,
-                            file_path: contract.file_path
-                        }
-                    })
+                    body: JSON.stringify(contract)
                 });
 
                 if (response.ok) {
                     closeAddContractModal();
-                    // Invalidate cache and refresh
                     projectDetailCache.delete(currentContractJobId);
                     refreshData();
                 } else {
@@ -2044,12 +2114,271 @@
             // API calculates previous_billing from invoice chain
         }
 
+        // --- Proposal functions ---
+        const PROPOSALS_API = '/api/proposals';
+        let currentProposalJobId = null;
+        let promoteState = { jobId: null, proposalId: null };
+
+        function renderProposalsSection(project) {
+            const proposals = project.proposals || [];
+
+            if (proposals.length === 0) {
+                return '<div class="detail-empty">No proposals yet</div>';
+            }
+
+            return `<div class="detail-list">
+                ${proposals.map(prop => {
+                    const tasks = prop.tasks || [];
+                    return `
+                    <div class="detail-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="detail-item-info">
+                                <span class="proposal-status proposal-status-${prop.status || 'draft'}">${prop.status || 'draft'}</span>
+                            </div>
+                            <div class="detail-item-actions">
+                                ${(prop.status === 'draft' || prop.status === 'sent') ? `<button class="action-btn action-promote" onclick="event.stopPropagation(); openPromoteModal('${project.job_id}', '${prop.id}')">Promote</button>` : ''}
+                                ${prop.status === 'draft' ? `<button class="action-btn action-delete" onclick="event.stopPropagation(); deleteProposal('${prop.id}')">Delete</button>` : ''}
+                            </div>
+                        </div>
+                        ${tasks.length > 0 ? `
+                        <div style="font-size: 0.8rem;">
+                            ${tasks.map(t => `
+                                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-top: 1px solid #333;">
+                                    <span style="color: #ccc;">${escapeHtml(t.name)}</span>
+                                    <span style="color: #4ade80;">$${Number(t.amount || 0).toLocaleString()}</span>
+                                </div>
+                            `).join('')}
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px solid #555; font-weight: 600;">
+                                <span style="color: #fff;">Total</span>
+                                <span style="color: #4ade80;">$${Number(prop.total_fee || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        ` : `<div style="color: #666; font-size: 0.8rem;">No tasks — $${Number(prop.total_fee || 0).toLocaleString()}</div>`}
+                    </div>
+                `}).join('')}
+            </div>`;
+        }
+
+        function openAddProposalModal(jobId) {
+            currentProposalJobId = jobId || null;
+            document.getElementById('add-proposal-form').reset();
+            document.getElementById('proposal-tasks-list').innerHTML = '';
+
+            // Populate project dropdown
+            const select = document.getElementById('proposal-project-select');
+            while (select.firstChild) select.removeChild(select.firstChild);
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = '-- Select project --';
+            select.appendChild(defaultOpt);
+            allProjects.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.job_id;
+                opt.textContent = `${p.job_id} - ${p.project_name || 'Untitled'}`;
+                select.appendChild(opt);
+            });
+
+            if (jobId) {
+                select.value = jobId;
+                prefillProposalClient();
+            }
+
+            addProposalTaskRow(); // Start with one empty task row
+            updateProposalTotal();
+            document.getElementById('add-proposal-modal').classList.add('active');
+        }
+
+        function closeAddProposalModal() {
+            document.getElementById('add-proposal-modal').classList.remove('active');
+            currentProposalJobId = null;
+        }
+
+        document.getElementById('add-proposal-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closeAddProposalModal();
+        });
+
+        function prefillProposalClient() {
+            const projectId = document.getElementById('proposal-project-select').value;
+            if (!projectId) return;
+            const project = allProjects.find(p => p.job_id === projectId);
+            if (project) {
+                document.getElementById('proposal-client-company').value = project.client_company || project.client_name || '';
+                document.getElementById('proposal-client-email').value = project.client_email || '';
+            }
+        }
+
+        function addProposalTaskRow() {
+            const tasksList = document.getElementById('proposal-tasks-list');
+            const row = document.createElement('div');
+            row.className = 'proposal-task-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Task name" class="ptask-name" required>
+                <input type="text" placeholder="Description (optional)" class="ptask-desc">
+                <input type="number" placeholder="Amount" class="ptask-amount" min="0" step="0.01" required oninput="updateProposalTotal()">
+                <button type="button" class="btn-remove" onclick="this.parentElement.remove(); updateProposalTotal()">&times;</button>
+            `;
+            tasksList.appendChild(row);
+        }
+
+        function updateProposalTotal() {
+            const rows = document.querySelectorAll('#proposal-tasks-list .proposal-task-row');
+            let total = 0;
+            rows.forEach(row => {
+                const amount = parseFloat(row.querySelector('.ptask-amount').value) || 0;
+                total += amount;
+            });
+            document.getElementById('proposal-total-display').textContent = '$' + total.toLocaleString();
+        }
+
+        async function saveProposal(event) {
+            event.preventDefault();
+
+            const projectId = document.getElementById('proposal-project-select').value;
+            if (!projectId) {
+                alert('Please select a project.');
+                return;
+            }
+
+            const taskRows = document.querySelectorAll('#proposal-tasks-list .proposal-task-row');
+            const tasks = Array.from(taskRows).map(row => ({
+                name: row.querySelector('.ptask-name').value.trim(),
+                description: row.querySelector('.ptask-desc').value.trim() || null,
+                amount: parseFloat(row.querySelector('.ptask-amount').value) || 0,
+            })).filter(t => t.name);
+
+            const proposal = {
+                project_id: projectId,
+                client_company: document.getElementById('proposal-client-company').value.trim() || null,
+                client_contact_email: document.getElementById('proposal-client-email').value.trim() || null,
+                total_fee: 0,
+                tasks: tasks,
+            };
+
+            try {
+                const response = await fetch(PROPOSALS_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(proposal),
+                });
+
+                if (response.ok) {
+                    closeAddProposalModal();
+                    refreshData();
+                } else {
+                    const err = await response.json();
+                    alert('Failed to create proposal: ' + (err.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating proposal:', error);
+                alert('Failed to create proposal. Please try again.');
+            }
+        }
+
+        async function deleteProposal(proposalId) {
+            if (!confirm('Delete this proposal?')) return;
+
+            try {
+                const response = await fetch(PROPOSALS_API + '/' + proposalId, {
+                    method: 'DELETE',
+                });
+
+                if (response.ok) {
+                    refreshData();
+                } else {
+                    alert('Failed to delete proposal.');
+                }
+            } catch (error) {
+                console.error('Error deleting proposal:', error);
+                alert('Failed to delete proposal.');
+            }
+        }
+
+        function openPromoteModal(jobId, proposalId) {
+            promoteState = { jobId, proposalId };
+            const project = allProjects.find(p => p.job_id === jobId);
+            const proposal = (project?.proposals || []).find(p => p.id === proposalId);
+
+            if (!proposal) {
+                alert('Proposal not found.');
+                return;
+            }
+
+            document.getElementById('promote-modal-title').textContent = `Promote to Contract - ${jobId}`;
+
+            // Show task summary
+            const tasks = proposal.tasks || [];
+            let summaryHtml = '';
+            if (tasks.length > 0) {
+                summaryHtml = `<table class="tasks-table">
+                    <thead><tr><th>Task</th><th style="text-align:right">Amount</th></tr></thead>
+                    <tbody>
+                        ${tasks.map(t => `<tr>
+                            <td class="task-name">${escapeHtml(t.name)}</td>
+                            <td class="task-amount">$${Number(t.amount || 0).toLocaleString()}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                <div style="display:flex; justify-content:space-between; padding:8px 0; font-weight:600;">
+                    <span>Total</span>
+                    <span style="color:#4ade80;">$${Number(proposal.total_fee || 0).toLocaleString()}</span>
+                </div>`;
+            } else {
+                summaryHtml = `<p>Total Fee: $${Number(proposal.total_fee || 0).toLocaleString()}</p>`;
+            }
+            document.getElementById('promote-tasks-summary').innerHTML = summaryHtml;
+
+            // Default signed date to today
+            document.getElementById('promote-signed-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('promote-file-path').value = '';
+
+            document.getElementById('promote-proposal-modal').classList.add('active');
+        }
+
+        function closePromoteModal() {
+            document.getElementById('promote-proposal-modal').classList.remove('active');
+            promoteState = { jobId: null, proposalId: null };
+        }
+
+        document.getElementById('promote-proposal-modal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) closePromoteModal();
+        });
+
+        async function confirmPromote() {
+            const { proposalId } = promoteState;
+            if (!proposalId) return;
+
+            const signedAt = document.getElementById('promote-signed-date').value || null;
+            const filePath = document.getElementById('promote-file-path').value.trim() || null;
+
+            let url = PROPOSALS_API + '/' + proposalId + '/promote';
+            const params = new URLSearchParams();
+            if (signedAt) params.set('signed_at', signedAt);
+            if (filePath) params.set('file_path', filePath);
+            if (params.toString()) url += '?' + params.toString();
+
+            try {
+                const response = await fetch(url, { method: 'POST' });
+
+                if (response.ok) {
+                    closePromoteModal();
+                    alert('Proposal promoted to contract!');
+                    refreshData();
+                } else {
+                    const err = await response.json();
+                    alert('Failed to promote: ' + (err.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error promoting proposal:', error);
+                alert('Failed to promote proposal.');
+            }
+        }
+
         // Client functions
         async function loadClients() {
             try {
-                const response = await fetch(CLIENTS_API + '?action=list');
+                const response = await fetch(CLIENTS_API);
                 const data = await response.json();
-                allClients = data.clients || [];
+                allClients = data;
                 populateClientDropdown();
             } catch (error) {
                 console.error('Failed to load clients:', error);
