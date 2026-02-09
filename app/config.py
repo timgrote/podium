@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     db_path: str = os.path.join(os.path.dirname(__file__), "..", "db", "conductor.db")
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 3000
     upload_dir: str = os.path.join(os.path.dirname(__file__), "..", "uploads")
 
     # Google API settings

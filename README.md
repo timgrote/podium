@@ -49,10 +49,10 @@ pip install -r requirements.txt
 cd db && python3 init_db.py && cd ..
 
 # 4. Start the server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 
 # 5. Open in browser
-http://localhost:8000/ops/dashboard.html
+http://localhost:3000/ops/dashboard.html
 ```
 
 ## Backend
@@ -81,7 +81,7 @@ Settings are loaded from environment variables with the `CONDUCTOR_` prefix:
 |----------|---------|---------|
 | `CONDUCTOR_DB_PATH` | `db/conductor.db` | Path to SQLite database |
 | `CONDUCTOR_HOST` | `0.0.0.0` | Server bind address |
-| `CONDUCTOR_PORT` | `8000` | Server port |
+| `CONDUCTOR_PORT` | `3000` | Server port |
 | `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_JSON` | | Base64-encoded Google credentials |
 | `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON file |
 | `CONDUCTOR_INVOICE_TEMPLATE_ID` | *(set)* | Google Sheets template for invoices |

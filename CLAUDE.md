@@ -32,9 +32,9 @@ cd db && python3 init_db.py && cd ..
 
 # Start server
 source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 
-# Open: http://localhost:8000/ops/dashboard.html
+# Open: http://localhost:3000/ops/dashboard.html
 ```
 
 ### Database initialization options
@@ -63,7 +63,7 @@ All settings use `CONDUCTOR_` prefix, loaded via pydantic-settings in `app/confi
 |----------|---------|---------|
 | `CONDUCTOR_DB_PATH` | `db/conductor.db` | Path to SQLite database |
 | `CONDUCTOR_HOST` | `0.0.0.0` | Server bind address |
-| `CONDUCTOR_PORT` | `8000` | Server port |
+| `CONDUCTOR_PORT` | `3000` | Server port |
 | `CONDUCTOR_UPLOAD_DIR` | `uploads/` | File upload directory |
 | `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_JSON` | | Base64-encoded Google credentials (production) |
 | `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON (local dev) |
