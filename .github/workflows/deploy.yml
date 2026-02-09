@@ -1,27 +1,31 @@
-name: Deploy to Droplet
+name: Deploy Conduct.io to DigitalOcean
 
 on:
   push:
-    branches:
-      - master
-      - main
-      - feature/db-schema
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          BRANCH_NAME: ${{ github.ref_name }}
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to DigitalOcean via SSH
+        uses: appleboy/ssh-action@v0.1.4
         with:
-          host: n8n.irrigationengineers.com
-          username: root
-          key: ${{ secrets.DROPLET_SSH_KEY }}
-          envs: BRANCH_NAME
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            cd /opt/n8n-docker-caddy/podium
-            git fetch origin
-            git reset --hard "origin/$BRANCH_NAME"
-            echo "Deployed commit: $(git rev-parse HEAD)"
+            echo "🚀 Deploying conductor to droplet"
+            cd /var/www/conductor
+            git pull origin main
+            source /home/deploy/.openclaw/venv/bin/activate
+            pip3 install -r requirements.txt
+            
+            # Restart conductor service gracefully
+            sudo systemctl restart conductor-api
+            sudo systemctl status conductor-api --no-pager
+            
+            echo "✅ Conductor deployed and running on port 3000"
