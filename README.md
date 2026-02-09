@@ -1,4 +1,4 @@
-# Podium
+# Conductor
 
 Multi-tenant SaaS platform for service businesses. Start with irrigation design, expand to any project-based business.
 
@@ -21,7 +21,7 @@ Multi-tenant SaaS platform for service businesses. Start with irrigation design,
 ├── db/
 │   ├── schema.sql          # Full database schema
 │   ├── init_db.py          # Initialize/seed local database
-│   └── podium.db           # SQLite database (created by init_db.py)
+│   └── conductor.db        # SQLite database (created by init_db.py)
 ├── ops/                    # Project management dashboard (HTML/JS)
 │   ├── dashboard.html
 │   ├── project.html
@@ -58,7 +58,7 @@ http://localhost:8000/ops/dashboard.html
 ## Backend
 
 - **FastAPI** serves both the API and static files
-- **SQLite** database at `db/podium.db` (configurable via `PODIUM_DB_PATH` env var)
+- **SQLite** database at `db/conductor.db` (configurable via `CONDUCTOR_DB_PATH` env var)
 - All frontend pages call `/api/...` endpoints — no external dependencies required
 
 ## API Endpoints
@@ -75,17 +75,17 @@ http://localhost:8000/ops/dashboard.html
 
 ## Configuration
 
-Settings are loaded from environment variables with the `PODIUM_` prefix:
+Settings are loaded from environment variables with the `CONDUCTOR_` prefix:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PODIUM_DB_PATH` | `db/podium.db` | Path to SQLite database |
-| `PODIUM_HOST` | `0.0.0.0` | Server bind address |
-| `PODIUM_PORT` | `8000` | Server port |
-| `PODIUM_GOOGLE_SERVICE_ACCOUNT_JSON` | | Base64-encoded Google credentials |
-| `PODIUM_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON file |
-| `PODIUM_INVOICE_TEMPLATE_ID` | *(set)* | Google Sheets template for invoices |
-| `PODIUM_INVOICE_DRIVE_FOLDER_ID` | | Google Drive folder for generated invoices |
+| `CONDUCTOR_DB_PATH` | `db/conductor.db` | Path to SQLite database |
+| `CONDUCTOR_HOST` | `0.0.0.0` | Server bind address |
+| `CONDUCTOR_PORT` | `8000` | Server port |
+| `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_JSON` | | Base64-encoded Google credentials |
+| `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON file |
+| `CONDUCTOR_INVOICE_TEMPLATE_ID` | *(set)* | Google Sheets template for invoices |
+| `CONDUCTOR_INVOICE_DRIVE_FOLDER_ID` | | Google Drive folder for generated invoices |
 
 ## Database
 

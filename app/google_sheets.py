@@ -53,8 +53,8 @@ def _get_credentials():
         return _credentials
 
     raise FileNotFoundError(
-        "No Google credentials configured. Set PODIUM_GOOGLE_SERVICE_ACCOUNT_JSON "
-        "(base64) or PODIUM_GOOGLE_SERVICE_ACCOUNT_PATH (file path)."
+        "No Google credentials configured. Set CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_JSON "
+        "(base64) or CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_PATH (file path)."
     )
 
 

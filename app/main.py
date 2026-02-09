@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .routers import clients, company, contracts, flows, invoices, projects, proposals
 
-app = FastAPI(title="Podium API", version="1.0.0")
+app = FastAPI(title="Conductor API", version="1.0.0")
 
 # --- API routers ---
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])

@@ -1,5 +1,5 @@
 """
-Shared test fixtures for Podium.
+Shared test fixtures for Conductor.
 
 conftest.py is a special pytest file — fixtures defined here are automatically
 available to every test file in this directory without importing them.
@@ -9,7 +9,7 @@ The key fixture is `client`, which gives each test:
   2. A FastAPI TestClient wired to that database
   3. Automatic cleanup after the test finishes
 
-This means tests never touch your real podium.db.
+This means tests never touch your real conductor.db.
 """
 
 import sqlite3
@@ -27,7 +27,7 @@ SCHEMA_PATH = Path(__file__).parent.parent / "db" / "schema.sql"
 
 
 def _create_test_db() -> sqlite3.Connection:
-    """Create a fresh in-memory database with the full Podium schema."""
+    """Create a fresh in-memory database with the full Conductor schema."""
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Initialize the Podium database with schema and optional seed data.
+Initialize the Conductor database with schema and optional seed data.
 
 Usage:
     python init_db.py              # Create fresh DB with seed data
@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timedelta
 import uuid
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'podium.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'conductor.db')
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema.sql')
 
 def generate_id(prefix=''):

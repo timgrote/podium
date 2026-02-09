@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Podium is a multi-tenant SaaS platform for project-based service businesses. The initial vertical is irrigation design, but the architecture supports any service business.
+Conductor is a multi-tenant SaaS platform for project-based service businesses. The initial vertical is irrigation design, but the architecture supports any service business.
 
 ## Architecture
 
 ```
 Frontend (Static HTML/JS)  →  FastAPI (/api/*)  →  SQLite Database
      ↓                           ↓                      ↓
-Caddy (TLS/Auth)           app/routers/*          db/podium.db
+Caddy (TLS/Auth)           app/routers/*          db/conductor.db
 ```
 
 **Three layers:**
@@ -57,18 +57,18 @@ ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
 
 ## Configuration
 
-All settings use `PODIUM_` prefix, loaded via pydantic-settings in `app/config.py`:
+All settings use `CONDUCTOR_` prefix, loaded via pydantic-settings in `app/config.py`:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PODIUM_DB_PATH` | `db/podium.db` | Path to SQLite database |
-| `PODIUM_HOST` | `0.0.0.0` | Server bind address |
-| `PODIUM_PORT` | `8000` | Server port |
-| `PODIUM_UPLOAD_DIR` | `uploads/` | File upload directory |
-| `PODIUM_GOOGLE_SERVICE_ACCOUNT_JSON` | | Base64-encoded Google credentials (production) |
-| `PODIUM_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON (local dev) |
-| `PODIUM_INVOICE_TEMPLATE_ID` | `16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI` | Google Sheets invoice template |
-| `PODIUM_INVOICE_DRIVE_FOLDER_ID` | | Google Drive folder for generated invoices |
+| `CONDUCTOR_DB_PATH` | `db/conductor.db` | Path to SQLite database |
+| `CONDUCTOR_HOST` | `0.0.0.0` | Server bind address |
+| `CONDUCTOR_PORT` | `8000` | Server port |
+| `CONDUCTOR_UPLOAD_DIR` | `uploads/` | File upload directory |
+| `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_JSON` | | Base64-encoded Google credentials (production) |
+| `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON (local dev) |
+| `CONDUCTOR_INVOICE_TEMPLATE_ID` | `16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI` | Google Sheets invoice template |
+| `CONDUCTOR_INVOICE_DRIVE_FOLDER_ID` | | Google Drive folder for generated invoices |
 
 ## API Endpoints
 

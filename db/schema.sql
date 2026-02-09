@@ -1,4 +1,4 @@
--- Podium Database Schema
+-- Conductor Database Schema
 -- SQLite 3.x
 --
 -- Naming conventions:

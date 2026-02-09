@@ -19,7 +19,7 @@
         }
       }
     </script>
-    <title>Podium - Dashboard</title>
+    <title>Conductor - Dashboard</title>
     <style>
         .btn {
             padding: 10px 20px;
@@ -755,7 +755,7 @@
 <body class="font-sans leading-relaxed text-white bg-dark-bg min-h-screen">
     <div class="max-w-[1200px] mx-auto px-5 py-10">
         <header class="flex justify-between items-center mb-10 max-md:flex-col max-md:items-start max-md:gap-4">
-            <h1 class="text-2xl font-bold text-white"><img id="company-logo" src="" alt="" style="height: 40px; margin-right: 12px; vertical-align: middle; display: none;"><span id="company-name">Podium</span> <span class="bg-primary text-white px-3 py-1 rounded-full text-xs ml-2.5 align-middle">Dashboard</span></h1>
+            <h1 class="text-2xl font-bold text-white"><img id="company-logo" src="" alt="" style="height: 40px; margin-right: 12px; vertical-align: middle; display: none;"><span id="company-name">Conductor</span> <span class="bg-primary text-white px-3 py-1 rounded-full text-xs ml-2.5 align-middle">Dashboard</span></h1>
             <div class="flex gap-2 items-center">
                 <button onclick="refreshData()" title="Refresh" class="icon-btn">&#x21bb;</button>
                 <a href="clients.html" title="Clients" class="icon-btn">&#x25C9;</a>
@@ -2679,7 +2679,7 @@
             const table = document.getElementById('projects-table');
             if (!table) return;
             const headers = table.querySelectorAll('thead th');
-            const storageKey = 'podium-col-widths';
+            const storageKey = 'conductor-col-widths';
 
             // Restore saved widths
             const saved = localStorage.getItem(storageKey);
