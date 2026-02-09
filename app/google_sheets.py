@@ -8,9 +8,12 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from google.auth.transport.requests import Request
+from io import BytesIO
+
+from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 
 from .config import settings
 
@@ -264,13 +267,37 @@ def read_invoice_sheet(spreadsheet_id: str) -> list[dict]:
 
 
 def export_sheet_as_pdf(spreadsheet_id: str) -> bytes:
-    """Export a Google Sheet as PDF bytes."""
+    """Export a Google Sheet as PDF bytes (gridlines hidden)."""
+    creds = _get_credentials()
+    session = AuthorizedSession(creds)
+    url = (
+        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export"
+        f"?format=pdf&gridlines=false"
+    )
+    response = session.get(url)
+    if response.status_code != 200:
+        raise RuntimeError(f"PDF export failed with status {response.status_code}")
+    return response.content
+
+
+def upload_pdf_to_drive(pdf_bytes: bytes, filename: str, folder_id: str = "") -> str:
+    """Upload PDF bytes to Google Drive. Returns the Drive file URL."""
     drive = get_drive_service()
-    pdf_bytes = drive.files().export(
-        fileId=spreadsheet_id,
-        mimeType="application/pdf",
+    dest_folder = folder_id or settings.invoice_drive_folder_id
+
+    file_metadata = {"name": filename, "mimeType": "application/pdf"}
+    if dest_folder:
+        file_metadata["parents"] = [dest_folder]
+
+    media = MediaIoBaseUpload(BytesIO(pdf_bytes), mimetype="application/pdf")
+    uploaded = drive.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields="id, webViewLink",
+        supportsAllDrives=True,
     ).execute()
-    return pdf_bytes
+
+    return uploaded.get("webViewLink", f"https://drive.google.com/file/d/{uploaded['id']}/view")
 
 
 def send_invoice_email(

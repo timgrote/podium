@@ -1,7 +1,7 @@
 import glob
 import logging
 import sqlite3
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from fastapi import APIRouter, Depends, UploadFile, File
 
@@ -31,6 +31,7 @@ def get_company(db: sqlite3.Connection = Depends(get_db)):
 def _check_google_access(file_id: str, label: str) -> dict | None:
     """Check if the service account can access a Google Drive file/folder.
     Returns a warning dict if not accessible, None if OK."""
+    sa_email = "unknown"
     try:
         from ..google_sheets import get_drive_service, _get_credentials
         creds = _get_credentials()
@@ -82,7 +83,8 @@ def save_company(data: CompanySettings, db: sqlite3.Connection = Depends(get_db)
 @router.post("/logo")
 async def upload_logo(file: UploadFile = File(...), db: sqlite3.Connection = Depends(get_db)):
     _ensure_table(db)
-    ext = Path(file.filename).suffix.lower() or ".png"
+    safe_name = PurePath(file.filename).name
+    ext = Path(safe_name).suffix.lower() or ".png"
     # Remove any existing logo files
     for old in glob.glob(str(root / "uploads" / "logo.*")):
         Path(old).unlink()

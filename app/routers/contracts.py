@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..database import get_db
 from ..models.contract import ContractCreate, ContractTaskCreate, ContractTaskUpdate
 from ..models.invoice import InvoiceFromContract
-from ..utils import generate_id
+from ..utils import generate_id, next_invoice_number
 
 logger = logging.getLogger(__name__)
 
@@ -167,10 +167,7 @@ def create_invoice_from_contract(
     inv_id = generate_id("inv-")
 
     # Determine invoice number
-    count = db.execute(
-        "SELECT COUNT(*) as cnt FROM invoices WHERE project_id = ?", (project_id,)
-    ).fetchone()["cnt"]
-    invoice_number = f"{project_id}-{count + 1}"
+    invoice_number = next_invoice_number(db, project_id)
 
     # Find previous invoice in chain
     prev_invoice = db.execute(
@@ -298,11 +295,17 @@ def create_invoice_from_contract(
             (sheet_url, datetime.now().isoformat(), inv_id),
         )
         db.commit()
+    except FileNotFoundError:
+        logger.info("Google Sheet creation skipped: no credentials configured")
     except Exception as e:
-        logger.warning("Google Sheet creation skipped: %s", e)
+        logger.error("Google Sheet creation failed: %s", e)
+        sheet_url = None
 
     invoice = db.execute("SELECT * FROM invoices WHERE id = ?", (inv_id,)).fetchone()
-    return dict(invoice)
+    result = dict(invoice)
+    if not result.get("data_path"):
+        result["_warning"] = "Invoice created but Google Sheet could not be generated"
+    return result
 
 
 def _update_contract_total(db: sqlite3.Connection, contract_id: str):

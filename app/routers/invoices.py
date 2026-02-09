@@ -1,19 +1,37 @@
 import logging
-import os
 import re
 import sqlite3
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..config import settings
 from ..database import get_db
 from ..models.invoice import InvoiceUpdate
-from ..utils import generate_id
+from ..utils import generate_id, next_invoice_number
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# --- Lookup by invoice_number (used by frontend) ---
+
+@router.get("/by-number/{invoice_number}")
+def get_invoice_by_number(invoice_number: str, db: sqlite3.Connection = Depends(get_db)):
+    row = db.execute(
+        "SELECT * FROM invoices WHERE invoice_number = ? AND deleted_at IS NULL",
+        (invoice_number,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    invoice = dict(row)
+    line_items = db.execute(
+        "SELECT * FROM invoice_line_items WHERE invoice_id = ? ORDER BY sort_order",
+        (invoice["id"],),
+    ).fetchall()
+    invoice["line_items"] = [dict(li) for li in line_items]
+    return invoice
 
 
 @router.get("/{invoice_id}")
@@ -48,8 +66,8 @@ def _extract_spreadsheet_id(data_path: str) -> str:
 
 @router.post("/{invoice_id}/export-pdf")
 def export_invoice_pdf(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
-    """Export the invoice's Google Sheet as a PDF."""
-    from ..google_sheets import export_sheet_as_pdf
+    """Export the invoice's Google Sheet as a PDF to Google Drive."""
+    from ..google_sheets import export_sheet_as_pdf, upload_pdf_to_drive
 
     invoice = db.execute(
         "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
@@ -64,29 +82,29 @@ def export_invoice_pdf(invoice_id: str, db: sqlite3.Connection = Depends(get_db)
     spreadsheet_id = _extract_spreadsheet_id(invoice["data_path"])
     pdf_bytes = export_sheet_as_pdf(spreadsheet_id)
 
-    # Save PDF locally
-    invoice_dir = os.path.join(settings.upload_dir, "invoices")
-    os.makedirs(invoice_dir, exist_ok=True)
-    filename = f"{invoice['invoice_number']}.pdf"
-    pdf_path = os.path.join(invoice_dir, filename)
-    with open(pdf_path, "wb") as f:
-        f.write(pdf_bytes)
+    # Upload PDF to Google Drive
+    folder_row = db.execute(
+        "SELECT value FROM company_settings WHERE key = 'invoice_drive_folder_id'"
+    ).fetchone()
+    folder_id = folder_row["value"] if folder_row else ""
 
-    relative_path = f"/uploads/invoices/{filename}"
+    filename = f"{invoice['invoice_number']}.pdf"
+    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id)
+
     now = datetime.now().isoformat()
     db.execute(
         "UPDATE invoices SET pdf_path = ?, updated_at = ? WHERE id = ?",
-        (relative_path, now, invoice_id),
+        (drive_url, now, invoice_id),
     )
     db.commit()
 
-    return {"success": True, "pdf_path": relative_path}
+    return {"success": True, "pdf_path": drive_url}
 
 
 @router.post("/{invoice_id}/finalize")
 def finalize_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     """Finalize an invoice: read amounts from Google Sheet, snapshot to DB, generate PDF."""
-    from ..google_sheets import export_sheet_as_pdf, read_invoice_sheet
+    from ..google_sheets import export_sheet_as_pdf, read_invoice_sheet, upload_pdf_to_drive
 
     invoice = db.execute(
         "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
@@ -133,31 +151,30 @@ def finalize_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     # 4. Export Google Sheet as PDF
     pdf_bytes = export_sheet_as_pdf(spreadsheet_id)
 
-    # 5. Save PDF to disk
-    invoice_dir = os.path.join(settings.upload_dir, "invoices")
-    os.makedirs(invoice_dir, exist_ok=True)
-    filename = f"{invoice['invoice_number']}.pdf"
-    pdf_path = os.path.join(invoice_dir, filename)
-    with open(pdf_path, "wb") as f:
-        f.write(pdf_bytes)
+    # 5. Upload PDF to Google Drive
+    folder_row = db.execute(
+        "SELECT value FROM company_settings WHERE key = 'invoice_drive_folder_id'"
+    ).fetchone()
+    folder_id = folder_row["value"] if folder_row else ""
 
-    relative_path = f"/uploads/invoices/{filename}"
+    filename = f"{invoice['invoice_number']}.pdf"
+    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id)
 
     # 6. Update invoice: set pdf_path, keep data_path as sheet URL
     db.execute(
         "UPDATE invoices SET pdf_path = ?, updated_at = ? WHERE id = ?",
-        (relative_path, now, invoice_id),
+        (drive_url, now, invoice_id),
     )
     db.commit()
 
-    logger.info("Finalized invoice %s: total=$%.2f, pdf=%s", invoice["invoice_number"], total_due, relative_path)
-    return {"success": True, "total_due": total_due, "pdf_path": relative_path}
+    logger.info("Finalized invoice %s: total=$%.2f, pdf=%s", invoice["invoice_number"], total_due, drive_url)
+    return {"success": True, "total_due": total_due, "pdf_path": drive_url}
 
 
 @router.post("/{invoice_id}/send")
 def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     """Export PDF and email the invoice to the client."""
-    from ..google_sheets import export_sheet_as_pdf, send_invoice_email
+    from ..google_sheets import export_sheet_as_pdf, send_invoice_email, upload_pdf_to_drive
 
     invoice = db.execute(
         "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
@@ -193,18 +210,17 @@ def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
             else:
                 company_email = row["value"]
 
-    # 1. Export PDF
+    # 1. Export PDF and upload to Google Drive
     spreadsheet_id = _extract_spreadsheet_id(invoice["data_path"])
     pdf_bytes = export_sheet_as_pdf(spreadsheet_id)
 
-    invoice_dir = os.path.join(settings.upload_dir, "invoices")
-    os.makedirs(invoice_dir, exist_ok=True)
-    filename = f"{invoice['invoice_number']}.pdf"
-    pdf_path = os.path.join(invoice_dir, filename)
-    with open(pdf_path, "wb") as f:
-        f.write(pdf_bytes)
+    folder_row = db.execute(
+        "SELECT value FROM company_settings WHERE key = 'invoice_drive_folder_id'"
+    ).fetchone()
+    folder_id = folder_row["value"] if folder_row else ""
 
-    relative_path = f"/uploads/invoices/{filename}"
+    filename = f"{invoice['invoice_number']}.pdf"
+    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id)
 
     # 2. Determine recipients
     to_emails = []
@@ -242,11 +258,11 @@ def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     now = datetime.now().isoformat()
     db.execute(
         "UPDATE invoices SET sent_status = 'sent', sent_at = ?, pdf_path = ?, updated_at = ? WHERE id = ?",
-        (now, relative_path, now, invoice_id),
+        (now, drive_url, now, invoice_id),
     )
     db.commit()
 
-    return {"success": True, "sent_to": to_emails, "pdf_path": relative_path}
+    return {"success": True, "sent_to": to_emails, "pdf_path": drive_url}
 
 @router.post("/{invoice_id}/create-next")
 def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
@@ -274,10 +290,7 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
     now = datetime.now().isoformat()
 
     # Determine new invoice number
-    count = db.execute(
-        "SELECT COUNT(*) as cnt FROM invoices WHERE project_id = ?", (project_id,)
-    ).fetchone()["cnt"]
-    new_invoice_number = f"{project_id}-{count + 1}"
+    new_invoice_number = next_invoice_number(db, project_id)
 
     new_inv_id = generate_id("inv-")
 
@@ -386,12 +399,18 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
             (sheet_url, datetime.now().isoformat(), new_inv_id),
         )
         db.commit()
+    except FileNotFoundError:
+        logger.info("Google Sheet creation skipped: no credentials configured")
     except Exception as e:
-        logger.warning("Google Sheet creation skipped for next invoice: %s", e)
+        logger.error("Google Sheet creation failed: %s", e)
+        sheet_url = None
 
     new_invoice = db.execute("SELECT * FROM invoices WHERE id = ?", (new_inv_id,)).fetchone()
     logger.info("Created next invoice %s (chain from %s)", new_invoice_number, invoice["invoice_number"])
-    return dict(new_invoice)
+    result = dict(new_invoice)
+    if not result.get("data_path"):
+        result["_warning"] = "Invoice created but Google Sheet could not be generated"
+    return result
 
 
 @router.patch("/{invoice_id}")
@@ -474,23 +493,3 @@ def delete_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
 
     db.commit()
     return {"success": True}
-
-
-# --- Lookup by invoice_number (used by frontend) ---
-
-@router.get("/by-number/{invoice_number}")
-def get_invoice_by_number(invoice_number: str, db: sqlite3.Connection = Depends(get_db)):
-    row = db.execute(
-        "SELECT * FROM invoices WHERE invoice_number = ? AND deleted_at IS NULL",
-        (invoice_number,),
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-
-    invoice = dict(row)
-    line_items = db.execute(
-        "SELECT * FROM invoice_line_items WHERE invoice_id = ? ORDER BY sort_order",
-        (invoice["id"],),
-    ).fetchall()
-    invoice["line_items"] = [dict(li) for li in line_items]
-    return invoice

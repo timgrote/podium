@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
 from ..models.project import ProjectCreate, ProjectDetail, ProjectSummary, ProjectUpdate
-from ..utils import generate_id
+from ..utils import generate_id, next_invoice_number
 
 router = APIRouter()
 
@@ -280,10 +280,7 @@ def add_invoice_to_project(
     inv_id = generate_id("inv-")
 
     if not invoice_number:
-        count = db.execute(
-            "SELECT COUNT(*) as cnt FROM invoices WHERE project_id = ?", (project_id,)
-        ).fetchone()["cnt"]
-        invoice_number = f"{project_id}-{count + 1}"
+        invoice_number = next_invoice_number(db, project_id)
 
     db.execute(
         "INSERT INTO invoices (id, invoice_number, project_id, type, description, total_due, created_at, updated_at) "

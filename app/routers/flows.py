@@ -2,7 +2,9 @@ import os
 import sqlite3
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from pathlib import PurePath
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..config import settings
 from ..database import get_db
@@ -53,7 +55,8 @@ async def submit_proposal(
     pdf_path = None
     if proposal_pdf and proposal_pdf.filename:
         os.makedirs(settings.upload_dir, exist_ok=True)
-        filename = f"{job_id}-proposal-{proposal_pdf.filename}"
+        safe_name = PurePath(proposal_pdf.filename).name
+        filename = f"{job_id}-proposal-{safe_name}"
         filepath = os.path.join(settings.upload_dir, filename)
         content = await proposal_pdf.read()
         with open(filepath, "wb") as f:
@@ -86,12 +89,20 @@ async def submit_contract(
     file_path = None
     if signed_contract and signed_contract.filename:
         os.makedirs(settings.upload_dir, exist_ok=True)
-        filename = f"{job_id}-contract-{signed_contract.filename}"
+        safe_name = PurePath(signed_contract.filename).name
+        filename = f"{job_id}-contract-{safe_name}"
         filepath = os.path.join(settings.upload_dir, filename)
         content = await signed_contract.read()
         with open(filepath, "wb") as f:
             f.write(content)
         file_path = f"/uploads/{filename}"
+
+    # Verify project exists
+    project = db.execute(
+        "SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL", (job_id,)
+    ).fetchone()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     # Update project status
     db.execute(
@@ -127,7 +138,8 @@ async def submit_payment(
     # Save receipt file
     if receipt and receipt.filename:
         os.makedirs(settings.upload_dir, exist_ok=True)
-        filename = f"{job_id}-receipt-{receipt.filename}"
+        safe_name = PurePath(receipt.filename).name
+        filename = f"{job_id}-receipt-{safe_name}"
         filepath = os.path.join(settings.upload_dir, filename)
         content = await receipt.read()
         with open(filepath, "wb") as f:
@@ -138,11 +150,13 @@ async def submit_payment(
         "SELECT id FROM invoices WHERE invoice_number = ? AND deleted_at IS NULL",
         (invoice,),
     ).fetchone()
-    if inv_row:
-        db.execute(
-            "UPDATE invoices SET paid_status = 'paid', paid_at = ?, updated_at = ? WHERE id = ?",
-            (now, now, inv_row["id"]),
-        )
+    if not inv_row:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    db.execute(
+        "UPDATE invoices SET paid_status = 'paid', paid_at = ?, updated_at = ? WHERE id = ?",
+        (now, now, inv_row["id"]),
+    )
 
     db.commit()
     return {"success": True}
