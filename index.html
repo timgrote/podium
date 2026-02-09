@@ -3,311 +3,344 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Podium - Irrigation Design Services</title>
+    <title>Podium Project Management - Contracts Edition</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #f5f5f5;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            color: #2c5530;
-            margin-bottom: 10px;
-        }
-
-        .tagline {
-            color: #666;
-            font-size: 1.1rem;
-        }
-
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 32px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 500;
-            color: #444;
-        }
-
-        input[type="text"],
-        input[type="email"],
-        textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: border-color 0.2s;
-        }
-
-        input:focus,
-        textarea:focus {
-            outline: none;
-            border-color: #2c5530;
-        }
-
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        .file-input {
-            border: 2px dashed #ddd;
-            border-radius: 6px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-
-        .file-input:hover {
-            border-color: #2c5530;
-        }
-
-        .file-input input {
-            display: none;
-        }
-
-        .file-input .label {
-            color: #666;
-        }
-
-        .file-input .formats {
-            font-size: 0.85rem;
-            color: #999;
-            margin-top: 8px;
-        }
-
-        .file-name {
-            margin-top: 10px;
-            color: #2c5530;
-            font-weight: 500;
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background: #2c5530;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1.1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        button:hover {
-            background: #1e3d22;
-        }
-
-        button:disabled {
-            background: #999;
-            cursor: not-allowed;
-        }
-
-        .success-message {
-            display: none;
-            text-align: center;
-            padding: 40px 20px;
-        }
-
-        .success-message h2 {
-            color: #2c5530;
-            margin-bottom: 10px;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 40px;
-            color: #999;
-            font-size: 0.9rem;
-        }
-
-        .process {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-
-        .process h3 {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 12px;
-        }
-
-        .steps {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: #888;
-        }
-
-        .step {
-            text-align: center;
-            flex: 1;
-        }
-
-        .step-num {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            background: #2c5530;
-            color: white;
-            border-radius: 50%;
-            line-height: 24px;
-            font-size: 0.75rem;
-            margin-bottom: 4px;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .panel { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; }
+        input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 5px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+        button:hover { background: #0056b3; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .project-item { border: 1px solid #eee; padding: 15px; border-radius: 8px; background: #fafafa; }
+        .project-item.active { border-left: 4px solid #28a745; }
+        .project-item.draft { border-left: 4px solid #ffc107; }
+        .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .tasks-section { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; }
+        .task-line { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+        .convert-btn { background: #28a745; font-size: 12px; }
+        .total-bar { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; text-align: right; font-weight: bold; }
+        .tabs { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 20px; }
+        .tab { padding: 10px 20px; cursor: pointer; border: none; background: none; }
+        .tab.active { border-bottom: 2px solid #007bff; color: #007bff; }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Podium</h1>
-            <p class="tagline">Professional Irrigation Design Services</p>
-        </header>
-
-        <div class="card">
-            <form id="intake-form">
-                <div class="form-group">
-                    <label for="project_name">Project Name</label>
-                    <input type="text" id="project_name" name="project_name" required
-                           placeholder="e.g., Gateway Residence">
-                </div>
-
-                <div class="form-group">
-                    <label for="client_name">Your Name</label>
-                    <input type="text" id="client_name" name="client_name" required
-                           placeholder="Your full name">
-                </div>
-
-                <div class="form-group">
-                    <label for="client_email">Email Address</label>
-                    <input type="email" id="client_email" name="client_email" required
-                           placeholder="you@example.com">
-                </div>
-
-                <div class="form-group">
-                    <label for="notes">Project Notes</label>
-                    <textarea id="notes" name="notes"
-                              placeholder="Describe your project - acreage, plant types, special requirements..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Planting Plan</label>
-                    <div class="file-input" onclick="document.getElementById('file').click()">
-                        <input type="file" id="file" name="data" accept=".zip,.dwg,.pdf,.dxf" required>
-                        <div class="label">Click to upload your planting plan</div>
-                        <div class="formats">Accepted: ZIP, DWG, DXF, PDF</div>
-                        <div class="file-name" id="file-name"></div>
-                    </div>
-                </div>
-
-                <button type="submit">Submit Design Request</button>
-
-                <div class="process">
-                    <h3>How it works</h3>
-                    <div class="steps">
-                        <div class="step">
-                            <div class="step-num">1</div>
-                            <div>Submit plan</div>
-                        </div>
-                        <div class="step">
-                            <div class="step-num">2</div>
-                            <div>Get quote</div>
-                        </div>
-                        <div class="step">
-                            <div class="step-num">3</div>
-                            <div>Pay & confirm</div>
-                        </div>
-                        <div class="step">
-                            <div class="step-num">4</div>
-                            <div>Receive design</div>
-                        </div>
-                    </div>
-                </div>
-            </form>
-
-            <div class="success-message" id="success">
-                <h2>Request Received!</h2>
-                <p>We'll review your planting plan and send you a quote within 48 hours.</p>
-            </div>
+        <h1>Podium Project Management - Contracts & Invoices</h1>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('projects')">Projects</button>
+            <button class="tab" onclick="showTab('contracts')">Contracts</button>
+            <button class="tab" onclick="showTab('invoices')">Invoices</button>
+            <button class="tab" onclick="showTab('tasks')">Tasks</button>
         </div>
 
-        <footer>
-            <p>Powered by Irrigation Engineers, Inc.</p>
-        </footer>
+        <!-- Projects Tab -->
+        <div id="projects-tab" class="tab-content">
+            <div class="section-title">
+                <h2>Projects</h2>
+                <button onclick="showCreateProject()" style="background: #28a745;">New Project</button>
+            </div>
+            
+            <!-- Create Project -->
+            <div id="create-project" style="display:none;" class="panel">
+                <h3>Create Project</h3>
+                <div class="form-group">
+                    <input type="text" id="projectName" placeholder="Project Name">
+                    <input type="text" id="clientName" placeholder="Client Name">
+                    <input type="number" id="projectBudget" placeholder="Budget" step="0.01">
+                    <button onclick="createProject()">Create Project</button>
+                    <button onclick="hideCreateProject()" style="background: #6c757d;">Cancel</button>
+                </div>
+            </div>
+            
+            <div id="projects-list"></div>
+        </div>
+
+        <!-- Contracts Tab -->
+        <div id="contracts-tab" class="tab-content" style="display:none;">
+            <div class="section-title">
+                <h2>Contracts</h2>
+                <button onclick="showCreateContract()" style="background: #28a745;">New Contract</button>
+            </div>
+            
+            <div id="create-contract" style="display:none;" class="panel">
+                <h3>Create Contract</h3>
+                <div class="form-group">
+                    <select id="contractProject"></select>
+                    <input type="text" id="contractTitle" placeholder="Contract Title">
+                    <div id="contract-tasks">
+                        <div class="task-input">
+                            <input type="text" placeholder="Task Name">
+                            <textarea placeholder="Task Description"></textarea>
+                            <input type="number" placeholder="Fee" step="0.01">
+                            <button onclick="removeContractTask(this)">Remove</button>
+                        </div>
+                    </div>
+                    <button onclick="addContractTask()">Add Task</button>
+                    <button onclick="createContract()">Create Contract</button>
+                    <button onclick="hideCreateContract()" style="background: #6c757d;">Cancel</button>
+                </div>
+            </div>
+            
+            <div id="contracts-list"></div>
+        </div>
+
+        <!-- Invoices Tab -->
+        <div id="invoices-tab" class="tab-content" style="display:none;">
+            <div class="section-title">
+                <h2>Invoices</h2>
+                <button onclick="showCreateInvoice()" style="background: #28a745;">New Invoice</button>
+            </div>
+            
+            <div id="create-invoice" style="display:none;" class="panel">
+                <h3>Create Invoice</h3>
+                <div class="form-group">
+                    <select id="invoiceProject"></select>
+                    <select id="invoiceContract"></select>
+                    <div id="invoice-tasks">
+                        <!-- Tasks will be populated from contract -->
+                    </div>
+                    <button onclick="createInvoice()">Create Invoice</button>
+                    <button onclick="hideCreateInvoice()" style="background: #6c757d;">Cancel</button>
+                </div>
+            </div>
+            
+            <div id="invoices-list"></div>
+        </div>
+
+        <!-- Tasks Tab -->
+        <div id="tasks-tab" class="tab-content" style="display:none;">
+            <div class="section-title">
+                <h2>All Tasks</h2>
+            </div>
+            <div id="tasks-list"></div>
+        </div>
     </div>
 
     <script>
-        const form = document.getElementById('intake-form');
-        const fileInput = document.getElementById('file');
-        const fileName = document.getElementById('file-name');
-        const success = document.getElementById('success');
+        let currentData = { projects: [], contracts: [], invoices: [], tasks: [] };
 
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                fileName.textContent = e.target.files[0].name;
-            }
-        });
+        // Initialization
+        fetchData();
+        initDB();
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        async function initDB() {
+            await fetch('/api/init', { method: 'POST' });
+            await fetchData();
+        }
 
-            const button = form.querySelector('button');
-            button.disabled = true;
-            button.textContent = 'Submitting...';
+        async function fetchData() {
+            currentData.projects = await (await fetch('/api/projects')).json();
+            currentData.contracts = await (await fetch('/api/contracts')).json();
+            currentData.invoices = await (await fetch('/api/invoices')).json();
+            currentData.tasks = await (await fetch('/api/tasks')).json();
+            
+            renderAll();
+            updateDropdowns();
+        }
 
-            const formData = new FormData(form);
+        // Tab navigation
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+        }
 
-            try {
-                const response = await fetch('https://n8n.irrigationengineers.com/webhook/podium-intake', {
-                    method: 'POST',
-                    body: formData
-                });
+        // Project management
+        async function createProject() {
+            const data = {
+                name: document.getElementById('projectName').value,
+                client_name: document.getElementById('clientName').value,
+                budget: parseFloat(document.getElementById('projectBudget').value) || 0
+            };
+            await fetch('/api/projects', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            hideCreateProject();
+            await fetchData();
+        }
 
-                if (response.ok) {
-                    form.style.display = 'none';
-                    success.style.display = 'block';
-                } else {
-                    throw new Error('Submission failed');
+        // Contract management
+        async function createContract() {
+            const projectId = document.getElementById('contractProject').value;
+            const taskInputs = document.querySelectorAll('#contract-tasks .task-input');
+            const tasks = [];
+            
+            let total = 0;
+            taskInputs.forEach(input => {
+                const name = input.querySelector('input[type="text"]').value;
+                const description = input.querySelector('textarea').value;
+                const fee = parseFloat(input.querySelector('input[type="number"]').value) || 0;
+                if (name && fee > 0) {
+                    tasks.push({name, description, fee});
+                    total += fee;
                 }
-            } catch (error) {
-                alert('Something went wrong. Please try again or email us directly.');
-                button.disabled = false;
-                button.textContent = 'Submit Design Request';
+            });
+
+            const data = {
+                project_id: parseInt(projectId),
+                name: document.getElementById('contractTitle').value,
+                total_amount: total,
+                tasks: tasks
+            };
+
+            await fetch('/api/contracts', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            hideCreateContract();
+            await fetchData();
+        }
+
+        // Invoice management
+        async function createInvoice() {
+            const data = {
+                project_id: parseInt(document.getElementById('invoiceProject').value),
+                contract_id: parseInt(document.getElementById('invoiceContract').value) || null,
+                amount: calculateInvoiceTotal()
+            };
+            await fetch('/api/invoices', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            hideCreateInvoice();
+            await fetchData();
+        }
+
+        // UI helpers
+        function showCreateProject() { document.getElementById('create-project').style.display = 'block'; }
+        function hideCreateProject() { document.getElementById('create-project').style.display = 'none'; }
+        function showCreateContract() { document.getElementById('create-contract').style.display = 'block'; }
+        function hideCreateContract() { document.getElementById('create-contract').style.display = 'none'; }
+        function showCreateInvoice() { document.getElementById('create-invoice').style.display = 'block'; }
+        function hideCreateInvoice() { document.getElementById('create-invoice').style.display = 'none'; }
+
+        function addContractTask() {
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'task-input';
+            taskDiv.innerHTML = `
+                <input type="text" placeholder="Task Name">
+                <textarea placeholder="Task Description"></textarea>
+                <input type="number" placeholder="Fee" step="0.01">
+                <button onclick="removeContractTask(this)">Remove</button>
+            `;
+            document.getElementById('contract-tasks').appendChild(taskDiv);
+        }
+
+        function removeContractTask(button) {
+            button.parentElement.remove();
+        }
+
+        function updateDropdowns() {
+            const projectOptions = currentData.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            document.querySelectorAll('#contractProject, #invoiceProject').forEach(select => select.innerHTML =
+                '<option value="">Select Project</option>' + projectOptions);
+        }
+
+        function calculateInvoiceTotal() {
+            // Implementation based on selected tasks
+            return 0;
+        }
+
+        // Render functions
+        function renderAll() {
+            renderProjects();
+            renderContracts();
+            renderInvoices();
+            renderTasks();
+        }
+
+        function renderProjects() {
+            const container = document.getElementById('projects-list');
+            container.innerHTML = currentData.projects.map(project => `
+                <div class="project-item ${project.status}">
+                    <h3>${project.name}</h3>
+                    <p><strong>Client:</strong> ${project.client_name}</p>
+                    <p><strong>Budget:</strong> $${project.budget || 0}</p>
+                    <p><strong>Status:</strong> ${project.status}</p>
+                    <button onclick="deleteItem('projects', ${project.id})">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        function renderContracts() {
+            const container = document.getElementById('contracts-list');
+            container.innerHTML = currentData.contracts.map(contract => `
+                <div class="project-item">
+                    <h3>${contract.contract_number}</h3>
+                    <p><strong>Project:</strong> ${contract.project_name}</p>
+                    <p><strong>Total:</strong> $${contract.total_amount || 0}</p>
+                    <p><strong>Status:</strong> ${contract.status}</p>
+                    
+                    <div class="tasks-section">
+                        <h4>Contract Tasks</h4>
+                        ${contract.tasks.map(task => `
+                            <div class="task-line">
+                                <span>${task.name}</span>
+                                <span>$${task.fee}</span>
+                            </div>
+                        `).join('')}
+                        <div class="total-bar">Total: $${contract.task_total || 0}</div>
+                    </div>
+                    
+                    <button onclick="deleteItem('contracts', ${contract.id})">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        function renderInvoices() {
+            const container = document.getElementById('invoices-list');
+            container.innerHTML = currentData.invoices.map(invoice => `
+                <div class="project-item">
+                    <h3>${invoice.invoice_number}</h3>
+                    <p><strong>Amount:</strong> $${invoice.amount}</p>
+                    <p><strong>Status:</strong> ${invoice.status}</p>
+                    <button onclick="deleteItem('invoices', ${invoice.id})">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-list');
+            container.innerHTML = currentData.tasks.map(task => `
+                <div class="task-line">
+                    <span><strong>${task.name}</strong> - ${task.project_name}</span>
+                    <span>$${task.fee}</span>
+                    <button onclick="deleteItem('tasks', ${task.id})">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        // Delete functionality
+        async function deleteItem(type, id) {
+            await fetch(`/api/${type}/${id}`, {method: 'DELETE'});
+            await fetchData();
+        }
+
+        // Auto-populate selection
+        document.getElementById('contractProject').addEventListener('change', async function() {
+            const projectId = this.value;
+            if (projectId) {
+                const tasks = currentData.tasks.filter(t => t.project_id == projectId && !t.contract_id);
+                // Could populate default tasks
             }
         });
+
+        bootstrap();
+        async function bootstrap() {
+            // Do once
+        }
     </script>
 </body>
 </html>

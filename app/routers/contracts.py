@@ -246,7 +246,8 @@ def create_invoice_from_contract(
         from ..google_sheets import create_invoice_sheet
 
         project = db.execute(
-            "SELECT p.*, c.name as client_name, c.company as client_company "
+            "SELECT p.*, c.name as client_name, c.company as client_company, "
+            "c.address as client_address "
             "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
             "WHERE p.id = ?",
             (project_id,),
@@ -267,22 +268,30 @@ def create_invoice_from_contract(
                 elif key == "invoice_template_id":
                     template_id = row["value"]
 
+        # Use PM email from request or project, fall back to company email
+        pm_email = data.pm_email or dict(project).get("pm_email") or company_email
+
         client_display = (
             dict(project).get("client_company")
             or dict(project).get("client_name")
             or ""
         )
 
+        p_dict = dict(project)
         sheet_url = create_invoice_sheet(
             invoice_number=invoice_number,
             project_name=project["name"],
             project_id=project_id,
             invoice_date=now[:10],
-            company_email=company_email,
+            company_email=pm_email,
             client_name=client_display,
             tasks=line_items,
             folder_id=drive_folder_id,
             template_id=template_id,
+            client_contact=p_dict.get("client_name") or "",
+            client_company=p_dict.get("client_company") or "",
+            client_address=p_dict.get("client_address") or "",
+            client_project_number=p_dict.get("client_project_number") or "",
         )
         db.execute(
             "UPDATE invoices SET data_path = ?, updated_at = ? WHERE id = ?",

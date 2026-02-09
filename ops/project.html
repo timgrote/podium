@@ -4,68 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Detail - Podium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#6c63ff',
+              'primary-hover': '#5a52d5',
+              'dark-bg': '#1a1a2e',
+              'dark-card': '#242442',
+              'dark-border': '#444',
+            }
+          }
+        }
+      }
+    </script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #fff;
-            background: #1a1a2e;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-        .back-link {
-            color: #6c63ff;
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-        .back-link:hover { text-decoration: underline; }
-        h1 {
-            font-size: 1.75rem;
-            color: #fff;
-            margin-bottom: 8px;
-        }
-        .project-meta {
-            color: #888;
-            font-size: 0.9rem;
-        }
-        .status {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            margin-left: 12px;
-        }
+        /* Minimal styles for JS-generated dynamic classes and states */
+        .modal { display: none; }
+        .modal.active { display: flex; }
+        .hidden { display: none; }
+        .expand-icon { color: #888; transition: transform 0.2s; }
+        .expand-icon.expanded { transform: rotate(180deg); }
+
+        /* Status badges */
+        .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
         .status-proposal { background: #3b3b6d; color: #a5a5ff; }
         .status-contract { background: #3d4b3d; color: #a5d6a5; }
         .status-invoiced { background: #4b4b3d; color: #ffd700; }
         .status-paid { background: #2d4a3d; color: #4ade80; }
         .status-complete { background: #1a3a2e; color: #10b981; }
 
-        .btn {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
+        /* Invoice status */
+        .invoice-status { padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+        .invoice-status-unpaid { background: #3b3b6d; color: #a5a5ff; }
+        .invoice-status-sent { background: #4b4b3d; color: #ffd700; }
+        .invoice-status-paid { background: #2d4a3d; color: #4ade80; }
+
+        /* JS-generated component classes */
+        .btn { padding: 8px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer; text-decoration: none; border: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
         .btn-primary { background: #6c63ff; color: white; }
         .btn-primary:hover { background: #5a52d5; }
         .btn-secondary { background: #242442; color: #ccc; border: 1px solid #444; }
@@ -78,510 +56,157 @@
         .btn-danger:hover { background: #5a3c3c; }
         .btn-small { padding: 6px 12px; font-size: 0.8rem; }
 
-        .section {
-            background: #242442;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .section-title {
-            font-size: 1rem;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+        .info-item label { display: block; color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px; }
+        .info-item span { color: #fff; }
+        .info-item a { color: #6c63ff; }
 
-        /* Client Info */
-        .client-info {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-        }
-        .info-item label {
-            display: block;
-            color: #888;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        .info-item span {
-            color: #fff;
-        }
-        .info-item a {
-            color: #6c63ff;
-        }
-
-        /* Financials */
-        .financials {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            text-align: center;
-        }
-        .financial-item {
-            background: #1a1a2e;
-            padding: 16px;
-            border-radius: 8px;
-        }
-        .financial-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #6c63ff;
-        }
-        .financial-label {
-            color: #888;
-            font-size: 0.8rem;
-            margin-top: 4px;
-        }
+        .financial-item { background: #1a1a2e; padding: 16px; border-radius: 8px; text-align: center; }
+        .financial-value { font-size: 1.5rem; font-weight: 700; color: #6c63ff; }
+        .financial-label { color: #888; font-size: 0.8rem; margin-top: 4px; }
         .financial-item.success .financial-value { color: #4ade80; }
         .financial-item.warning .financial-value { color: #fbbf24; }
 
-        /* Lists */
-        .item-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #1a1a2e;
-            padding: 12px 16px;
-            border-radius: 8px;
-        }
-        .list-item-info {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .list-item-primary {
-            color: #fff;
-            font-weight: 500;
-        }
-        .list-item-secondary {
-            color: #888;
-            font-size: 0.85rem;
-        }
-        .list-item-amount {
-            color: #4ade80;
-            font-weight: 600;
-        }
-        .list-item-actions {
-            display: flex;
-            gap: 8px;
-        }
-        .empty-state {
-            color: #666;
-            text-align: center;
-            padding: 24px;
-        }
+        .list-item { display: flex; justify-content: space-between; align-items: center; background: #1a1a2e; padding: 12px 16px; border-radius: 8px; }
+        .list-item-info { display: flex; align-items: center; gap: 16px; }
+        .list-item-primary { color: #fff; font-weight: 500; }
+        .list-item-secondary { color: #888; font-size: 0.85rem; }
+        .list-item-amount { color: #4ade80; font-weight: 600; }
+        .list-item-actions { display: flex; gap: 8px; }
 
-        /* Invoice Chain */
-        .invoice-chain {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .invoice-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #1a1a2e;
-            padding: 16px;
-            border-radius: 8px;
-            border-left: 4px solid transparent;
-        }
-        .invoice-item.current {
-            border-left-color: #6c63ff;
-            background: #2a2a4a;
-        }
-        .invoice-item.paid {
-            border-left-color: #4ade80;
-        }
-        .invoice-item.sent {
-            border-left-color: #ffd700;
-        }
-        .invoice-number {
-            font-weight: 600;
-            color: #fff;
-        }
-        .invoice-details {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .invoice-amount {
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-        .invoice-status {
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-        .invoice-status-unpaid { background: #3b3b6d; color: #a5a5ff; }
-        .invoice-status-sent { background: #4b4b3d; color: #ffd700; }
-        .invoice-status-paid { background: #2d4a3d; color: #4ade80; }
-        .invoice-date {
-            color: #888;
-            font-size: 0.85rem;
-        }
-        .chain-arrow {
-            text-align: center;
-            color: #444;
-            font-size: 1.2rem;
-        }
-        .current-badge {
-            color: #6c63ff;
-            font-size: 0.75rem;
-            margin-left: 8px;
-        }
+        .contract-card { background: #1a1a2e; border-radius: 8px; overflow: hidden; }
+        .contract-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; }
+        .contract-header:hover { background: #222244; }
+        .contract-tasks-section { border-top: 1px solid #333; padding: 12px 16px; background: #161630; }
+        .contract-task-row { display: grid; grid-template-columns: 1fr 100px 80px 60px; gap: 12px; align-items: center; padding: 8px 12px; background: #1a1a2e; border-radius: 6px; margin-bottom: 8px; }
+        .contract-task-name { color: #fff; font-weight: 500; }
+        .contract-task-amount { color: #4ade80; text-align: right; }
+        .contract-task-billed { color: #888; font-size: 0.85rem; text-align: right; }
+        .contract-task-actions { display: flex; gap: 4px; justify-content: flex-end; }
+        .contract-tasks-footer { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #333; }
 
-        /* Current Invoice Section */
-        .current-invoice-section {
-            background: linear-gradient(135deg, #2a2a4a 0%, #242442 100%);
-            border: 1px solid #6c63ff;
-        }
-        .current-invoice-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-        }
-        .current-invoice-title {
-            font-size: 1.25rem;
-            color: #fff;
-            font-weight: 600;
-        }
-        .current-invoice-subtitle {
-            color: #888;
-            font-size: 0.9rem;
-        }
-        .current-invoice-actions {
-            display: flex;
-            gap: 8px;
-        }
-        .current-invoice-amount {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #4ade80;
-        }
-        .current-invoice-dates {
-            color: #888;
-            font-size: 0.85rem;
-        }
+        .invoice-item { display: flex; justify-content: space-between; align-items: center; background: #1a1a2e; padding: 16px; border-radius: 8px; border-left: 4px solid transparent; }
+        .invoice-item.current { border-left-color: #6c63ff; background: #2a2a4a; }
+        .invoice-item.paid { border-left-color: #4ade80; }
+        .invoice-item.sent { border-left-color: #ffd700; }
+        .invoice-number { font-weight: 600; color: #fff; }
+        .invoice-details { display: flex; align-items: center; gap: 16px; }
+        .invoice-amount { font-size: 1.1rem; font-weight: 600; }
+        .invoice-date { color: #888; font-size: 0.85rem; }
+        .chain-arrow { text-align: center; color: #444; font-size: 1.2rem; }
+        .current-badge { color: #6c63ff; font-size: 0.75rem; margin-left: 8px; }
+        .current-invoice-amount { font-size: 1.5rem; font-weight: 700; color: #4ade80; }
+        .current-invoice-dates { color: #888; font-size: 0.85rem; }
 
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: #242442;
-            border-radius: 12px;
-            padding: 32px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-        .modal-header h3 { color: #fff; font-size: 1.25rem; }
-        .modal-close {
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 1.5rem;
-            cursor: pointer;
-        }
-        .form-group {
-            margin-bottom: 16px;
-        }
-        .form-group label {
-            display: block;
-            color: #ccc;
-            margin-bottom: 6px;
-            font-size: 0.875rem;
-        }
-        .form-group input, .form-group select, .form-group textarea {
-            width: 100%;
-            padding: 10px 12px;
-            background: #1a1a2e;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #fff;
-            font-size: 0.875rem;
-        }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-            outline: none;
-            border-color: #6c63ff;
-        }
-        .modal-footer {
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            margin-top: 24px;
-            padding-top: 16px;
-            border-top: 1px solid #333;
-        }
+        .invoice-task-select { padding: 12px; background: #1a1a2e; border-radius: 8px; margin-bottom: 12px; }
+        .invoice-task-select-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .invoice-task-select-name { color: #fff; font-weight: 500; }
+        .invoice-task-select-details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 0.85rem; color: #888; }
+        .invoice-task-select-input { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+        .invoice-task-select-input input { width: 80px; padding: 6px 8px; background: #242442; border: 1px solid #444; border-radius: 4px; color: #fff; }
+        .invoice-total-row { display: flex; justify-content: space-between; padding: 16px; background: #242442; border-radius: 8px; font-size: 1.1rem; font-weight: 600; }
 
-        .loading {
-            text-align: center;
-            padding: 60px;
-            color: #888;
-        }
-        .error {
-            text-align: center;
-            padding: 60px;
-            color: #ff6b6b;
-        }
-        .error a {
-            color: #6c63ff;
-        }
-
-        /* Contract Tasks */
-        .contract-card {
-            background: #1a1a2e;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .contract-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            cursor: pointer;
-        }
-        .contract-header:hover {
-            background: #222244;
-        }
-        .contract-tasks-section {
-            border-top: 1px solid #333;
-            padding: 12px 16px;
-            background: #161630;
-        }
-        .contract-tasks-section.hidden {
-            display: none;
-        }
-        .contract-task-row {
-            display: grid;
-            grid-template-columns: 1fr 100px 80px 60px;
-            gap: 12px;
-            align-items: center;
-            padding: 8px 12px;
-            background: #1a1a2e;
-            border-radius: 6px;
-            margin-bottom: 8px;
-        }
-        .contract-task-name {
-            color: #fff;
-            font-weight: 500;
-        }
-        .contract-task-amount {
-            color: #4ade80;
-            text-align: right;
-        }
-        .contract-task-billed {
-            color: #888;
-            font-size: 0.85rem;
-            text-align: right;
-        }
-        .contract-task-actions {
-            display: flex;
-            gap: 4px;
-            justify-content: flex-end;
-        }
-        .contract-task-actions button {
-            padding: 4px 8px;
-            font-size: 0.75rem;
-        }
-        .contract-tasks-footer {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #333;
-        }
-        .expand-icon {
-            color: #888;
-            transition: transform 0.2s;
-        }
-        .expand-icon.expanded {
-            transform: rotate(180deg);
-        }
-
-        /* Invoice Task Selection */
-        .invoice-task-select {
-            padding: 12px;
-            background: #1a1a2e;
-            border-radius: 8px;
-            margin-bottom: 12px;
-        }
-        .invoice-task-select-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .invoice-task-select-name {
-            color: #fff;
-            font-weight: 500;
-        }
-        .invoice-task-select-details {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            font-size: 0.85rem;
-            color: #888;
-        }
-        .invoice-task-select-input {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .invoice-task-select-input input {
-            width: 80px;
-            padding: 6px 8px;
-            background: #242442;
-            border: 1px solid #444;
-            border-radius: 4px;
-            color: #fff;
-        }
-        .invoice-total-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 16px;
-            background: #242442;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
+        .empty-state { color: #666; text-align: center; padding: 24px; }
 
         @media (max-width: 768px) {
-            .financials { grid-template-columns: repeat(2, 1fr); }
-            .client-info { grid-template-columns: 1fr; }
             .contract-task-row { grid-template-columns: 1fr; gap: 4px; }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
+<body class="font-sans leading-relaxed text-white bg-dark-bg min-h-screen">
+    <div class="max-w-[1000px] mx-auto px-5 py-10">
+        <header class="flex justify-between items-center mb-8">
             <div>
-                <a href="dashboard.html" class="back-link">&larr; Back to Dashboard</a>
-                <h1 id="project-title">Loading...</h1>
-                <div class="project-meta" id="project-meta"></div>
+                <a href="dashboard.html" class="text-primary text-sm no-underline hover:underline">&larr; Back to Dashboard</a>
+                <h1 id="project-title" class="text-3xl text-white mb-2">Loading...</h1>
+                <div class="text-gray-500 text-sm" id="project-meta"></div>
             </div>
             <div id="header-actions"></div>
         </header>
 
-        <div id="loading" class="loading">Loading project details...</div>
-        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="text-center py-16 text-gray-500">Loading project details...</div>
+        <div id="error" class="text-center py-16 text-red-400" style="display: none;"></div>
         <div id="content" style="display: none;">
 
             <!-- Client Info -->
-            <div class="section">
-                <div class="section-header">
-                    <span class="section-title">Client</span>
+            <div class="bg-dark-card rounded-xl p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-500 uppercase tracking-wider">Client</span>
                 </div>
-                <div class="client-info" id="client-info"></div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" id="client-info"></div>
             </div>
 
             <!-- Financials -->
-            <div class="section">
-                <div class="section-header">
-                    <span class="section-title">Financials</span>
+            <div class="bg-dark-card rounded-xl p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-500 uppercase tracking-wider">Financials</span>
                 </div>
-                <div class="financials" id="financials"></div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="financials"></div>
             </div>
 
             <!-- Current Invoice -->
-            <div class="section current-invoice-section" id="current-invoice-section" style="display: none;">
-                <div class="current-invoice-header">
+            <div class="bg-dark-card rounded-xl p-6 mb-6 bg-gradient-to-br from-[#2a2a4a] to-dark-card border border-primary" id="current-invoice-section" style="display: none;">
+                <div class="flex justify-between items-start mb-5">
                     <div>
-                        <div class="current-invoice-title" id="current-invoice-title">Current Invoice</div>
-                        <div class="current-invoice-subtitle" id="current-invoice-subtitle"></div>
+                        <div class="text-xl text-white font-semibold" id="current-invoice-title">Current Invoice</div>
+                        <div class="text-gray-500 text-sm" id="current-invoice-subtitle"></div>
                     </div>
-                    <div class="current-invoice-actions" id="current-invoice-actions"></div>
+                    <div class="flex gap-2" id="current-invoice-actions"></div>
                 </div>
                 <div id="current-invoice-content"></div>
             </div>
 
             <!-- Proposals -->
-            <div class="section">
-                <div class="section-header">
-                    <span class="section-title">Proposals</span>
+            <div class="bg-dark-card rounded-xl p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-500 uppercase tracking-wider">Proposals</span>
                     <button class="btn btn-primary btn-small" onclick="openAddProposalModal()">+ Add Proposal</button>
                 </div>
-                <div class="item-list" id="proposals-list"></div>
+                <div class="flex flex-col gap-2" id="proposals-list"></div>
             </div>
 
             <!-- Contracts -->
-            <div class="section">
-                <div class="section-header">
-                    <span class="section-title">Contracts</span>
+            <div class="bg-dark-card rounded-xl p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-500 uppercase tracking-wider">Contracts</span>
                     <button class="btn btn-primary btn-small" onclick="openAddContractModal()">+ Add Contract</button>
                 </div>
-                <div class="item-list" id="contracts-list"></div>
+                <div class="flex flex-col gap-2" id="contracts-list"></div>
             </div>
 
             <!-- Invoice History -->
-            <div class="section">
-                <div class="section-header">
-                    <span class="section-title">Invoice History</span>
+            <div class="bg-dark-card rounded-xl p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-500 uppercase tracking-wider">Invoice History</span>
                     <button class="btn btn-primary btn-small" onclick="createNewInvoice()">+ Create Invoice</button>
                 </div>
-                <div class="invoice-chain" id="invoices-list"></div>
+                <div class="flex flex-col gap-3" id="invoices-list"></div>
             </div>
 
         </div>
     </div>
 
     <!-- Add Proposal Modal -->
-    <div id="add-proposal-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add Proposal</h3>
-                <button class="modal-close" onclick="closeModal('add-proposal-modal')">&times;</button>
+    <div id="add-proposal-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
+        <div class="bg-dark-card rounded-xl p-8 max-w-[500px] w-[90%] max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-white text-xl">Add Proposal</h3>
+                <button class="bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal('add-proposal-modal')">&times;</button>
             </div>
             <form id="add-proposal-form" onsubmit="saveProposal(event)">
-                <div class="form-group">
-                    <label>Total Fee</label>
-                    <input type="number" id="proposal-fee" step="0.01" min="0" required>
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Total Fee</label>
+                    <input type="number" id="proposal-fee" step="0.01" min="0" required class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary">
                 </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <select id="proposal-status">
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Status</label>
+                    <select id="proposal-status" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary">
                         <option value="draft">Draft</option>
                         <option value="sent">Sent</option>
                         <option value="accepted">Accepted</option>
                         <option value="rejected">Rejected</option>
                     </select>
                 </div>
-                <div class="modal-footer">
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('add-proposal-modal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Proposal</button>
                 </div>
@@ -590,26 +215,26 @@
     </div>
 
     <!-- Add Contract Modal -->
-    <div id="add-contract-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add Contract</h3>
-                <button class="modal-close" onclick="closeModal('add-contract-modal')">&times;</button>
+    <div id="add-contract-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
+        <div class="bg-dark-card rounded-xl p-8 max-w-[500px] w-[90%] max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-white text-xl">Add Contract</h3>
+                <button class="bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal('add-contract-modal')">&times;</button>
             </div>
             <form id="add-contract-form" onsubmit="saveContract(event)">
-                <div class="form-group">
-                    <label>Total Amount</label>
-                    <input type="number" id="contract-amount" step="0.01" min="0" required>
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Total Amount</label>
+                    <input type="number" id="contract-amount" step="0.01" min="0" required class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary">
                 </div>
-                <div class="form-group">
-                    <label>Signed Date</label>
-                    <input type="date" id="contract-signed-date">
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Signed Date</label>
+                    <input type="date" id="contract-signed-date" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary">
                 </div>
-                <div class="form-group">
-                    <label>File Path (optional)</label>
-                    <input type="text" id="contract-file-path" placeholder="/dropbox/path/to/contract.pdf">
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">File Path (optional)</label>
+                    <input type="text" id="contract-file-path" placeholder="/dropbox/path/to/contract.pdf" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
                 </div>
-                <div class="modal-footer">
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('add-contract-modal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Contract</button>
                 </div>
@@ -618,28 +243,28 @@
     </div>
 
     <!-- Contract Task Modal -->
-    <div id="contract-task-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="contract-task-modal-title">Add Task</h3>
-                <button class="modal-close" onclick="closeModal('contract-task-modal')">&times;</button>
+    <div id="contract-task-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
+        <div class="bg-dark-card rounded-xl p-8 max-w-[500px] w-[90%] max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="contract-task-modal-title" class="text-white text-xl">Add Task</h3>
+                <button class="bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal('contract-task-modal')">&times;</button>
             </div>
             <form id="contract-task-form" onsubmit="saveContractTask(event)">
                 <input type="hidden" id="ct-contract-id">
                 <input type="hidden" id="ct-task-id">
-                <div class="form-group">
-                    <label>Task Name</label>
-                    <input type="text" id="ct-name" required placeholder="e.g., Preliminary Design">
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Task Name</label>
+                    <input type="text" id="ct-name" required placeholder="e.g., Preliminary Design" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
                 </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea id="ct-description" rows="2" placeholder="Optional description"></textarea>
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Description</label>
+                    <textarea id="ct-description" rows="2" placeholder="Optional description" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600"></textarea>
                 </div>
-                <div class="form-group">
-                    <label>Amount ($)</label>
-                    <input type="number" id="ct-amount" step="0.01" min="0" required>
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Amount ($)</label>
+                    <input type="number" id="ct-amount" step="0.01" min="0" required class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary">
                 </div>
-                <div class="modal-footer">
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('contract-task-modal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Task</button>
                 </div>
@@ -648,15 +273,15 @@
     </div>
 
     <!-- Create Invoice from Contract Modal -->
-    <div id="create-contract-invoice-modal" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3 id="contract-invoice-title">Create Invoice from Contract</h3>
-                <button class="modal-close" onclick="closeModal('create-contract-invoice-modal')">&times;</button>
+    <div id="create-contract-invoice-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
+        <div class="bg-dark-card rounded-xl p-8 max-w-[600px] w-[90%] max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="contract-invoice-title" class="text-white text-xl">Create Invoice from Contract</h3>
+                <button class="bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal('create-contract-invoice-modal')">&times;</button>
             </div>
             <div id="contract-invoice-content">
-                <div class="form-group">
-                    <label>Select tasks to invoice and enter percent to bill this invoice:</label>
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Select tasks to invoice and enter percent to bill this invoice:</label>
                 </div>
                 <div id="contract-invoice-tasks-list"></div>
                 <div class="invoice-total-row">
@@ -664,15 +289,40 @@
                     <span id="contract-invoice-total">$0</span>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('create-contract-invoice-modal')">Cancel</button>
                 <button type="button" class="btn btn-primary" onclick="submitContractInvoice()">Create Invoice</button>
             </div>
         </div>
     </div>
 
+    <!-- Edit Invoice Links Modal -->
+    <div id="edit-invoice-links-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
+        <div class="bg-dark-card rounded-xl p-8 max-w-[500px] w-[90%] max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-white text-xl">Edit Invoice Links</h3>
+                <button class="bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal('edit-invoice-links-modal')">&times;</button>
+            </div>
+            <form id="edit-invoice-links-form" onsubmit="saveInvoiceLinks(event)">
+                <input type="hidden" id="edit-links-invoice-id">
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Data Path (Sheet URL)</label>
+                    <input type="text" id="edit-links-data-path" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">PDF Path</label>
+                    <input type="text" id="edit-links-pdf-path" placeholder="/uploads/invoices/PROJ-1.pdf" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
+                </div>
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-invoice-links-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-api';
+        const API_BASE = '/api';
 
         let project = null;
         let jobId = null;
@@ -692,15 +342,21 @@
             }
 
             try {
-                const response = await fetch(API_BASE + '?action=get_detail&job_id=' + encodeURIComponent(jobId));
-                const data = await response.json();
-
-                if (data.error) {
-                    showError(data.error);
+                const response = await fetch(API_BASE + '/projects/' + encodeURIComponent(jobId));
+                if (!response.ok) {
+                    showError('Project not found');
                     return;
                 }
+                const data = await response.json();
 
-                project = data.project;
+                // Map API response to frontend field names
+                project = {
+                    ...data,
+                    job_id: data.job_id,
+                    project_name: data.project_name,
+                    client_name: data.client_name || '',
+                    client_email: data.client_email || '',
+                };
                 renderProject();
             } catch (error) {
                 console.error('Failed to load project:', error);
@@ -856,16 +512,40 @@
             const actionsDiv = document.getElementById('current-invoice-actions');
             actionsDiv.textContent = '';
 
-            if (currentInvoice.data_path) {
-                const viewBtn = document.createElement('a');
-                viewBtn.href = currentInvoice.data_path;
-                viewBtn.target = '_blank';
-                viewBtn.className = 'btn btn-secondary btn-small';
-                viewBtn.textContent = 'Open Sheet';
-                actionsDiv.appendChild(viewBtn);
+            const hasSheet = currentInvoice.data_path && currentInvoice.data_path.includes('google.com');
+            const hasPdf = !!currentInvoice.pdf_path;
+
+            // Open Sheet — when data_path is a Google Sheet URL
+            if (hasSheet) {
+                const sheetBtn = document.createElement('a');
+                sheetBtn.href = currentInvoice.data_path;
+                sheetBtn.target = '_blank';
+                sheetBtn.className = 'btn btn-secondary btn-small';
+                sheetBtn.textContent = 'Open Sheet';
+                actionsDiv.appendChild(sheetBtn);
             }
 
-            if (currentInvoice.sent_status === 'unsent') {
+            // Finalize — unsent + has sheet (not yet finalized)
+            if (currentInvoice.sent_status === 'unsent' && hasSheet) {
+                const finalizeBtn = document.createElement('button');
+                finalizeBtn.className = 'btn btn-primary btn-small';
+                finalizeBtn.textContent = 'Finalize';
+                finalizeBtn.onclick = function() { finalizeInvoice(currentInvoice.id); };
+                actionsDiv.appendChild(finalizeBtn);
+            }
+
+            // View PDF — when pdf exists
+            if (hasPdf) {
+                const pdfBtn = document.createElement('a');
+                pdfBtn.href = currentInvoice.pdf_path;
+                pdfBtn.target = '_blank';
+                pdfBtn.className = 'btn btn-secondary btn-small';
+                pdfBtn.textContent = 'View PDF';
+                actionsDiv.appendChild(pdfBtn);
+            }
+
+            // Send Invoice — has PDF + unsent
+            if (hasPdf && currentInvoice.sent_status === 'unsent') {
                 const sendBtn = document.createElement('button');
                 sendBtn.className = 'btn btn-warning btn-small';
                 sendBtn.textContent = 'Send Invoice';
@@ -873,7 +553,8 @@
                 actionsDiv.appendChild(sendBtn);
             }
 
-            if (currentInvoice.paid_status !== 'paid' && currentInvoice.sent_status === 'sent') {
+            // Mark Paid — sent + not paid
+            if (currentInvoice.sent_status === 'sent' && currentInvoice.paid_status !== 'paid') {
                 const paidBtn = document.createElement('button');
                 paidBtn.className = 'btn btn-success btn-small';
                 paidBtn.textContent = 'Mark Paid';
@@ -881,13 +562,21 @@
                 actionsDiv.appendChild(paidBtn);
             }
 
-            if (currentInvoice.paid_status === 'paid') {
+            // Create Next — sent (don't need to wait for paid)
+            if (currentInvoice.sent_status === 'sent') {
                 const processBtn = document.createElement('button');
                 processBtn.className = 'btn btn-primary btn-small';
-                processBtn.textContent = 'Process & Create Next';
+                processBtn.textContent = 'Create Next';
                 processBtn.onclick = function() { processInvoice(currentInvoice.id); };
                 actionsDiv.appendChild(processBtn);
             }
+
+            // Edit Links — always available
+            const editLinksBtn = document.createElement('button');
+            editLinksBtn.className = 'btn btn-secondary btn-small';
+            editLinksBtn.textContent = 'Edit Links';
+            editLinksBtn.onclick = function() { openEditInvoiceLinks(currentInvoice.id); };
+            actionsDiv.appendChild(editLinksBtn);
 
             // Content
             const contentDiv = document.getElementById('current-invoice-content');
@@ -1037,7 +726,7 @@
 
                 const expandIcon = document.createElement('span');
                 expandIcon.className = 'expand-icon';
-                expandIcon.textContent = '▼';
+                expandIcon.textContent = '\u25BC';
                 expandIcon.id = 'expand-icon-' + c.id;
                 right.appendChild(expandIcon);
 
@@ -1087,7 +776,7 @@
 
                     const delBtn = document.createElement('button');
                     delBtn.className = 'btn btn-danger btn-small';
-                    delBtn.textContent = '×';
+                    delBtn.textContent = '\u00d7';
                     delBtn.onclick = function(e) {
                         e.stopPropagation();
                         deleteContractTask(c.id, task.id);
@@ -1241,13 +930,22 @@
                 const actions = document.createElement('div');
                 actions.className = 'list-item-actions';
 
-                if (inv.data_path) {
-                    const viewLink = document.createElement('a');
-                    viewLink.href = inv.data_path;
-                    viewLink.target = '_blank';
-                    viewLink.className = 'btn btn-secondary btn-small';
-                    viewLink.textContent = 'View';
-                    actions.appendChild(viewLink);
+                // Prefer PDF for sent/paid invoices
+                if (inv.pdf_path) {
+                    const pdfLink = document.createElement('a');
+                    pdfLink.href = inv.pdf_path;
+                    pdfLink.target = '_blank';
+                    pdfLink.className = 'btn btn-secondary btn-small';
+                    pdfLink.textContent = 'View PDF';
+                    actions.appendChild(pdfLink);
+                }
+                if (inv.data_path && inv.data_path.includes('google.com')) {
+                    const sheetLink = document.createElement('a');
+                    sheetLink.href = inv.data_path;
+                    sheetLink.target = '_blank';
+                    sheetLink.className = 'btn btn-secondary btn-small';
+                    sheetLink.textContent = 'Open Sheet';
+                    actions.appendChild(sheetLink);
                 }
 
                 details.appendChild(actions);
@@ -1372,25 +1070,24 @@
             const description = document.getElementById('ct-description').value;
             const amount = parseFloat(document.getElementById('ct-amount').value) || 0;
 
-            const action = taskId ? 'update_contract_task' : 'add_contract_task';
-            const payload = {
-                action: action,
-                contract_id: contractId,
-                task: { name, description, amount }
-            };
+            let url, method;
             if (taskId) {
-                payload.task_id = taskId;
+                url = API_BASE + '/contracts/' + contractId + '/tasks/' + taskId;
+                method = 'PATCH';
+            } else {
+                url = API_BASE + '/contracts/' + contractId + '/tasks';
+                method = 'POST';
             }
 
             try {
-                const response = await fetch(API_BASE, {
-                    method: 'POST',
+                const response = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ name, description, amount })
                 });
                 const data = await response.json();
-                if (data.error) {
-                    alert('Error: ' + data.error);
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to save task'));
                     return;
                 }
                 closeModal('contract-task-modal');
@@ -1406,18 +1103,12 @@
             if (!confirm('Delete this task?')) return;
 
             try {
-                const response = await fetch(API_BASE, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'delete_contract_task',
-                        contract_id: contractId,
-                        task_id: taskId
-                    })
+                const response = await fetch(API_BASE + '/contracts/' + contractId + '/tasks/' + taskId, {
+                    method: 'DELETE'
                 });
                 const data = await response.json();
-                if (data.error) {
-                    alert('Error: ' + data.error);
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to delete task'));
                     return;
                 }
                 loadProject(); // Refresh
@@ -1525,36 +1216,31 @@
         async function submitContractInvoice() {
             if (!currentContractForInvoice) return;
 
+            // Send ALL tasks so they all appear on the invoice
             const tasks = [];
             const inputs = document.querySelectorAll('#contract-invoice-tasks-list input[type="number"]');
             inputs.forEach(function(input) {
                 const percent = parseFloat(input.value) || 0;
-                if (percent > 0) {
-                    tasks.push({
-                        task_id: input.dataset.taskId,
-                        percent_this_invoice: percent
-                    });
-                }
+                tasks.push({
+                    task_id: input.dataset.taskId,
+                    percent_this_invoice: percent
+                });
             });
 
-            if (tasks.length === 0) {
+            if (tasks.every(function(t) { return t.percent_this_invoice === 0; })) {
                 alert('Please enter a percentage for at least one task');
                 return;
             }
 
             try {
-                const response = await fetch(API_BASE, {
+                const response = await fetch(API_BASE + '/contracts/' + currentContractForInvoice.id + '/invoices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'create_invoice_from_contract',
-                        contract_id: currentContractForInvoice.id,
-                        tasks: tasks
-                    })
+                    body: JSON.stringify({ tasks: tasks })
                 });
                 const data = await response.json();
-                if (data.error) {
-                    alert('Error: ' + data.error);
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to create invoice'));
                     return;
                 }
 
@@ -1574,24 +1260,141 @@
         }
 
         function createNewInvoice() {
-            alert('Create new invoice will redirect to the invoice creation flow');
-        }
-
-        function sendInvoice(invoiceId) {
-            if (confirm('Send this invoice to the client?')) {
-                alert('Send invoice will be implemented');
+            const contracts = (project.contracts || []).filter(function(c) {
+                return (c.tasks || []).length > 0;
+            });
+            if (contracts.length === 0) {
+                alert('No contracts with tasks found. Add tasks to a contract first.');
+                return;
+            }
+            if (contracts.length === 1) {
+                createInvoiceFromContract(contracts[0].id);
+                return;
+            }
+            // Multiple contracts — let user pick
+            var msg = 'Select a contract to invoice from:\n';
+            contracts.forEach(function(c, i) {
+                msg += '\n' + (i + 1) + '. ' + c.id + ' — $' + (c.total_amount || 0).toLocaleString() + ' (' + (c.tasks || []).length + ' tasks)';
+            });
+            var choice = prompt(msg + '\n\nEnter number:');
+            if (!choice) return;
+            var idx = parseInt(choice) - 1;
+            if (idx >= 0 && idx < contracts.length) {
+                createInvoiceFromContract(contracts[idx].id);
             }
         }
 
-        function markPaid(invoiceId) {
-            if (confirm('Mark this invoice as paid?')) {
-                alert('Mark paid will be implemented');
+        async function finalizeInvoice(invoiceId) {
+            if (!confirm('Finalize this invoice? This will read amounts from the Google Sheet and generate a PDF.')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/invoices/' + invoiceId + '/finalize', { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to finalize invoice'));
+                    return;
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to finalize invoice:', error);
+                alert('Failed to finalize invoice');
             }
         }
 
-        function processInvoice(invoiceId) {
-            if (confirm('Process this invoice and create the next one in the chain?')) {
-                alert('Process invoice will create a new invoice with Previous Billing = Previous + Current from this invoice');
+        async function sendInvoice(invoiceId) {
+            if (!confirm('Send this invoice to the client?')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/invoices/' + invoiceId + '/send', { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to send invoice'));
+                    return;
+                }
+                alert('Invoice sent to: ' + (data.sent_to || []).join(', '));
+                loadProject();
+            } catch (error) {
+                console.error('Failed to send invoice:', error);
+                alert('Failed to send invoice');
+            }
+        }
+
+        async function markPaid(invoiceId) {
+            if (!confirm('Mark this invoice as paid?')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/invoices/' + invoiceId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paid_status: 'paid' })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to mark as paid'));
+                    return;
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to mark as paid:', error);
+                alert('Failed to mark as paid');
+            }
+        }
+
+        async function processInvoice(invoiceId) {
+            if (!confirm('Create the next invoice in the chain?')) return;
+
+            try {
+                const response = await fetch(API_BASE + '/invoices/' + invoiceId + '/create-next', { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to create next invoice'));
+                    return;
+                }
+                // Open the new Google Sheet if available
+                if (data.data_path && data.data_path.includes('google.com')) {
+                    window.open(data.data_path, '_blank');
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to create next invoice:', error);
+                alert('Failed to create next invoice');
+            }
+        }
+
+        function openEditInvoiceLinks(invoiceId) {
+            // Find the invoice
+            const invoices = project.invoices || [];
+            const inv = invoices.find(function(i) { return i.id === invoiceId; });
+            if (!inv) return;
+
+            document.getElementById('edit-links-invoice-id').value = invoiceId;
+            document.getElementById('edit-links-data-path').value = inv.data_path || '';
+            document.getElementById('edit-links-pdf-path').value = inv.pdf_path || '';
+            openModal('edit-invoice-links-modal');
+        }
+
+        async function saveInvoiceLinks(event) {
+            event.preventDefault();
+            const invoiceId = document.getElementById('edit-links-invoice-id').value;
+            const dataPath = document.getElementById('edit-links-data-path').value;
+            const pdfPath = document.getElementById('edit-links-pdf-path').value;
+
+            try {
+                const response = await fetch(API_BASE + '/invoices/' + invoiceId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data_path: dataPath || null, pdf_path: pdfPath || null })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to update links'));
+                    return;
+                }
+                closeModal('edit-invoice-links-modal');
+                loadProject();
+            } catch (error) {
+                console.error('Failed to update invoice links:', error);
+                alert('Failed to update links');
             }
         }
 

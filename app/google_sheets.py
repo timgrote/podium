@@ -77,19 +77,12 @@ def create_invoice_sheet(
     tasks: list[dict],
     folder_id: str = "",
     template_id: str = "",
+    client_contact: str = "",
+    client_company: str = "",
+    client_address: str = "",
+    client_project_number: str = "",
 ) -> str:
     """Copy the invoice template and populate it with invoice data.
-
-    Args:
-        invoice_number: e.g. "JBHL21-1"
-        project_name: Project display name
-        project_id: Job ID
-        invoice_date: ISO date string
-        company_email: Sender's email
-        client_name: Client/company name
-        tasks: List of dicts with keys: name, unit_price, quantity, previous_billing, amount
-        folder_id: Google Drive folder ID (overrides config default)
-        template_id: Template sheet ID (overrides config default)
 
     Returns:
         URL of the new Google Sheet
@@ -107,37 +100,73 @@ def create_invoice_sheet(
     copied = drive.files().copy(
         fileId=src_template,
         body=copy_metadata,
+        supportsAllDrives=True,
     ).execute()
     spreadsheet_id = copied["id"]
 
     # 2. Write project info to header cells
-    # B6: Project Name, B7: Job ID, B8: Invoice Date, B9: Invoice Number, B10: Company Email
-    # F7: Client Name
+    # Left side: B6=Project Name, B7=Job ID, B8=Invoice Date, B9=Invoice #, B10=PM Email
+    # Right side: F6=Client Contact, F7=Client Company, F8-F9=Address, F10=Client Project #
+    # A12: "Professional Services Rendered Through: <date>"
+
+    # Parse address into street + city/state/zip lines
+    addr_line1 = ""
+    addr_line2 = ""
+    if client_address:
+        parts = [line.strip() for line in client_address.replace("\r\n", "\n").split("\n") if line.strip()]
+        addr_line1 = parts[0] if len(parts) > 0 else ""
+        addr_line2 = parts[1] if len(parts) > 1 else ""
+
     header_data = [
         {"range": "B6", "values": [[project_name]]},
         {"range": "B7", "values": [[project_id]]},
         {"range": "B8", "values": [[invoice_date]]},
         {"range": "B9", "values": [[invoice_number]]},
         {"range": "B10", "values": [[company_email]]},
-        {"range": "F7", "values": [[client_name]]},
+        # Client info column F
+        {"range": "F6", "values": [[client_contact]]},
+        {"range": "F7", "values": [[client_company or client_name]]},
+        {"range": "F8", "values": [[addr_line1]]},
+        {"range": "F9", "values": [[addr_line2]]},
+        {"range": "F10", "values": [[client_project_number]]},
+        # A12: services rendered date
+        {"range": "A12", "values": [[f"Professional Services Rendered Through: {invoice_date}"]]},
     ]
 
-    # 3. Write task rows to A15:F24
-    task_rows = []
-    for task in tasks[:10]:  # Max 10 task rows
-        task_rows.append([
-            task.get("name", ""),
-            task.get("unit_price", 0),
-            task.get("quantity", 0),
-            task.get("previous_billing", 0),
-            task.get("amount", 0),
-        ])
+    # 3. Write task rows — A=name, C=fee, D=percent, E=previous_billing
+    #    Column B and F are left for sheet formulas (F = calculated amount)
+    #    Clear all 10 task rows first (15-24), then write actual data
+    max_task_rows = 10
+    num_tasks = min(len(tasks), max_task_rows) if tasks else 0
 
-    if task_rows:
-        end_row = 14 + len(task_rows)
+    # Build blank rows to clear template defaults in columns A, C, D, E
+    clear_names = [[""] for _ in range(max_task_rows)]
+    clear_data = [["", "", ""] for _ in range(max_task_rows)]
+    header_data.append({"range": "A15:A24", "values": clear_names})
+    header_data.append({"range": "C15:E24", "values": clear_data})
+
+    if num_tasks > 0:
+        name_rows = []
+        data_rows = []
+        for task in tasks[:max_task_rows]:
+            name_rows.append([task.get("name", "")])
+            percent_val = task.get("quantity", 0)
+            # Write percent as decimal (e.g. 10% → 0.10) for sheet formatting
+            decimal_val = percent_val / 100 if percent_val > 1 else percent_val
+            data_rows.append([
+                task.get("unit_price", 0),      # C: task fee
+                decimal_val,                     # D: percent complete (as decimal)
+                task.get("previous_billing", 0), # E: previous billing
+            ])
+
+        end_row = 14 + num_tasks
         header_data.append({
-            "range": f"A15:E{end_row}",
-            "values": task_rows,
+            "range": f"A15:A{end_row}",
+            "values": name_rows,
+        })
+        header_data.append({
+            "range": f"C15:E{end_row}",
+            "values": data_rows,
         })
 
     sheets.spreadsheets().values().batchUpdate(
@@ -148,9 +177,90 @@ def create_invoice_sheet(
         },
     ).execute()
 
+    # Left-align project info cells B6:B10 (dates auto-right-align otherwise)
+    # Get the first sheet's ID
+    sheet_meta = sheets.spreadsheets().get(
+        spreadsheetId=spreadsheet_id, fields="sheets.properties.sheetId"
+    ).execute()
+    sheet_id = sheet_meta["sheets"][0]["properties"]["sheetId"]
+
+    sheets.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={"requests": [
+            # Left-align B6:B10
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 5,
+                        "endRowIndex": 10,
+                        "startColumnIndex": 1,  # B
+                        "endColumnIndex": 2,
+                    },
+                    "cell": {"userEnteredFormat": {"horizontalAlignment": "LEFT"}},
+                    "fields": "userEnteredFormat.horizontalAlignment",
+                }
+            },
+            # Left-align F6:F10
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 5,
+                        "endRowIndex": 10,
+                        "startColumnIndex": 5,  # F
+                        "endColumnIndex": 6,
+                    },
+                    "cell": {"userEnteredFormat": {"horizontalAlignment": "LEFT"}},
+                    "fields": "userEnteredFormat.horizontalAlignment",
+                }
+            },
+        ]},
+    ).execute()
+
     sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
     logger.info("Created invoice sheet %s: %s", invoice_number, sheet_url)
     return sheet_url
+
+
+def read_invoice_sheet(spreadsheet_id: str) -> list[dict]:
+    """Read task rows from an invoice Google Sheet.
+
+    Layout: A=name, C=fee, D=percent, E=previous_billing, F=calculated amount.
+    Returns list of dicts with keys: name, unit_price, quantity, previous_billing, amount.
+    """
+    sheets = get_sheets_service()
+
+    # Read name from column A, and fee/percent/previous/amount from C:F
+    result = sheets.spreadsheets().values().batchGet(
+        spreadsheetId=spreadsheet_id,
+        ranges=["A15:A24", "C15:F24"],
+        valueRenderOption="UNFORMATTED_VALUE",
+    ).execute()
+
+    ranges = result.get("valueRanges", [])
+    names = ranges[0].get("values", []) if len(ranges) > 0 else []
+    data = ranges[1].get("values", []) if len(ranges) > 1 else []
+
+    tasks = []
+    for i in range(max(len(names), len(data))):
+        name = names[i][0] if i < len(names) and names[i] else ""
+        if not name:
+            continue
+        row = data[i] if i < len(data) else []
+        # D column stores percent as decimal (0.10 = 10%), convert back to whole number
+        raw_percent = row[1] if len(row) > 1 else 0
+        quantity = raw_percent * 100 if raw_percent <= 1 else raw_percent
+        tasks.append({
+            "name": name,
+            "unit_price": row[0] if len(row) > 0 else 0,      # C: fee
+            "quantity": quantity,                                # D: percent (converted from decimal)
+            "previous_billing": row[2] if len(row) > 2 else 0,  # E: previous billing
+            "amount": row[3] if len(row) > 3 else 0,            # F: calculated amount
+        })
+
+    logger.info("Read %d task rows from sheet %s", len(tasks), spreadsheet_id)
+    return tasks
 
 
 def export_sheet_as_pdf(spreadsheet_id: str) -> bytes:

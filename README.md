@@ -6,72 +6,108 @@ Multi-tenant SaaS platform for service businesses. Start with irrigation design,
 
 ```
 /podium
-├── index.html              # Landing page / marketing
-├── /ops                    # Project management dashboard
-│   ├── dashboard.html      # Main dashboard view
-│   └── /schema             # Data models
-├── /flows                  # Automated workflow pages
-│   ├── proposal.html       # Client views proposal
-│   ├── contract.html       # Client signs contract
-│   ├── invoice.html        # Client views invoice
-│   └── payment.html        # Payment confirmation
-└── /integrations           # External service integrations
-    ├── todoist.md          # Task management
-    └── gmail.md            # Email integration
+├── app/                    # FastAPI backend
+│   ├── main.py             # App entry point, mounts routers + static files
+│   ├── config.py           # Settings (db path, Google API keys, etc.)
+│   ├── database.py         # SQLite connection helper
+│   └── routers/            # API route modules
+│       ├── clients.py
+│       ├── company.py
+│       ├── contracts.py
+│       ├── flows.py
+│       ├── invoices.py
+│       ├── projects.py
+│       └── proposals.py
+├── db/
+│   ├── schema.sql          # Full database schema
+│   ├── init_db.py          # Initialize/seed local database
+│   └── podium.db           # SQLite database (created by init_db.py)
+├── ops/                    # Project management dashboard (HTML/JS)
+│   ├── dashboard.html
+│   ├── project.html
+│   ├── clients.html
+│   └── settings.html
+├── flows/                  # Client-facing pages (HTML/JS)
+│   ├── proposal.html
+│   ├── contract.html
+│   ├── invoice.html
+│   └── payment.html
+└── index.html              # Landing page
 ```
 
-## Layers
+## Quick Start
 
-| Layer | Purpose |
-|-------|---------|
-| **Podium** | Platform infrastructure, multi-tenancy |
-| **Ops** | Project management dashboard (the business engine) |
-| **Flows** | Automated client-facing workflows |
-| **Integrations** | Todoist, Gmail, future services |
+```bash
+# 1. Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Initialize the database
+cd db && python3 init_db.py && cd ..
+
+# 4. Start the server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 5. Open in browser
+http://localhost:8000/ops/dashboard.html
+```
 
 ## Backend
 
-- **n8n** at `n8n.irrigationengineers.com` handles all API operations
-- **SQLite** database at `/files/podium.db` (on droplet: `/opt/n8n-docker-caddy/local_files/podium.db`)
-- See `db/README.md` for database access and schema
+- **FastAPI** serves both the API and static files
+- **SQLite** database at `db/podium.db` (configurable via `PODIUM_DB_PATH` env var)
+- All frontend pages call `/api/...` endpoints — no external dependencies required
 
 ## API Endpoints
 
-```
-# CRUD API
-GET  /webhook/podium-api?action=list     # List all projects
-POST /webhook/podium-api                  # Add/update projects
-     body: { action: "add", ...project }
-     body: { action: "update", job_id: "...", status: "..." }
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/clients` | Client CRUD |
+| `/api/company` | Company settings (GET / PUT) |
+| `/api/projects` | Project CRUD + detail views |
+| `/api/contracts` | Contract management + tasks |
+| `/api/proposals` | Proposal CRUD |
+| `/api/invoices` | Invoice management |
+| `/api/flows` | Public flow data for client-facing pages |
 
-# Intake
-POST /webhook/podium-intake              # New project submission
-```
+## Configuration
 
-## Development
+Settings are loaded from environment variables with the `PODIUM_` prefix:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PODIUM_DB_PATH` | `db/podium.db` | Path to SQLite database |
+| `PODIUM_HOST` | `0.0.0.0` | Server bind address |
+| `PODIUM_PORT` | `8000` | Server port |
+| `PODIUM_GOOGLE_SERVICE_ACCOUNT_JSON` | | Base64-encoded Google credentials |
+| `PODIUM_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON file |
+| `PODIUM_INVOICE_TEMPLATE_ID` | *(set)* | Google Sheets template for invoices |
+| `PODIUM_INVOICE_DRIVE_FOLDER_ID` | | Google Drive folder for generated invoices |
+
+## Database
+
+Key tables (see `db/schema.sql` for full schema):
+- `clients` - Companies/people we bill
+- `contacts` - Individual people (PMs, engineers)
+- `projects` - Jobs with status workflow
+- `contracts` - Signed agreements
+- `contract_tasks` - Tasks/phases on contracts with billing tracking
+- `invoices` - Both task-based and list-based invoices
+- `invoice_line_items` - Line items on invoices
+- `proposals`, `proposal_tasks`
+- `company_settings` - Company name, logo, colors, etc.
+
+Status workflow: `proposal → contract → invoiced → paid → complete`
+
+## Deployment
+
+Auto-deploys on push to `master` via GitHub Actions.
 
 ```bash
-# Local server
-python -m http.server 3000
-
-# Then open
-http://localhost:3000/ops/dashboard.html
+# Manual deploy
+ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
+  "cd /opt/n8n-docker-caddy/podium && git pull"
 ```
-
-## Project Schema
-
-See `/ops/schema/project.schema.md` for the full data model.
-
-Key fields:
-- `job_id`, `project_name`, `client_name`, `client_email`
-- `status`: proposal → contract → invoiced → paid → complete
-- `amount`, `invoiced_amount`, `paid_amount`
-- `notes`: Markdown field for project documentation
-- `tasks`: Synced with Todoist
-
-## Roadmap
-
-1. **Now**: Dashboard with status tracking
-2. **Next**: Todoist integration for task management
-3. **Later**: Gmail integration for client communication
-4. **Future**: Multi-tenant accounts, Raindrop integration
