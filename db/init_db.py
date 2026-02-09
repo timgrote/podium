@@ -147,6 +147,22 @@ def seed_data(conn):
     ''', line_items)
     print(f"Added {len(line_items)} invoice line items")
 
+    # --- Company Settings ---
+    company_settings = [
+        ('company_name', 'Irrigation Engineers, Inc.'),
+        ('company_email', 'info@irrigationengineers.com'),
+        ('company_phone', '(555) 987-6543'),
+        ('company_address', '456 Design Blvd\nAustin, TX 78701'),
+        ('tagline', 'Professional Irrigation Design'),
+        ('primary_color', '#6c63ff'),
+    ]
+    for key, value in company_settings:
+        cur.execute(
+            "INSERT INTO company_settings (key, value) VALUES (?, ?)",
+            (key, value)
+        )
+    print(f"Added {len(company_settings)} company settings")
+
     conn.commit()
     print("\nSeed data committed")
 

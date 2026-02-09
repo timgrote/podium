@@ -4,11 +4,76 @@
 *.key
 test-results/
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+dobbvenv/
+
 # Database - don't commit actual data, only schema
 db/*.db
 db/*.db-journal
 db/*.db-wal
 db/*.db-shm
+ops/*.db
+
+# Logs
+*.log
+
+# Google service account credentials
+credentials/
 
 # Playwright
 .playwright-mcp/
+
+# Uploads
+uploads/
+
+# Legacy/experimental scripts
+api.py
+api/
+api-proposal-endpoint.py
+v2_api.py
+main.py
+gary-test.py
+discord-bot-clean.py
+discord-proposal-bot.py
+discord_proposal_bot.py
+enhanced_discord_bot.py
+tie-discord-bot.py
+dobby_agent.py
+dobby_real_agent.py
+dobby_response_helper.py
+dobby_webhook.py
+dobby-agent-integration.py
+dobby-agent-lite.py
+dobby-channel-bridge.py
+fix_dobby_now.py
+real_dobby_bot.py
+working_dobby.py
+test_dobby.py
+DOBBY_HANDLER.py
+
+# Agent/bot docs
+AGENTS.md
+BOOTSTRAP.md
+CLEANUP_NOTE.md
+DOBBY_README.md
+DOBBY_SETUP.md
+DOBBY_SOUL.md
+HEARTBEAT.md
+IDENTITY.md
+KIM-SOUL.md
+KIM.md
+SETUP.md
+SOUL.md
+STARTUP.md
+TOOLS.md
+USER.md
+KX_PAIRING.json
+agents/
+
+# Proposals data
+tie-proposals/
+tie_proposals

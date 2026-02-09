@@ -3,161 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#6c63ff',
+              'primary-hover': '#5a52d5',
+              'dark-bg': '#1a1a2e',
+              'dark-card': '#242442',
+              'dark-border': '#444',
+            }
+          }
+        }
+      }
+    </script>
     <title>Podium - Clients</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #fff;
-            background: #1a1a2e;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 40px;
-        }
-        h1 {
-            font-size: 2rem;
-            color: #fff;
-        }
-        .admin-badge {
-            background: #6c63ff;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            margin-left: 10px;
-        }
-        .header-actions {
-            display: flex;
-            gap: 12px;
-        }
-        .btn {
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: none;
-        }
-        .btn-primary {
-            background: #6c63ff;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #5a52d5;
-        }
-        .btn-secondary {
-            background: #242442;
-            color: #ccc;
-            border: 1px solid #444;
-        }
-        .btn-secondary:hover {
-            background: #2d2d4a;
-        }
-        .btn-small {
-            padding: 6px 12px;
-            font-size: 0.8rem;
-        }
-        .btn-danger {
-            background: #dc2626;
-            color: white;
-        }
-        .btn-danger:hover {
-            background: #b91c1c;
-        }
-        .section {
-            margin-bottom: 40px;
-        }
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        h2 {
-            font-size: 1.25rem;
-            color: #fff;
-        }
-        .card {
-            background: #242442;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .clients-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            padding: 20px;
-        }
-        .client-card {
-            background: #1a1a2e;
-            border-radius: 8px;
-            padding: 20px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-        .client-card:hover {
-            border-color: #6c63ff;
-        }
-        .client-name {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-        .client-company {
-            color: #6c63ff;
-            font-size: 0.9rem;
-            margin-bottom: 12px;
-        }
-        .client-detail {
-            color: #888;
-            font-size: 0.85rem;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .client-detail a {
-            color: #60a5fa;
-            text-decoration: none;
-        }
-        .client-detail a:hover {
-            text-decoration: underline;
-        }
-        .client-notes {
-            color: #888;
-            font-size: 0.85rem;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #333;
-            font-style: italic;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-        .empty-state p {
-            margin-bottom: 20px;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
+        .modal { display: none; }
+        .modal.active { display: flex; }
         .loading::after {
             content: '';
             display: inline-block;
@@ -173,212 +38,73 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        /* Modal styles */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal.active {
-            display: flex;
-        }
-        .modal-content {
-            background: #242442;
-            border-radius: 12px;
-            padding: 32px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-        .modal-header h3 {
-            color: #fff;
-            font-size: 1.25rem;
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 1.5rem;
-            cursor: pointer;
-        }
-        .form-group {
-            margin-bottom: 16px;
-        }
-        .form-group label {
-            display: block;
-            color: #ccc;
-            margin-bottom: 6px;
-            font-size: 0.875rem;
-        }
-        .form-group input, .form-group textarea {
-            width: 100%;
-            padding: 10px 12px;
-            background: #1a1a2e;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #fff;
-            font-size: 0.875rem;
-            font-family: inherit;
-        }
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-        .form-group input:focus, .form-group textarea:focus {
-            outline: none;
-            border-color: #6c63ff;
-        }
-        .form-group input::placeholder, .form-group textarea::placeholder {
-            color: #666;
-        }
-        .modal-footer {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            margin-top: 24px;
-            padding-top: 20px;
-            border-top: 1px solid #333;
-        }
-        .modal-footer-left {
-            display: flex;
-            gap: 12px;
-        }
-        .modal-footer-right {
-            display: flex;
-            gap: 12px;
-        }
-        .search-box {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        .search-box input {
-            flex: 1;
-            padding: 10px 16px;
-            background: #1a1a2e;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #fff;
-            font-size: 0.9rem;
-        }
-        .search-box input:focus {
-            outline: none;
-            border-color: #6c63ff;
-        }
-        .client-projects {
-            margin-top: 16px;
-            padding-top: 12px;
-            border-top: 1px solid #333;
-        }
-        .client-projects-title {
-            color: #888;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-        }
-        .client-project-link {
-            display: inline-block;
-            background: #3b3b6d;
-            color: #a5a5ff;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            margin-right: 6px;
-            margin-bottom: 6px;
-            text-decoration: none;
-        }
-        .client-project-link:hover {
-            background: #4b4b7d;
-        }
-        @media (max-width: 768px) {
-            .clients-grid {
-                grid-template-columns: 1fr;
-            }
-            .header-actions {
-                flex-direction: column;
-            }
-        }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Clients <span class="admin-badge">Directory</span></h1>
-            <div class="header-actions">
-                <a href="dashboard.html" class="btn btn-secondary">Dashboard</a>
-                <button class="btn btn-primary" onclick="openAddModal()">+ Add Client</button>
+<body class="bg-dark-bg text-white font-sans min-h-screen leading-relaxed">
+    <div class="max-w-[1200px] mx-auto px-5 py-10">
+        <header class="flex justify-between items-center mb-10 max-md:flex-col max-md:items-start max-md:gap-4">
+            <h1 class="text-3xl font-bold text-white">Clients <span class="bg-primary text-white px-3 py-1 rounded-full text-xs ml-2.5 align-middle">Directory</span></h1>
+            <div class="header-actions flex gap-3 max-md:flex-col">
+                <a href="dashboard.html" class="btn btn-secondary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer no-underline transition-all duration-200 bg-dark-card text-gray-400 border border-dark-border hover:bg-[#2d2d4a]">Dashboard</a>
+                <button class="btn btn-primary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 bg-primary text-white border-none hover:bg-primary-hover" onclick="openAddModal()">+ Add Client</button>
             </div>
         </header>
 
-        <div class="section">
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="Search by name, email, or company..." oninput="filterClients()">
+        <div class="section mb-10">
+            <div class="search-box flex gap-3 mb-5">
+                <input type="text" id="search-input" placeholder="Search by name, email, or company..." oninput="filterClients()" class="flex-1 px-4 py-2.5 bg-dark-bg border border-[#333] rounded-md text-white text-sm focus:outline-none focus:border-primary">
             </div>
-            <div class="card">
-                <div id="clients-loading" class="loading">Loading clients</div>
-                <div id="clients-grid" class="clients-grid" style="display: none;"></div>
-                <div id="clients-empty" class="empty-state" style="display: none;">
-                    <p>No clients yet. Add your first client to get started.</p>
-                    <button class="btn btn-primary" onclick="openAddModal()">+ Add Client</button>
+            <div class="card bg-dark-card rounded-xl overflow-hidden">
+                <div id="clients-loading" class="loading text-center p-10 text-gray-500">Loading clients</div>
+                <div id="clients-grid" class="clients-grid grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] max-md:grid-cols-1 gap-5 p-5" style="display: none;"></div>
+                <div id="clients-empty" class="empty-state text-center py-16 px-5 text-gray-600" style="display: none;">
+                    <p class="mb-5">No clients yet. Add your first client to get started.</p>
+                    <button class="btn btn-primary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 bg-primary text-white border-none hover:bg-primary-hover" onclick="openAddModal()">+ Add Client</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Add/Edit Client Modal -->
-    <div id="client-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title">Add Client</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="client-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
+        <div class="modal-content bg-dark-card rounded-xl p-8 max-w-[500px] w-[90%] max-h-[90vh] overflow-y-auto">
+            <div class="modal-header flex justify-between items-center mb-6">
+                <h3 id="modal-title" class="text-white text-xl font-semibold">Add Client</h3>
+                <button class="modal-close bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal()">&times;</button>
             </div>
             <form id="client-form" onsubmit="saveClient(event)">
                 <input type="hidden" id="client-id">
-                <div class="form-group">
-                    <label for="client-name">Name *</label>
-                    <input type="text" id="client-name" required placeholder="e.g., Jim Birdsall">
+                <div class="form-group mb-4">
+                    <label for="client-name" class="block text-gray-400 mb-1.5 text-sm">Name *</label>
+                    <input type="text" id="client-name" required placeholder="e.g., Jim Birdsall" class="w-full px-3 py-2.5 bg-dark-bg border border-[#333] rounded-md text-white text-sm font-sans focus:outline-none focus:border-primary placeholder:text-gray-600">
                 </div>
-                <div class="form-group">
-                    <label for="client-email">Email *</label>
-                    <input type="email" id="client-email" required placeholder="e.g., jim@birdsall.com">
+                <div class="form-group mb-4">
+                    <label for="client-email" class="block text-gray-400 mb-1.5 text-sm">Email *</label>
+                    <input type="email" id="client-email" required placeholder="e.g., jim@birdsall.com" class="w-full px-3 py-2.5 bg-dark-bg border border-[#333] rounded-md text-white text-sm font-sans focus:outline-none focus:border-primary placeholder:text-gray-600">
                 </div>
-                <div class="form-group">
-                    <label for="client-company">Company</label>
-                    <input type="text" id="client-company" placeholder="e.g., Birdsall Homes">
+                <div class="form-group mb-4">
+                    <label for="client-company" class="block text-gray-400 mb-1.5 text-sm">Company</label>
+                    <input type="text" id="client-company" placeholder="e.g., Birdsall Homes" class="w-full px-3 py-2.5 bg-dark-bg border border-[#333] rounded-md text-white text-sm font-sans focus:outline-none focus:border-primary placeholder:text-gray-600">
                 </div>
-                <div class="form-group">
-                    <label for="client-phone">Phone</label>
-                    <input type="tel" id="client-phone" placeholder="e.g., 555-123-4567">
+                <div class="form-group mb-4">
+                    <label for="client-phone" class="block text-gray-400 mb-1.5 text-sm">Phone</label>
+                    <input type="tel" id="client-phone" placeholder="e.g., 555-123-4567" class="w-full px-3 py-2.5 bg-dark-bg border border-[#333] rounded-md text-white text-sm font-sans focus:outline-none focus:border-primary placeholder:text-gray-600">
                 </div>
-                <div class="form-group">
-                    <label for="client-address">Address</label>
-                    <textarea id="client-address" placeholder="Street address..."></textarea>
+                <div class="form-group mb-4">
+                    <label for="client-address" class="block text-gray-400 mb-1.5 text-sm">Address</label>
+                    <textarea id="client-address" placeholder="Street address..." class="w-full px-3 py-2.5 bg-dark-bg border border-[#333] rounded-md text-white text-sm font-sans min-h-[100px] resize-y focus:outline-none focus:border-primary placeholder:text-gray-600"></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="client-notes">Notes</label>
-                    <textarea id="client-notes" placeholder="Additional notes (supports markdown)..."></textarea>
+                <div class="form-group mb-4">
+                    <label for="client-notes" class="block text-gray-400 mb-1.5 text-sm">Notes</label>
+                    <textarea id="client-notes" placeholder="Additional notes (supports markdown)..." class="w-full px-3 py-2.5 bg-dark-bg border border-[#333] rounded-md text-white text-sm font-sans min-h-[100px] resize-y focus:outline-none focus:border-primary placeholder:text-gray-600"></textarea>
                 </div>
-                <div class="modal-footer">
-                    <div class="modal-footer-left">
-                        <button type="button" id="delete-btn" class="btn btn-danger btn-small" style="display: none;" onclick="deleteClient()">Delete</button>
+                <div class="modal-footer flex justify-between gap-3 mt-6 pt-5 border-t border-[#333]">
+                    <div class="modal-footer-left flex gap-3">
+                        <button type="button" id="delete-btn" class="btn btn-danger btn-small px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-all duration-200 bg-red-600 text-white border-none hover:bg-red-700" style="display: none;" onclick="deleteClient()">Delete</button>
                     </div>
-                    <div class="modal-footer-right">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                    <div class="modal-footer-right flex gap-3">
+                        <button type="button" class="btn btn-secondary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 bg-dark-card text-gray-400 border border-dark-border hover:bg-[#2d2d4a]" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 bg-primary text-white border-none hover:bg-primary-hover">Save</button>
                     </div>
                 </div>
             </form>
@@ -386,8 +112,8 @@
     </div>
 
     <script>
-        const CLIENTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-clients';
-        const PROJECTS_API = 'https://n8n.irrigationengineers.com/webhook/podium-api?action=list';
+        const CLIENTS_API = '/api/clients';
+        const PROJECTS_API = '/api/projects';
 
         let allClients = [];
         let allProjects = [];
@@ -399,15 +125,15 @@
 
             try {
                 const [clientsRes, projectsRes] = await Promise.all([
-                    fetch(CLIENTS_API + '?action=list'),
+                    fetch(CLIENTS_API),
                     fetch(PROJECTS_API)
                 ]);
 
-                const clientsData = await clientsRes.json();
-                const projectsData = await projectsRes.json();
-
-                allClients = clientsData.clients || [];
-                allProjects = projectsData.projects || [];
+                allClients = await clientsRes.json();
+                allProjects = (await projectsRes.json()).map(p => ({
+                    ...p,
+                    job_id: p.job_id,
+                }));
 
                 loading.style.display = 'none';
 
@@ -423,7 +149,7 @@
                 console.error('Failed to load clients:', error);
                 loading.textContent = 'Failed to load clients. ';
                 const retryBtn = document.createElement('button');
-                retryBtn.className = 'btn btn-secondary';
+                retryBtn.className = 'btn btn-secondary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 bg-dark-card text-gray-400 border border-dark-border hover:bg-[#2d2d4a]';
                 retryBtn.textContent = 'Retry';
                 retryBtn.onclick = () => location.reload();
                 loading.appendChild(retryBtn);
@@ -439,27 +165,28 @@
 
             clients.forEach(client => {
                 const card = document.createElement('div');
-                card.className = 'client-card';
+                card.className = 'client-card bg-dark-bg rounded-lg p-5 cursor-pointer transition-all duration-200 border border-transparent hover:border-primary';
                 card.onclick = () => openEditModal(client);
 
                 const name = document.createElement('div');
-                name.className = 'client-name';
+                name.className = 'client-name text-[1.1rem] font-semibold text-white mb-1';
                 name.textContent = client.name;
                 card.appendChild(name);
 
                 if (client.company) {
                     const company = document.createElement('div');
-                    company.className = 'client-company';
+                    company.className = 'client-company text-primary text-sm mb-3';
                     company.textContent = client.company;
                     card.appendChild(company);
                 }
 
                 if (client.email) {
                     const emailDiv = document.createElement('div');
-                    emailDiv.className = 'client-detail';
+                    emailDiv.className = 'client-detail text-gray-500 text-[0.85rem] mb-1 flex items-center gap-2';
                     const emailLink = document.createElement('a');
                     emailLink.href = 'mailto:' + client.email;
                     emailLink.textContent = client.email;
+                    emailLink.className = 'text-blue-400 no-underline hover:underline';
                     emailLink.onclick = (e) => e.stopPropagation();
                     emailDiv.appendChild(emailLink);
                     card.appendChild(emailDiv);
@@ -467,14 +194,14 @@
 
                 if (client.phone) {
                     const phoneDiv = document.createElement('div');
-                    phoneDiv.className = 'client-detail';
+                    phoneDiv.className = 'client-detail text-gray-500 text-[0.85rem] mb-1 flex items-center gap-2';
                     phoneDiv.textContent = client.phone;
                     card.appendChild(phoneDiv);
                 }
 
                 if (client.notes) {
                     const notesDiv = document.createElement('div');
-                    notesDiv.className = 'client-notes';
+                    notesDiv.className = 'client-notes text-gray-500 text-[0.85rem] mt-3 pt-3 border-t border-[#333] italic';
                     notesDiv.textContent = client.notes.length > 100
                         ? client.notes.substring(0, 100) + '...'
                         : client.notes;
@@ -489,16 +216,16 @@
 
                 if (clientProjects.length > 0) {
                     const projectsDiv = document.createElement('div');
-                    projectsDiv.className = 'client-projects';
+                    projectsDiv.className = 'client-projects mt-4 pt-3 border-t border-[#333]';
 
                     const title = document.createElement('div');
-                    title.className = 'client-projects-title';
+                    title.className = 'client-projects-title text-gray-500 text-xs uppercase mb-2';
                     title.textContent = 'Projects';
                     projectsDiv.appendChild(title);
 
                     clientProjects.forEach(proj => {
                         const link = document.createElement('a');
-                        link.className = 'client-project-link';
+                        link.className = 'client-project-link inline-block bg-[#3b3b6d] text-[#a5a5ff] px-2.5 py-1 rounded text-xs mr-1.5 mb-1.5 no-underline hover:bg-[#4b4b7d]';
                         link.href = 'dashboard.html#' + proj.job_id;
                         link.textContent = proj.job_id;
                         link.onclick = (e) => e.stopPropagation();
@@ -560,10 +287,8 @@
             event.preventDefault();
 
             const id = document.getElementById('client-id').value;
-            const action = id ? 'update' : 'create';
 
             const payload = {
-                action: action,
                 name: document.getElementById('client-name').value.trim(),
                 email: document.getElementById('client-email').value.trim(),
                 company: document.getElementById('client-company').value.trim(),
@@ -572,22 +297,26 @@
                 notes: document.getElementById('client-notes').value.trim()
             };
 
-            if (id) payload.id = id;
-
             try {
-                const response = await fetch(CLIENTS_API, {
-                    method: 'POST',
+                let url = CLIENTS_API;
+                let method = 'POST';
+                if (id) {
+                    url = CLIENTS_API + '/' + encodeURIComponent(id);
+                    method = 'PATCH';
+                }
+
+                const response = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                const result = await response.json();
-
-                if (result.success) {
+                if (response.ok) {
                     closeModal();
                     location.reload();
                 } else {
-                    alert('Error: ' + (result.error || 'Failed to save client'));
+                    const result = await response.json();
+                    alert('Error: ' + (result.detail || 'Failed to save client'));
                 }
             } catch (error) {
                 console.error('Save error:', error);
@@ -604,19 +333,16 @@
             }
 
             try {
-                const response = await fetch(CLIENTS_API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'delete', id: id })
+                const response = await fetch(CLIENTS_API + '/' + encodeURIComponent(id), {
+                    method: 'DELETE'
                 });
 
-                const result = await response.json();
-
-                if (result.success) {
+                if (response.ok) {
                     closeModal();
                     location.reload();
                 } else {
-                    alert('Error: ' + (result.error || 'Failed to delete client'));
+                    const result = await response.json();
+                    alert('Error: ' + (result.detail || 'Failed to delete client'));
                 }
             } catch (error) {
                 console.error('Delete error:', error);

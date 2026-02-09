@@ -58,6 +58,9 @@ CREATE TABLE projects (
     name TEXT NOT NULL,
     client_id TEXT REFERENCES clients(id),
     client_pm_id TEXT REFERENCES contacts(id),  -- project manager contact
+    pm_name TEXT,                           -- project manager name (denormalized for convenience)
+    pm_email TEXT,                          -- project manager email
+    client_project_number TEXT,             -- client's internal project/PO number
     status TEXT DEFAULT 'proposal',         -- proposal, contract, invoiced, paid, complete
     data_path TEXT,                         -- dropbox folder path, e.g., 'TBG/HeronLakes'
     notes TEXT,                             -- markdown
@@ -220,8 +223,13 @@ SELECT
     p.name,
     p.status,
     p.client_id,
+    p.pm_name,
+    p.pm_email,
+    p.client_project_number,
     c.name AS client_name,
     c.company AS client_company,
+    c.email AS client_email,
+    c.address AS client_address,
     COALESCE(SUM(CASE WHEN i.deleted_at IS NULL THEN i.total_due END), 0) AS total_invoiced,
     COALESCE(SUM(CASE WHEN i.paid_status = 'paid' AND i.deleted_at IS NULL THEN i.total_due END), 0) AS total_paid,
     COALESCE(SUM(CASE WHEN i.paid_status != 'paid' AND i.deleted_at IS NULL THEN i.total_due END), 0) AS total_outstanding,
@@ -237,6 +245,12 @@ LEFT JOIN (
 ) ct ON p.id = ct.project_id
 WHERE p.deleted_at IS NULL
 GROUP BY p.id;
+
+-- Company settings (key-value store)
+CREATE TABLE IF NOT EXISTS company_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 
 -- Invoice list with project info
 CREATE VIEW v_invoices AS

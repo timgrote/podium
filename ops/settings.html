@@ -4,306 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Podium - Company Settings</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #fff;
-            background: #1a1a2e;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 40px;
-        }
-        h1 {
-            font-size: 2rem;
-            color: #fff;
-        }
-        .admin-badge {
-            background: #6c63ff;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            margin-left: 10px;
-        }
-        .header-actions {
-            display: flex;
-            gap: 12px;
-        }
-        .btn {
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: none;
-        }
-        .btn-primary {
-            background: #6c63ff;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #5a52d5;
-        }
-        .btn-secondary {
-            background: #242442;
-            color: #ccc;
-            border: 1px solid #444;
-        }
-        .btn-secondary:hover {
-            background: #2d2d4a;
-        }
-        .card {
-            background: #242442;
-            border-radius: 12px;
-            padding: 32px;
-            margin-bottom: 24px;
-        }
-        .card-header {
-            margin-bottom: 24px;
-        }
-        .card-header h2 {
-            font-size: 1.25rem;
-            color: #fff;
-            margin-bottom: 4px;
-        }
-        .card-header p {
-            color: #888;
-            font-size: 0.9rem;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #ccc;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-        input[type="text"],
-        input[type="email"],
-        input[type="tel"],
-        textarea {
-            width: 100%;
-            padding: 12px 16px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background: #1a1a2e;
-            color: #fff;
-            font-size: 1rem;
-            font-family: inherit;
-        }
-        input:focus,
-        textarea:focus {
-            outline: none;
-            border-color: #6c63ff;
-        }
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        input[type="color"] {
-            width: 60px;
-            height: 40px;
-            padding: 4px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background: #1a1a2e;
-            cursor: pointer;
-        }
-        .color-group {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .color-group input[type="text"] {
-            width: 120px;
-        }
-        .logo-preview {
-            margin-top: 12px;
-        }
-        .logo-preview img {
-            max-width: 200px;
-            max-height: 100px;
-            border-radius: 8px;
-            background: #1a1a2e;
-            padding: 12px;
-        }
-        .logo-preview.empty {
-            width: 200px;
-            height: 80px;
-            background: #1a1a2e;
-            border: 2px dashed #444;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #666;
-            font-size: 0.85rem;
-        }
-        .file-input-wrapper {
-            position: relative;
-            display: inline-block;
-        }
-        .file-input-wrapper input[type="file"] {
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-        .form-actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 32px;
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
-        .loading::after {
-            content: '';
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #444;
-            border-top-color: #6c63ff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-            vertical-align: middle;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .success-message {
-            background: #2d4a3d;
-            color: #4ade80;
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        .success-message.show {
-            display: block;
-        }
-        .error-message {
-            background: #4a2d2d;
-            color: #f87171;
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        .error-message.show {
-            display: block;
-        }
-        @media (max-width: 768px) {
-            .header-actions {
-                flex-direction: column;
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#6c63ff',
+              'primary-hover': '#5a52d5',
+              'dark-bg': '#1a1a2e',
+              'dark-card': '#242442',
+              'dark-border': '#444',
+            },
+            keyframes: {
+              spin: {
+                to: { transform: 'rotate(360deg)' }
+              }
+            },
+            animation: {
+              spin: 'spin 1s linear infinite'
             }
-            .form-actions {
-                flex-direction: column;
-            }
-        }
-    </style>
+          }
+        },
+        plugins: [
+          tailwind.plugin(function({ addUtilities }) {
+            addUtilities({
+              '.loading-spinner::after': {
+                content: '""',
+                display: 'inline-block',
+                width: '20px',
+                height: '20px',
+                border: '2px solid #444',
+                'border-top-color': '#6c63ff',
+                'border-radius': '50%',
+                animation: 'spin 1s linear infinite',
+                'margin-left': '10px',
+                'vertical-align': 'middle',
+              },
+              '.show': {
+                display: 'block !important',
+              },
+            })
+          })
+        ]
+      }
+    </script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Podium <span class="admin-badge">Settings</span></h1>
-            <div class="header-actions">
-                <a href="dashboard.html" class="btn btn-secondary">Back to Dashboard</a>
+<body class="font-sans leading-relaxed text-white bg-dark-bg min-h-screen">
+    <div class="max-w-3xl mx-auto py-10 px-5">
+        <header class="flex justify-between items-center mb-10">
+            <h1 class="text-3xl text-white">Podium <span class="admin-badge bg-primary text-white px-3 py-1 rounded-full text-xs ml-2.5 inline-block">Settings</span></h1>
+            <div class="header-actions flex gap-3 max-md:flex-col">
+                <a href="dashboard.html" class="btn btn-secondary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer no-underline transition-all duration-200 border border-dark-border bg-dark-card text-gray-400 hover:bg-[#2d2d4a]">Back to Dashboard</a>
             </div>
         </header>
 
-        <div id="loading" class="loading">Loading company settings</div>
+        <div id="loading" class="loading loading-spinner text-center p-10 text-gray-500">Loading company settings</div>
 
         <form id="settings-form" style="display: none;">
-            <div id="success-msg" class="success-message">Settings saved successfully!</div>
-            <div id="error-msg" class="error-message">Failed to save settings. Please try again.</div>
+            <div id="success-msg" class="success-message hidden bg-[#2d4a3d] text-green-400 py-3 px-4 rounded-md mb-5">Settings saved successfully!</div>
+            <div id="warning-msg" class="hidden bg-[#4a3d2d] text-yellow-400 py-3 px-4 rounded-md mb-5" style="white-space: pre-line;"></div>
+            <div id="error-msg" class="error-message hidden bg-[#4a2d2d] text-red-400 py-3 px-4 rounded-md mb-5">Failed to save settings. Please try again.</div>
 
-            <div class="card">
-                <div class="card-header">
-                    <h2>Company Information</h2>
-                    <p>Basic details about your business</p>
+            <div class="card bg-dark-card rounded-xl p-8 mb-6">
+                <div class="card-header mb-6">
+                    <h2 class="text-xl text-white mb-1">Company Information</h2>
+                    <p class="text-gray-500 text-sm">Basic details about your business</p>
                 </div>
 
-                <div class="form-group">
-                    <label for="company_name">Company Name *</label>
-                    <input type="text" id="company_name" name="company_name" required placeholder="Thai Directory">
+                <div class="form-group mb-5">
+                    <label for="company_name" class="block mb-2 text-gray-400 text-sm font-medium">Company Name *</label>
+                    <input type="text" id="company_name" name="company_name" required placeholder="Thai Directory" class="w-full py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary">
                 </div>
 
-                <div class="form-group">
-                    <label for="company_email">Email</label>
-                    <input type="email" id="company_email" name="company_email" placeholder="info@thaidirectory.com">
+                <div class="form-group mb-5">
+                    <label for="company_email" class="block mb-2 text-gray-400 text-sm font-medium">Email</label>
+                    <input type="email" id="company_email" name="company_email" placeholder="info@thaidirectory.com" class="w-full py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary">
                 </div>
 
-                <div class="form-group">
-                    <label for="company_phone">Phone</label>
-                    <input type="tel" id="company_phone" name="company_phone" placeholder="(555) 123-4567">
+                <div class="form-group mb-5">
+                    <label for="company_phone" class="block mb-2 text-gray-400 text-sm font-medium">Phone</label>
+                    <input type="tel" id="company_phone" name="company_phone" placeholder="(555) 123-4567" class="w-full py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary">
                 </div>
 
-                <div class="form-group">
-                    <label for="company_address">Address</label>
-                    <textarea id="company_address" name="company_address" placeholder="123 Main St&#10;City, ST 12345"></textarea>
+                <div class="form-group mb-5">
+                    <label for="company_address" class="block mb-2 text-gray-400 text-sm font-medium">Address</label>
+                    <textarea id="company_address" name="company_address" placeholder="123 Main St&#10;City, ST 12345" class="w-full py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary resize-y min-h-[80px]"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label for="tagline">Tagline</label>
-                    <input type="text" id="tagline" name="tagline" placeholder="Professional Directory Services">
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2>Branding</h2>
-                    <p>Customize the look of your dashboard and client-facing pages</p>
-                </div>
-
-                <div class="form-group">
-                    <label for="logo">Company Logo</label>
-                    <div class="file-input-wrapper">
-                        <button type="button" class="btn btn-secondary">Choose File</button>
-                        <input type="file" id="logo" name="logo" accept="image/*">
-                    </div>
-                    <div id="logo-preview" class="logo-preview empty">No logo uploaded</div>
-                </div>
-
-                <div class="form-group">
-                    <label for="primary_color">Primary Brand Color</label>
-                    <div class="color-group">
-                        <input type="color" id="primary_color" name="primary_color" value="#6c63ff">
-                        <input type="text" id="primary_color_hex" value="#6c63ff" placeholder="#6c63ff">
-                    </div>
+                <div class="form-group mb-5">
+                    <label for="tagline" class="block mb-2 text-gray-400 text-sm font-medium">Tagline</label>
+                    <input type="text" id="tagline" name="tagline" placeholder="Professional Directory Services" class="w-full py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary">
                 </div>
             </div>
 
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Save Settings</button>
-                <button type="button" class="btn btn-secondary" onclick="loadSettings()">Reset</button>
+            <div class="card bg-dark-card rounded-xl p-8 mb-6">
+                <div class="card-header mb-6">
+                    <h2 class="text-xl text-white mb-1">Google Integration</h2>
+                    <p class="text-gray-500 text-sm">Configure Google Drive folder for generated invoice sheets</p>
+                </div>
+
+                <div class="form-group mb-5">
+                    <label for="invoice_template_id" class="block mb-2 text-gray-400 text-sm font-medium">Invoice Template Sheet ID</label>
+                    <input type="text" id="invoice_template_id" name="invoice_template_id" placeholder="e.g. 16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI" class="w-full py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary">
+                    <p class="text-gray-600 text-xs mt-1">The spreadsheet ID from the template URL (after /d/)</p>
+                </div>
+
+                <div class="form-group mb-5">
+                    <label for="invoice_drive_folder_id" class="block mb-2 text-gray-400 text-sm font-medium">Invoice Drive Folder ID</label>
+                    <input type="text" id="invoice_drive_folder_id" name="invoice_drive_folder_id" placeholder="e.g. 1aBcDeFgHiJkLmNoPqRsTuVwXyZ" class="w-full py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary">
+                    <p class="text-gray-600 text-xs mt-1">The folder ID from the Google Drive URL (after /folders/)</p>
+                </div>
+            </div>
+
+            <div class="card bg-dark-card rounded-xl p-8 mb-6">
+                <div class="card-header mb-6">
+                    <h2 class="text-xl text-white mb-1">Branding</h2>
+                    <p class="text-gray-500 text-sm">Customize the look of your dashboard and client-facing pages</p>
+                </div>
+
+                <div class="form-group mb-5">
+                    <label for="logo" class="block mb-2 text-gray-400 text-sm font-medium">Company Logo</label>
+                    <div class="file-input-wrapper relative inline-block">
+                        <button type="button" class="btn btn-secondary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer no-underline transition-all duration-200 border border-dark-border bg-dark-card text-gray-400 hover:bg-[#2d2d4a]">Choose File</button>
+                        <input type="file" id="logo" name="logo" accept="image/*" class="absolute left-0 top-0 opacity-0 w-full h-full cursor-pointer">
+                    </div>
+                    <div id="logo-preview" class="logo-preview empty mt-3 w-[200px] h-20 bg-dark-bg border-2 border-dashed border-dark-border rounded-lg flex items-center justify-center text-gray-600 text-sm">No logo uploaded</div>
+                </div>
+
+                <div class="form-group mb-5">
+                    <label for="primary_color" class="block mb-2 text-gray-400 text-sm font-medium">Primary Brand Color</label>
+                    <div class="color-group flex items-center gap-3">
+                        <input type="color" id="primary_color" name="primary_color" value="#6c63ff" class="w-[60px] h-10 p-1 rounded-md border border-dark-border bg-dark-bg cursor-pointer">
+                        <input type="text" id="primary_color_hex" value="#6c63ff" placeholder="#6c63ff" class="w-[120px] py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-[inherit] focus:outline-none focus:border-primary">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions flex gap-3 mt-8 max-md:flex-col">
+                <button type="submit" class="btn btn-primary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border-none bg-primary text-white hover:bg-primary-hover">Save Settings</button>
+                <button type="button" class="btn btn-secondary px-5 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border border-dark-border bg-dark-card text-gray-400 hover:bg-[#2d2d4a]" onclick="loadSettings()">Reset</button>
             </div>
         </form>
     </div>
 
     <script>
-        const API_BASE = 'https://n8n.irrigationengineers.com/webhook/podium-company';
+        const API_BASE = '/api/company';
 
         // Sync color picker with hex input
         document.getElementById('primary_color').addEventListener('input', (e) => {
@@ -323,7 +169,7 @@
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     const preview = document.getElementById('logo-preview');
-                    preview.innerHTML = `<img src="${event.target.result}" alt="Logo preview">`;
+                    preview.innerHTML = `<img src="${event.target.result}" alt="Logo preview" style="max-width:100%;max-height:100%;object-fit:contain">`;
                     preview.classList.remove('empty');
                 };
                 reader.readAsDataURL(file);
@@ -335,7 +181,7 @@
             const form = document.getElementById('settings-form');
 
             try {
-                const response = await fetch(API_BASE + '?action=get');
+                const response = await fetch(API_BASE);
                 const data = await response.json();
 
                 loading.style.display = 'none';
@@ -347,15 +193,18 @@
                     document.getElementById('company_phone').value = data.company_phone || '';
                     document.getElementById('company_address').value = data.company_address || '';
                     document.getElementById('tagline').value = data.tagline || '';
+                    document.getElementById('invoice_template_id').value = data.invoice_template_id || '';
+                    document.getElementById('invoice_drive_folder_id').value = data.invoice_drive_folder_id || '';
 
                     if (data.primary_color) {
                         document.getElementById('primary_color').value = data.primary_color;
                         document.getElementById('primary_color_hex').value = data.primary_color;
                     }
 
-                    if (data.logo_url) {
+                    const logoSrc = data.logo_url || data.logo_data;
+                    if (logoSrc) {
                         const preview = document.getElementById('logo-preview');
-                        preview.innerHTML = `<img src="${data.logo_url}" alt="Logo preview">`;
+                        preview.innerHTML = `<img src="${logoSrc}" alt="Logo preview" style="max-width:100%;max-height:100%;object-fit:contain">`;
                         preview.classList.remove('empty');
                     }
                 }
@@ -371,57 +220,56 @@
 
             const successMsg = document.getElementById('success-msg');
             const errorMsg = document.getElementById('error-msg');
-            successMsg.classList.remove('show');
-            errorMsg.classList.remove('show');
+            successMsg.classList.add('hidden');
+            errorMsg.classList.add('hidden');
 
             const formData = {
-                action: 'save',
                 company_name: document.getElementById('company_name').value,
                 company_email: document.getElementById('company_email').value,
                 company_phone: document.getElementById('company_phone').value,
                 company_address: document.getElementById('company_address').value,
                 tagline: document.getElementById('tagline').value,
-                primary_color: document.getElementById('primary_color').value
+                primary_color: document.getElementById('primary_color').value,
+                invoice_template_id: document.getElementById('invoice_template_id').value,
+                invoice_drive_folder_id: document.getElementById('invoice_drive_folder_id').value
             };
 
-            // Handle logo upload separately if there's a new file
-            const logoInput = document.getElementById('logo');
-            if (logoInput.files.length > 0) {
-                // For now, we'll convert to base64 and send with the form
-                // In production, this should upload to a file server
-                const file = logoInput.files[0];
-                const base64 = await fileToBase64(file);
-                formData.logo_data = base64;
-                formData.logo_filename = file.name;
-            }
-
             try {
+                // Upload logo file first if selected
+                const logoInput = document.getElementById('logo');
+                if (logoInput.files.length > 0) {
+                    const logoForm = new FormData();
+                    logoForm.append('file', logoInput.files[0]);
+                    const logoResp = await fetch(API_BASE + '/logo', { method: 'POST', body: logoForm });
+                    if (!logoResp.ok) throw new Error('Logo upload failed');
+                }
+
                 const response = await fetch(API_BASE, {
-                    method: 'POST',
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
 
                 if (response.ok) {
-                    successMsg.classList.add('show');
-                    setTimeout(() => successMsg.classList.remove('show'), 3000);
+                    const result = await response.json();
+                    const warningMsg = document.getElementById('warning-msg');
+                    warningMsg.classList.add('hidden');
+                    if (result._warnings && result._warnings.length > 0) {
+                        warningMsg.textContent = result._warnings.map(w => w.message).join('\n');
+                        warningMsg.classList.remove('hidden');
+                    }
+                    successMsg.classList.remove('hidden');
+                    setTimeout(() => successMsg.classList.add('hidden'), 3000);
                 } else {
-                    errorMsg.classList.add('show');
+                    errorMsg.classList.remove('hidden');
+                    setTimeout(() => errorMsg.classList.add('hidden'), 5000);
                 }
             } catch (error) {
                 console.error('Save failed:', error);
-                errorMsg.classList.add('show');
+                errorMsg.classList.remove('hidden');
+                setTimeout(() => errorMsg.classList.add('hidden'), 5000);
             }
         });
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-        }
 
         // Load settings on page load
         loadSettings();
