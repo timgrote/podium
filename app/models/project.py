@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -50,5 +52,5 @@ class ProjectDetail(ProjectSummary):
     notes: str | None = None
     client_phone: str | None = None
     current_invoice_id: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime | str | None = None
+    updated_at: datetime | str | None = None

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -27,5 +29,5 @@ class ClientResponse(BaseModel):
     phone: str | None = None
     address: str | None = None
     notes: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime | str | None = None
+    updated_at: datetime | str | None = None
