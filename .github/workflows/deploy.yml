@@ -16,4 +16,4 @@ jobs:
           host: ${{ secrets.DO_HOST }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_KEY }}
-          script: cd /var/www/conductor && bash scripts/deploy.sh
+          script: cd /var/www/conductor && git pull origin master && bash scripts/deploy.sh
