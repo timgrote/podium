@@ -32,10 +32,24 @@ echo "==> Running migrations..."
 DB_URL=$(systemctl show "$SERVICE" -p Environment --value \
     | tr ' ' '\n' \
     | grep '^CONDUCTOR_DATABASE_URL=' \
-    | cut -d= -f2-)
+    | cut -d= -f2- || true)
+
+# Fallback: try EnvironmentFile if inline Environment didn't have it
+if [ -z "$DB_URL" ]; then
+    ENV_FILE=$(systemctl show "$SERVICE" -p EnvironmentFile --value | tr -d '"' || true)
+    if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
+        DB_URL=$(grep '^CONDUCTOR_DATABASE_URL=' "$ENV_FILE" | cut -d= -f2- || true)
+    fi
+fi
 
 if [ -z "$DB_URL" ]; then
     echo "FATAL: Could not read CONDUCTOR_DATABASE_URL from $SERVICE environment"
+    exit 1
+fi
+
+if [[ ! "$DB_URL" =~ ^postgresql:// ]]; then
+    echo "FATAL: CONDUCTOR_DATABASE_URL looks malformed: '${DB_URL:0:30}...'"
+    echo "Expected it to start with postgresql://"
     exit 1
 fi
 
@@ -55,15 +69,14 @@ CREATE TABLE IF NOT EXISTS _migrations (
 # Seed tracking table on first run (migrations already applied via schema.sql)
 ROW_COUNT=$(run_sql -tAc "SELECT COUNT(*) FROM _migrations")
 if [ "$ROW_COUNT" -eq 0 ] && [ -d "$MIGRATIONS_DIR" ]; then
-    EXISTING=$(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null)
-    if [ -n "$EXISTING" ]; then
-        echo "    First run — seeding tracking table with existing migrations..."
-        for f in $EXISTING; do
-            BASENAME=$(basename "$f")
-            run_sql -c "INSERT INTO _migrations (filename) VALUES ('$BASENAME')" >/dev/null
-            echo "    Marked as applied: $BASENAME"
-        done
-    fi
+    echo "    First run — seeding tracking table with existing migrations..."
+    for f in "$MIGRATIONS_DIR"/*.sql; do
+        [ -f "$f" ] || continue
+        BASENAME=$(basename "$f")
+        run_sql -v migration_name="$BASENAME" -c \
+            "INSERT INTO _migrations (filename) VALUES (:'migration_name')" >/dev/null
+        echo "    Marked as applied: $BASENAME"
+    done
 fi
 
 # Apply any new migrations
@@ -71,14 +84,19 @@ if [ -d "$MIGRATIONS_DIR" ]; then
     for f in "$MIGRATIONS_DIR"/*.sql; do
         [ -f "$f" ] || continue
         BASENAME=$(basename "$f")
-        ALREADY=$(run_sql -tAc "SELECT 1 FROM _migrations WHERE filename = '$BASENAME'")
+        ALREADY=$(run_sql -v migration_name="$BASENAME" -tAc \
+            "SELECT 1 FROM _migrations WHERE filename = :'migration_name'")
         if [ "$ALREADY" = "1" ]; then
             echo "    Skip (already applied): $BASENAME"
             continue
         fi
         echo "    Applying: $BASENAME"
-        run_sql -f "$f"
-        run_sql -c "INSERT INTO _migrations (filename) VALUES ('$BASENAME')" >/dev/null
+        # Run migration + record in a single transaction (atomic)
+        {
+            cat "$f"
+            echo ""
+            echo "INSERT INTO _migrations (filename) VALUES ('$(echo "$BASENAME" | sed "s/'/''/g")');"
+        } | run_sql
         echo "    Done: $BASENAME"
     done
 else
@@ -100,6 +118,8 @@ for i in $(seq 1 "$HEALTH_TIMEOUT"); do
 done
 
 echo "FATAL: Health check failed after ${HEALTH_TIMEOUT}s"
+echo "--- last curl attempt ---"
+curl -sv "$HEALTH_URL" 2>&1 | tail -20 || true
 echo "--- journalctl output ---"
 journalctl -u "$SERVICE" --no-pager -n 30
 exit 1
