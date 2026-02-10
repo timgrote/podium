@@ -69,9 +69,21 @@ Auto-deploys on push to `master` via GitHub Actions (`.github/workflows/deploy.y
 ssh root@100.105.238.37 "cd /var/www/conductor && bash scripts/deploy.sh"
 ```
 
+### Production environment
+
+- **Droplet:** `24.144.82.75` (public), `100.105.238.37` (Tailscale: `tie-conductor`)
+- **User:** `root`
+- **App dir:** `/var/www/conductor`
+- **Python:** 3.12.3 in `/var/www/conductor/.venv`
+- **Service:** `conductor-api.service` (uvicorn on port 3000)
+- **DB:** PostgreSQL, connection string in systemd `Environment=`
+- **GitHub secrets:** `DO_HOST` (public IP), `DO_USER`, `DO_KEY`
+
 ### Migration tracking
 
-Migrations in `db/migrations/` are tracked via a `_migrations` table. The deploy script only runs new migrations (by filename) and fails fast on errors — no silent `|| true`. On first run it seeds the tracking table with existing migration filenames so they aren't re-applied.
+Migrations in `db/migrations/` are tracked via a `_migrations` table in PostgreSQL. The deploy script only runs new migrations (by filename) and fails fast on errors — no silent `|| true`. On first run it seeds the tracking table with existing migration filenames so they aren't re-applied.
+
+To add a new migration, create a numbered `.sql` file in `db/migrations/` (e.g., `003_add_feature.sql`). Use `IF NOT EXISTS` / `IF EXISTS` guards for idempotency. The next deploy will apply it automatically.
 
 ## Configuration
 
