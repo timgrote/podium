@@ -155,6 +155,8 @@ def _replace_signature_image(docs_service, drive_service, doc_id: str, signature
     # Walk the doc to find the signature placeholder image and its position
     target_id = None
     img_index = None
+    last_id = None
+    last_index = None
 
     for block in body_content:
         if "paragraph" not in block:
@@ -184,8 +186,8 @@ def _replace_signature_image(docs_service, drive_service, doc_id: str, signature
 
     # Fall back to last image
     if not target_id:
-        target_id = last_id if "last_id" in dir() else None
-        img_index = last_index if "last_index" in dir() else None
+        target_id = last_id
+        img_index = last_index
 
     if not target_id or img_index is None:
         logger.warning("No inline image found in doc to replace with signature")

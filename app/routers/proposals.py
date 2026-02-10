@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..config import settings
 from ..database import get_db
 from ..engineers import CHANGES_TASK, ENGINEERS, RATES, load_default_tasks
 from ..models.proposal import (
@@ -206,7 +207,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
             result["data_path"] = doc_url
         except Exception as e:
             logger.warning("Google Doc generation failed: %s", e)
-            result["_warning"] = f"Proposal created but Google Doc generation failed: {e}"
+            result["_warning"] = "Proposal created but Google Doc generation failed. Check server logs."
 
     if result["_warning"] is None:
         del result["_warning"]
@@ -331,7 +332,7 @@ def generate_doc(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
         "SELECT p.*, c.name as client_name, c.company as client_company, "
         "c.email as client_email, c.address as client_address "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
-        "WHERE p.id = ?",
+        "WHERE p.id = ? AND p.deleted_at IS NULL",
         (proposal["project_id"],),
     ).fetchone()
 
@@ -405,11 +406,11 @@ def export_pdf(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
         pdf_bytes = export_google_doc_as_pdf(doc_id)
 
         project = db.execute(
-            "SELECT name FROM projects WHERE id = ?", (proposal["project_id"],)
+            "SELECT name FROM projects WHERE id = ? AND deleted_at IS NULL", (proposal["project_id"],)
         ).fetchone()
         pdf_filename = f"Proposal - {project['name'] if project else proposal_id}.pdf"
 
-        pdf_url = upload_pdf_to_drive(pdf_bytes, pdf_filename)
+        pdf_url = upload_pdf_to_drive(pdf_bytes, pdf_filename, folder_id=settings.proposal_drive_folder_id)
 
         now = datetime.now().isoformat()
         db.execute(
@@ -445,7 +446,7 @@ def send_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
     if not to_email:
         row = db.execute(
             "SELECT c.email FROM projects p JOIN clients c ON p.client_id = c.id "
-            "WHERE p.id = ?",
+            "WHERE p.id = ? AND p.deleted_at IS NULL",
             (proposal["project_id"],),
         ).fetchone()
         if row:
@@ -460,12 +461,12 @@ def send_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
         pdf_bytes = export_google_doc_as_pdf(doc_id)
 
         project = db.execute(
-            "SELECT name FROM projects WHERE id = ?", (proposal["project_id"],)
+            "SELECT name FROM projects WHERE id = ? AND deleted_at IS NULL", (proposal["project_id"],)
         ).fetchone()
         project_name = project["name"] if project else "Project"
         pdf_filename = f"Proposal - {project_name}.pdf"
 
-        pdf_url = upload_pdf_to_drive(pdf_bytes, pdf_filename)
+        pdf_url = upload_pdf_to_drive(pdf_bytes, pdf_filename, folder_id=settings.proposal_drive_folder_id)
 
         company_email_row = db.execute(
             "SELECT value FROM company_settings WHERE key = 'company_email'"
