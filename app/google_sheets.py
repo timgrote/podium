@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/documents",
     "https://www.googleapis.com/auth/gmail.send",
 ]
 
@@ -64,6 +65,10 @@ def get_drive_service():
 
 def get_sheets_service():
     return build("sheets", "v4", credentials=_get_credentials(), cache_discovery=False)
+
+
+def get_docs_service():
+    return build("docs", "v1", credentials=_get_credentials(), cache_discovery=False)
 
 
 def get_gmail_service():

@@ -187,15 +187,25 @@
 
     <!-- Add Proposal Modal -->
     <div id="add-proposal-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
-        <div class="bg-dark-card rounded-xl p-8 max-w-[500px] w-[90%] max-h-[80vh] overflow-y-auto">
+        <div class="bg-dark-card rounded-xl p-8 max-w-[600px] w-[90%] max-h-[80vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-white text-xl">Add Proposal</h3>
                 <button class="bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal('add-proposal-modal')">&times;</button>
             </div>
             <form id="add-proposal-form" onsubmit="saveProposal(event)">
-                <div class="mb-4">
-                    <label class="block text-gray-400 mb-1.5 text-sm">Total Fee</label>
-                    <input type="number" id="proposal-fee" step="0.01" min="0" required class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-gray-400 mb-1.5 text-sm">Engineer</label>
+                        <select id="proposal-engineer" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary">
+                            <option value="tim">Tim Grote</option>
+                            <option value="ally">Ally Liebow</option>
+                            <option value="matara">Matara Liebow</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1.5 text-sm">Contact Method</label>
+                        <input type="text" id="proposal-contact-method" placeholder="e.g., site meeting" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
+                    </div>
                 </div>
                 <div class="mb-4">
                     <label class="block text-gray-400 mb-1.5 text-sm">Status</label>
@@ -205,6 +215,23 @@
                         <option value="accepted">Accepted</option>
                         <option value="rejected">Rejected</option>
                     </select>
+                </div>
+                <!-- Proposal Tasks -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-gray-400 text-sm">Tasks</label>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="addProposalTaskRow()">+ Add Task</button>
+                    </div>
+                    <div id="proposal-tasks-container"></div>
+                    <div class="mt-2 text-right text-sm text-gray-400">
+                        Total: <span id="proposal-tasks-total" class="text-green-400 font-semibold">$0</span>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="flex items-center gap-2 text-gray-400 text-sm cursor-pointer">
+                        <input type="checkbox" id="proposal-generate-doc" checked class="accent-primary">
+                        Generate Google Doc
+                    </label>
                 </div>
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('add-proposal-modal')">Cancel</button>
@@ -632,7 +659,9 @@
 
                 const secondary = document.createElement('span');
                 secondary.className = 'list-item-secondary';
-                secondary.textContent = p.status + ' | ' + formatDate(p.created_at);
+                var secondaryText = p.status + ' | ' + formatDate(p.created_at);
+                if (p.engineer_name) secondaryText += ' | ' + p.engineer_name;
+                secondary.textContent = secondaryText;
                 info.appendChild(secondary);
 
                 item.appendChild(info);
@@ -648,18 +677,63 @@
                 const actions = document.createElement('div');
                 actions.className = 'list-item-actions';
 
+                var hasDoc = p.data_path && p.data_path.includes('google.com');
+                var hasPdf = !!p.pdf_path;
+
+                if (!hasDoc) {
+                    var genDocBtn = document.createElement('button');
+                    genDocBtn.className = 'btn btn-primary btn-small';
+                    genDocBtn.textContent = 'Gen Doc';
+                    genDocBtn.onclick = (function(id) { return function() { generateProposalDoc(id); }; })(p.id);
+                    actions.appendChild(genDocBtn);
+                }
+
+                if (hasDoc) {
+                    var openDocBtn = document.createElement('a');
+                    openDocBtn.href = p.data_path;
+                    openDocBtn.target = '_blank';
+                    openDocBtn.className = 'btn btn-secondary btn-small';
+                    openDocBtn.textContent = 'Open Doc';
+                    actions.appendChild(openDocBtn);
+                }
+
+                if (hasDoc && !hasPdf) {
+                    var pdfBtn = document.createElement('button');
+                    pdfBtn.className = 'btn btn-secondary btn-small';
+                    pdfBtn.textContent = 'PDF';
+                    pdfBtn.onclick = (function(id) { return function() { exportProposalPdf(id); }; })(p.id);
+                    actions.appendChild(pdfBtn);
+                }
+
+                if (hasPdf) {
+                    var viewPdfBtn = document.createElement('a');
+                    viewPdfBtn.href = p.pdf_path;
+                    viewPdfBtn.target = '_blank';
+                    viewPdfBtn.className = 'btn btn-secondary btn-small';
+                    viewPdfBtn.textContent = 'View PDF';
+                    actions.appendChild(viewPdfBtn);
+                }
+
+                if (hasDoc && p.status !== 'sent' && p.status !== 'accepted') {
+                    var sendBtn = document.createElement('button');
+                    sendBtn.className = 'btn btn-warning btn-small';
+                    sendBtn.textContent = 'Send';
+                    sendBtn.onclick = (function(id) { return function() { sendProposal(id); }; })(p.id);
+                    actions.appendChild(sendBtn);
+                }
+
                 if (p.status === 'accepted') {
-                    const convertBtn = document.createElement('button');
+                    var convertBtn = document.createElement('button');
                     convertBtn.className = 'btn btn-success btn-small';
                     convertBtn.textContent = 'Convert to Contract';
-                    convertBtn.onclick = function() { convertToContract(p.id); };
+                    convertBtn.onclick = (function(id) { return function() { convertToContract(id); }; })(p.id);
                     actions.appendChild(convertBtn);
                 }
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'btn btn-danger btn-small';
                 deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = function() { deleteProposal(p.id); };
+                deleteBtn.onclick = (function(id) { return function() { deleteProposal(id); }; })(p.id);
                 actions.appendChild(deleteBtn);
 
                 right.appendChild(actions);
@@ -991,7 +1065,61 @@
 
         function openAddProposalModal() {
             document.getElementById('add-proposal-form').reset();
+            document.getElementById('proposal-tasks-container').textContent = '';
+            addProposalTaskRow();
+            updateProposalTasksTotal();
             document.getElementById('add-proposal-modal').classList.add('active');
+        }
+
+        function addProposalTaskRow() {
+            var container = document.getElementById('proposal-tasks-container');
+            var row = document.createElement('div');
+            row.className = 'flex gap-2 mb-2 items-start';
+
+            var nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.placeholder = 'Task name';
+            nameInput.className = 'flex-1 p-2 bg-dark-bg border border-dark-border rounded-md text-white text-sm proposal-task-name';
+            row.appendChild(nameInput);
+
+            var amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.placeholder = 'Amount';
+            amountInput.step = '0.01';
+            amountInput.min = '0';
+            amountInput.className = 'w-28 p-2 bg-dark-bg border border-dark-border rounded-md text-white text-sm proposal-task-amount';
+            amountInput.oninput = updateProposalTasksTotal;
+            row.appendChild(amountInput);
+
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-danger btn-small';
+            removeBtn.textContent = '\u00d7';
+            removeBtn.onclick = function() { row.remove(); updateProposalTasksTotal(); };
+            row.appendChild(removeBtn);
+
+            container.appendChild(row);
+        }
+
+        function updateProposalTasksTotal() {
+            var total = 0;
+            document.querySelectorAll('.proposal-task-amount').forEach(function(input) {
+                total += parseFloat(input.value) || 0;
+            });
+            document.getElementById('proposal-tasks-total').textContent = '$' + total.toLocaleString();
+        }
+
+        function getProposalTasks() {
+            var tasks = [];
+            var rows = document.querySelectorAll('#proposal-tasks-container > div');
+            rows.forEach(function(row) {
+                var name = row.querySelector('.proposal-task-name').value.trim();
+                var amount = parseFloat(row.querySelector('.proposal-task-amount').value) || 0;
+                if (name) {
+                    tasks.push({ name: name, amount: amount });
+                }
+            });
+            return tasks;
         }
 
         function openAddContractModal() {
@@ -1009,33 +1137,165 @@
             });
         });
 
-        // Action stubs (to be implemented with API calls)
         async function saveProposal(event) {
             event.preventDefault();
-            alert('Proposal creation will be implemented with the write API');
-            closeModal('add-proposal-modal');
+            var tasks = getProposalTasks();
+            if (tasks.length === 0) {
+                alert('Add at least one task');
+                return;
+            }
+            var body = {
+                project_id: jobId,
+                engineer_key: document.getElementById('proposal-engineer').value,
+                contact_method: document.getElementById('proposal-contact-method').value || null,
+                status: document.getElementById('proposal-status').value,
+                tasks: tasks
+            };
+            try {
+                var response = await fetch(API_BASE + '/proposals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to create proposal'));
+                    return;
+                }
+                closeModal('add-proposal-modal');
+                loadProject();
+            } catch (error) {
+                console.error('Failed to save proposal:', error);
+                alert('Failed to save proposal');
+            }
         }
 
         async function saveContract(event) {
             event.preventDefault();
-            alert('Contract creation will be implemented with the write API');
-            closeModal('add-contract-modal');
-        }
-
-        function deleteProposal(id) {
-            if (confirm('Delete this proposal?')) {
-                alert('Delete will be implemented with the write API');
+            var body = {
+                project_id: jobId,
+                total_amount: parseFloat(document.getElementById('contract-amount').value) || 0,
+                signed_at: document.getElementById('contract-signed-date').value || null,
+                file_path: document.getElementById('contract-file-path').value || null
+            };
+            try {
+                var response = await fetch(API_BASE + '/contracts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to create contract'));
+                    return;
+                }
+                closeModal('add-contract-modal');
+                loadProject();
+            } catch (error) {
+                console.error('Failed to save contract:', error);
+                alert('Failed to save contract');
             }
         }
 
-        function deleteContract(id) {
-            if (confirm('Delete this contract?')) {
-                alert('Delete will be implemented with the write API');
+        async function deleteProposal(id) {
+            if (!confirm('Delete this proposal?')) return;
+            try {
+                var response = await fetch(API_BASE + '/proposals/' + id, { method: 'DELETE' });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to delete proposal'));
+                    return;
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to delete proposal:', error);
+                alert('Failed to delete proposal');
             }
         }
 
-        function convertToContract(proposalId) {
-            alert('Convert to contract will be implemented');
+        async function deleteContract(id) {
+            if (!confirm('Delete this contract?')) return;
+            try {
+                var response = await fetch(API_BASE + '/contracts/' + id, { method: 'DELETE' });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to delete contract'));
+                    return;
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to delete contract:', error);
+                alert('Failed to delete contract');
+            }
+        }
+
+        async function convertToContract(proposalId) {
+            if (!confirm('Promote this proposal to a contract?')) return;
+            try {
+                var response = await fetch(API_BASE + '/proposals/' + proposalId + '/promote', { method: 'POST' });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to promote'));
+                    return;
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to convert to contract:', error);
+                alert('Failed to convert to contract');
+            }
+        }
+
+        async function generateProposalDoc(proposalId) {
+            try {
+                var response = await fetch(API_BASE + '/proposals/' + proposalId + '/generate-doc', { method: 'POST' });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to generate doc'));
+                    return;
+                }
+                if (data.data_path) {
+                    window.open(data.data_path, '_blank');
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to generate doc:', error);
+                alert('Failed to generate doc');
+            }
+        }
+
+        async function exportProposalPdf(proposalId) {
+            try {
+                var response = await fetch(API_BASE + '/proposals/' + proposalId + '/export-pdf', { method: 'POST' });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to export PDF'));
+                    return;
+                }
+                if (data.pdf_path) {
+                    window.open(data.pdf_path, '_blank');
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to export PDF:', error);
+                alert('Failed to export PDF');
+            }
+        }
+
+        async function sendProposal(proposalId) {
+            if (!confirm('Send this proposal to the client?')) return;
+            try {
+                var response = await fetch(API_BASE + '/proposals/' + proposalId + '/send', { method: 'POST' });
+                var data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + (data.detail || 'Failed to send proposal'));
+                    return;
+                }
+                alert('Proposal sent to: ' + (data.sent_to || []).join(', '));
+                loadProject();
+            } catch (error) {
+                console.error('Failed to send proposal:', error);
+                alert('Failed to send proposal');
+            }
         }
 
         // --- Contract Tasks ---

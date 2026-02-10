@@ -100,11 +100,16 @@ def seed_data(conn):
 
     # --- Proposals ---
     proposals = [
-        ('prop-001', 'JBTBG23', '/dropbox/TBG/OfficeCampus/proposal.docx', '/dropbox/TBG/OfficeCampus/proposal.pdf', 'TBG Partners', 'tom@tbgpartners.com', 125000.00, now, 'sent', now, now, None),
+        ('prop-001', 'JBTBG23', '/dropbox/TBG/OfficeCampus/proposal.docx', '/dropbox/TBG/OfficeCampus/proposal.pdf',
+         'TBG Partners', 'tom@tbgpartners.com', 125000.00,
+         'tim', 'Tim Grote', 'P.E., Owner', 'site meeting', '2024-01-15',
+         now, 'sent', now, now, None),
     ]
     cur.executemany('''
-        INSERT INTO proposals (id, project_id, data_path, pdf_path, client_company, client_contact_email, total_fee, sent_at, status, created_at, updated_at, deleted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO proposals (id, project_id, data_path, pdf_path, client_company, client_contact_email, total_fee,
+         engineer_key, engineer_name, engineer_title, contact_method, proposal_date,
+         sent_at, status, created_at, updated_at, deleted_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', proposals)
     print(f"Added {len(proposals)} proposals")
 
