@@ -1,4 +1,3 @@
-import sqlite3
 import uuid
 
 
@@ -8,10 +7,10 @@ def generate_id(prefix: str = "") -> str:
     return f"{prefix}{short_id}" if prefix else short_id
 
 
-def next_invoice_number(db: sqlite3.Connection, project_id: str) -> str:
+def next_invoice_number(db, project_id: str) -> str:
     """Generate the next invoice number for a project (e.g., JBHL21-4)."""
     last = db.execute(
-        "SELECT invoice_number FROM invoices WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT invoice_number FROM invoices WHERE project_id = %s ORDER BY created_at DESC LIMIT 1",
         (project_id,),
     ).fetchone()
     if last and last["invoice_number"]:

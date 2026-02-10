@@ -1,13 +1,11 @@
 -- Conductor Database Schema
--- SQLite 3.x
+-- PostgreSQL
 --
 -- Naming conventions:
 --   - Tables: plural, snake_case
 --   - Primary keys: id (auto-increment) or natural key where appropriate
 --   - Foreign keys: singular_table_id
 --   - Timestamps: created_at, updated_at, deleted_at (soft delete)
-
-PRAGMA foreign_keys = ON;
 
 -- ============================================================================
 -- CLIENTS
@@ -21,9 +19,9 @@ CREATE TABLE clients (
     phone TEXT,
     address TEXT,
     notes TEXT,                             -- markdown
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    deleted_at TEXT                         -- soft delete
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ                  -- soft delete
 );
 
 CREATE INDEX idx_clients_email ON clients(email);
@@ -41,9 +39,9 @@ CREATE TABLE contacts (
     phone TEXT,
     role TEXT,                              -- e.g., 'Project Manager', 'Engineer'
     client_id TEXT REFERENCES clients(id),  -- optional link to parent client
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    deleted_at TEXT
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_contacts_client ON contacts(client_id);
@@ -65,9 +63,9 @@ CREATE TABLE projects (
     data_path TEXT,                         -- dropbox folder path, e.g., 'TBG/HeronLakes'
     notes TEXT,                             -- markdown
     current_invoice_id TEXT,                -- active/working invoice (FK added after invoices table)
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    deleted_at TEXT
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_projects_client ON projects(client_id);
@@ -92,12 +90,12 @@ CREATE TABLE contracts (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects(id),
     file_path TEXT,                         -- path to signed PDF
-    total_amount REAL DEFAULT 0,            -- contracted amount
-    signed_at TEXT,                         -- when contract was signed
+    total_amount NUMERIC(12,2) DEFAULT 0,   -- contracted amount
+    signed_at TIMESTAMPTZ,                  -- when contract was signed
     notes TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    deleted_at TEXT
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_contracts_project ON contracts(project_id);
@@ -113,11 +111,11 @@ CREATE TABLE contract_tasks (
     sort_order INTEGER DEFAULT 0,           -- display order (1, 2, 3...)
     name TEXT NOT NULL,
     description TEXT,
-    amount REAL DEFAULT 0,                  -- total fee for this task
-    billed_amount REAL DEFAULT 0,           -- cumulative amount already billed
-    billed_percent REAL DEFAULT 0,          -- cumulative percent already billed (0-100)
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    amount NUMERIC(12,2) DEFAULT 0,         -- total fee for this task
+    billed_amount NUMERIC(12,2) DEFAULT 0,  -- cumulative amount already billed
+    billed_percent NUMERIC(5,2) DEFAULT 0,  -- cumulative percent already billed (0-100)
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_contract_tasks_contract ON contract_tasks(contract_id);
@@ -133,17 +131,17 @@ CREATE TABLE proposals (
     pdf_path TEXT,                          -- generated PDF URL
     client_company TEXT,
     client_contact_email TEXT,
-    total_fee REAL DEFAULT 0,
+    total_fee NUMERIC(12,2) DEFAULT 0,
     engineer_key TEXT,                      -- tim/ally/matara
     engineer_name TEXT,
     engineer_title TEXT,
     contact_method TEXT,                    -- e.g., 'site meeting', 'phone call'
     proposal_date TEXT,                     -- date shown on proposal doc
-    sent_at TEXT,
+    sent_at TIMESTAMPTZ,
     status TEXT DEFAULT 'draft',            -- draft, sent, accepted, rejected
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    deleted_at TEXT
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_proposals_project ON proposals(project_id);
@@ -159,8 +157,8 @@ CREATE TABLE proposal_tasks (
     sort_order INTEGER DEFAULT 0,           -- display order (1, 2, 3...)
     name TEXT NOT NULL,
     description TEXT,
-    amount REAL DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now'))
+    amount NUMERIC(12,2) DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_proposal_tasks_proposal ON proposal_tasks(proposal_id);
@@ -182,12 +180,12 @@ CREATE TABLE invoices (
     pdf_path TEXT,                          -- generated PDF
     sent_status TEXT DEFAULT 'unsent',      -- unsent, sent
     paid_status TEXT DEFAULT 'unpaid',      -- unpaid, partial, paid
-    total_due REAL DEFAULT 0,
-    sent_at TEXT,
-    paid_at TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    deleted_at TEXT
+    total_due NUMERIC(12,2) DEFAULT 0,
+    sent_at TIMESTAMPTZ,
+    paid_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE UNIQUE INDEX idx_invoices_number ON invoices(invoice_number);
@@ -207,11 +205,11 @@ CREATE TABLE invoice_line_items (
     sort_order INTEGER DEFAULT 0,
     name TEXT NOT NULL,
     description TEXT,
-    quantity REAL DEFAULT 1,                -- hours, units, etc. (or percent complete)
-    unit_price REAL DEFAULT 0,              -- rate per unit (or task fee)
-    amount REAL DEFAULT 0,                  -- current billing (quantity * unit_price, or flat)
-    previous_billing REAL DEFAULT 0,        -- cumulative billing from prior invoices
-    created_at TEXT DEFAULT (datetime('now'))
+    quantity NUMERIC(12,2) DEFAULT 1,       -- hours, units, etc. (or percent complete)
+    unit_price NUMERIC(12,2) DEFAULT 0,     -- rate per unit (or task fee)
+    amount NUMERIC(12,2) DEFAULT 0,         -- current billing (quantity * unit_price, or flat)
+    previous_billing NUMERIC(12,2) DEFAULT 0, -- cumulative billing from prior invoices
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_invoice_items_invoice ON invoice_line_items(invoice_id);
@@ -249,7 +247,9 @@ LEFT JOIN (
     GROUP BY project_id
 ) ct ON p.id = ct.project_id
 WHERE p.deleted_at IS NULL
-GROUP BY p.id;
+GROUP BY p.id, p.name, p.status, p.client_id, p.pm_name, p.pm_email,
+         p.client_project_number, c.name, c.company, c.email, c.address,
+         ct.total_contracted;
 
 -- Company settings (key-value store)
 CREATE TABLE IF NOT EXISTS company_settings (

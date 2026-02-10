@@ -1,11 +1,10 @@
 import glob
 import logging
-import sqlite3
 from pathlib import Path, PurePath
 
 from fastapi import APIRouter, Depends, UploadFile, File
 
-from ..database import get_db
+from ..database import get_db, get_database_url, set_database_url, clear_database_url
 from ..models.company import CompanySettings
 
 logger = logging.getLogger(__name__)
@@ -15,14 +14,15 @@ root = Path(__file__).resolve().parent.parent.parent
 router = APIRouter()
 
 
-def _ensure_table(db: sqlite3.Connection):
+def _ensure_table(db):
     db.execute(
         "CREATE TABLE IF NOT EXISTS company_settings (key TEXT PRIMARY KEY, value TEXT)"
     )
+    db.commit()
 
 
 @router.get("", response_model=CompanySettings)
-def get_company(db: sqlite3.Connection = Depends(get_db)):
+def get_company(db=Depends(get_db)):
     _ensure_table(db)
     rows = db.execute("SELECT key, value FROM company_settings").fetchall()
     return {r["key"]: r["value"] for r in rows}
@@ -51,12 +51,12 @@ def _check_google_access(file_id: str, label: str) -> dict | None:
 
 
 @router.put("")
-def save_company(data: CompanySettings, db: sqlite3.Connection = Depends(get_db)):
+def save_company(data: CompanySettings, db=Depends(get_db)):
     _ensure_table(db)
     for key, value in data.model_dump().items():
         if value is not None:
             db.execute(
-                "INSERT INTO company_settings (key, value) VALUES (?, ?) "
+                "INSERT INTO company_settings (key, value) VALUES (%s, %s) "
                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (key, value),
             )
@@ -81,7 +81,7 @@ def save_company(data: CompanySettings, db: sqlite3.Connection = Depends(get_db)
 
 
 @router.post("/logo")
-async def upload_logo(file: UploadFile = File(...), db: sqlite3.Connection = Depends(get_db)):
+async def upload_logo(file: UploadFile = File(...), db=Depends(get_db)):
     _ensure_table(db)
     safe_name = PurePath(file.filename).name
     ext = Path(safe_name).suffix.lower() or ".png"
@@ -96,7 +96,7 @@ async def upload_logo(file: UploadFile = File(...), db: sqlite3.Connection = Dep
     logo_url = f"/uploads/logo{ext}"
     # Save logo_url in settings
     db.execute(
-        "INSERT INTO company_settings (key, value) VALUES ('logo_url', ?) "
+        "INSERT INTO company_settings (key, value) VALUES ('logo_url', %s) "
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (logo_url,),
     )
@@ -104,3 +104,41 @@ async def upload_logo(file: UploadFile = File(...), db: sqlite3.Connection = Dep
     db.execute("DELETE FROM company_settings WHERE key IN ('logo_data', 'logo_filename')")
     db.commit()
     return {"logo_url": logo_url}
+
+
+# --- Database Connection ---
+
+@router.get("/database")
+def get_database_connection():
+    """Return the current database URL and connection status."""
+    url = get_database_url()
+    # Test the connection
+    connected = False
+    error = None
+    try:
+        import psycopg2
+        conn = psycopg2.connect(url, connect_timeout=3)
+        conn.close()
+        connected = True
+    except Exception as e:
+        error = str(e)
+    return {"database_url": url, "connected": connected, "error": error}
+
+
+@router.put("/database")
+def set_database_connection(data: dict):
+    """Update the database URL. Send {"database_url": "..."} or {"database_url": ""} to reset."""
+    url = data.get("database_url", "").strip()
+    if not url:
+        clear_database_url()
+        url = get_database_url()
+    else:
+        # Validate before saving
+        try:
+            import psycopg2
+            conn = psycopg2.connect(url, connect_timeout=5)
+            conn.close()
+        except Exception as e:
+            return {"success": False, "error": f"Cannot connect: {e}", "database_url": get_database_url()}
+        set_database_url(url)
+    return {"success": True, "database_url": url}

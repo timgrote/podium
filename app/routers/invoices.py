@@ -1,6 +1,5 @@
 import logging
 import re
-import sqlite3
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,9 +16,9 @@ router = APIRouter()
 # --- Lookup by invoice_number (used by frontend) ---
 
 @router.get("/by-number/{invoice_number}")
-def get_invoice_by_number(invoice_number: str, db: sqlite3.Connection = Depends(get_db)):
+def get_invoice_by_number(invoice_number: str, db=Depends(get_db)):
     row = db.execute(
-        "SELECT * FROM invoices WHERE invoice_number = ? AND deleted_at IS NULL",
+        "SELECT * FROM invoices WHERE invoice_number = %s AND deleted_at IS NULL",
         (invoice_number,),
     ).fetchone()
     if not row:
@@ -27,7 +26,7 @@ def get_invoice_by_number(invoice_number: str, db: sqlite3.Connection = Depends(
 
     invoice = dict(row)
     line_items = db.execute(
-        "SELECT * FROM invoice_line_items WHERE invoice_id = ? ORDER BY sort_order",
+        "SELECT * FROM invoice_line_items WHERE invoice_id = %s ORDER BY sort_order",
         (invoice["id"],),
     ).fetchall()
     invoice["line_items"] = [dict(li) for li in line_items]
@@ -35,16 +34,16 @@ def get_invoice_by_number(invoice_number: str, db: sqlite3.Connection = Depends(
 
 
 @router.get("/{invoice_id}")
-def get_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
+def get_invoice(invoice_id: str, db=Depends(get_db)):
     row = db.execute(
-        "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
     invoice = dict(row)
     line_items = db.execute(
-        "SELECT * FROM invoice_line_items WHERE invoice_id = ? ORDER BY sort_order",
+        "SELECT * FROM invoice_line_items WHERE invoice_id = %s ORDER BY sort_order",
         (invoice_id,),
     ).fetchall()
     invoice["line_items"] = [dict(li) for li in line_items]
@@ -65,12 +64,12 @@ def _extract_spreadsheet_id(data_path: str) -> str:
 
 
 @router.post("/{invoice_id}/export-pdf")
-def export_invoice_pdf(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
+def export_invoice_pdf(invoice_id: str, db=Depends(get_db)):
     """Export the invoice's Google Sheet as a PDF to Google Drive."""
     from ..google_sheets import export_sheet_as_pdf, upload_pdf_to_drive
 
     invoice = db.execute(
-        "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -93,7 +92,7 @@ def export_invoice_pdf(invoice_id: str, db: sqlite3.Connection = Depends(get_db)
 
     now = datetime.now().isoformat()
     db.execute(
-        "UPDATE invoices SET pdf_path = ?, updated_at = ? WHERE id = ?",
+        "UPDATE invoices SET pdf_path = %s, updated_at = %s WHERE id = %s",
         (drive_url, now, invoice_id),
     )
     db.commit()
@@ -102,12 +101,12 @@ def export_invoice_pdf(invoice_id: str, db: sqlite3.Connection = Depends(get_db)
 
 
 @router.post("/{invoice_id}/finalize")
-def finalize_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
+def finalize_invoice(invoice_id: str, db=Depends(get_db)):
     """Finalize an invoice: read amounts from Google Sheet, snapshot to DB, generate PDF."""
     from ..google_sheets import export_sheet_as_pdf, read_invoice_sheet, upload_pdf_to_drive
 
     invoice = db.execute(
-        "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -123,7 +122,7 @@ def finalize_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
 
     # 2. Update invoice_line_items in DB with actual Sheet values
     existing_items = db.execute(
-        "SELECT * FROM invoice_line_items WHERE invoice_id = ? ORDER BY sort_order",
+        "SELECT * FROM invoice_line_items WHERE invoice_id = %s ORDER BY sort_order",
         (invoice_id,),
     ).fetchall()
 
@@ -138,13 +137,13 @@ def finalize_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
             previous_billing = sheet_row.get("previous_billing", 0) or 0
             total_due += amount
             db.execute(
-                "UPDATE invoice_line_items SET quantity = ?, amount = ?, previous_billing = ? WHERE id = ?",
+                "UPDATE invoice_line_items SET quantity = %s, amount = %s, previous_billing = %s WHERE id = %s",
                 (quantity, amount, previous_billing, item["id"]),
             )
 
     # 3. Update invoice total
     db.execute(
-        "UPDATE invoices SET total_due = ?, updated_at = ? WHERE id = ?",
+        "UPDATE invoices SET total_due = %s, updated_at = %s WHERE id = %s",
         (total_due, now, invoice_id),
     )
 
@@ -162,7 +161,7 @@ def finalize_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
 
     # 6. Update invoice: set pdf_path, keep data_path as sheet URL
     db.execute(
-        "UPDATE invoices SET pdf_path = ?, updated_at = ? WHERE id = ?",
+        "UPDATE invoices SET pdf_path = %s, updated_at = %s WHERE id = %s",
         (drive_url, now, invoice_id),
     )
     db.commit()
@@ -172,12 +171,12 @@ def finalize_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
 
 
 @router.post("/{invoice_id}/send")
-def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
+def send_invoice(invoice_id: str, db=Depends(get_db)):
     """Export PDF and email the invoice to the client."""
     from ..google_sheets import export_sheet_as_pdf, send_invoice_email, upload_pdf_to_drive
 
     invoice = db.execute(
-        "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -190,7 +189,7 @@ def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     project = db.execute(
         "SELECT p.*, c.name as client_name, c.email as client_email, c.company as client_company "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
-        "WHERE p.id = ?",
+        "WHERE p.id = %s",
         (invoice["project_id"],),
     ).fetchone()
     if not project:
@@ -202,7 +201,7 @@ def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     company_email = ""
     for key in ("company_name", "company_email"):
         row = db.execute(
-            "SELECT value FROM company_settings WHERE key = ?", (key,)
+            "SELECT value FROM company_settings WHERE key = %s", (key,)
         ).fetchone()
         if row:
             if key == "company_name":
@@ -257,7 +256,7 @@ def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     # 5. Update invoice status
     now = datetime.now().isoformat()
     db.execute(
-        "UPDATE invoices SET sent_status = 'sent', sent_at = ?, pdf_path = ?, updated_at = ? WHERE id = ?",
+        "UPDATE invoices SET sent_status = 'sent', sent_at = %s, pdf_path = %s, updated_at = %s WHERE id = %s",
         (now, drive_url, now, invoice_id),
     )
     db.commit()
@@ -265,10 +264,10 @@ def send_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
     return {"success": True, "sent_to": to_emails, "pdf_path": drive_url}
 
 @router.post("/{invoice_id}/create-next")
-def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
+def create_next_invoice(invoice_id: str, db=Depends(get_db)):
     """Create the next invoice in the chain, carrying forward previous billing."""
     invoice = db.execute(
-        "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -279,7 +278,7 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
 
     # Read line items from the current (finalized) invoice
     line_items = db.execute(
-        "SELECT * FROM invoice_line_items WHERE invoice_id = ? ORDER BY sort_order",
+        "SELECT * FROM invoice_line_items WHERE invoice_id = %s ORDER BY sort_order",
         (invoice_id,),
     ).fetchall()
     if not line_items:
@@ -314,21 +313,21 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
             li = dict(li)
             # Find matching contract task by name
             task = db.execute(
-                "SELECT * FROM contract_tasks WHERE contract_id = ? AND name = ?",
+                "SELECT * FROM contract_tasks WHERE contract_id = %s AND name = %s",
                 (contract_id, li["name"]),
             ).fetchone()
             if task:
                 new_billed = (li.get("previous_billing") or 0) + (li.get("amount") or 0)
                 new_percent = (new_billed / task["amount"] * 100) if task["amount"] > 0 else 0
                 db.execute(
-                    "UPDATE contract_tasks SET billed_amount = ?, billed_percent = ?, updated_at = ? WHERE id = ?",
+                    "UPDATE contract_tasks SET billed_amount = %s, billed_percent = %s, updated_at = %s WHERE id = %s",
                     (new_billed, new_percent, now, task["id"]),
                 )
 
     # Create new invoice record
     db.execute(
         "INSERT INTO invoices (id, invoice_number, project_id, contract_id, previous_invoice_id, "
-        "type, total_due, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'task', 0, ?, ?)",
+        "type, total_due, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, 'task', 0, %s, %s)",
         (new_inv_id, new_invoice_number, project_id, contract_id, invoice_id, now, now),
     )
 
@@ -338,14 +337,14 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
         db.execute(
             "INSERT INTO invoice_line_items (id, invoice_id, sort_order, name, description, "
             "quantity, unit_price, amount, previous_billing, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (li_id, new_inv_id, i + 1, li["name"], li["description"],
              li["quantity"], li["unit_price"], li["amount"], li["previous_billing"], now),
         )
 
     # Set as current invoice on project
     db.execute(
-        "UPDATE projects SET current_invoice_id = ?, updated_at = ? WHERE id = ?",
+        "UPDATE projects SET current_invoice_id = %s, updated_at = %s WHERE id = %s",
         (new_inv_id, now, project_id),
     )
     db.commit()
@@ -358,7 +357,7 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
         project_row = db.execute(
             "SELECT p.*, c.name as client_name, c.company as client_company "
             "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
-            "WHERE p.id = ?",
+            "WHERE p.id = %s",
             (project_id,),
         ).fetchone()
 
@@ -367,7 +366,7 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
         template_id = ""
         for key in ("company_email", "invoice_drive_folder_id", "invoice_template_id"):
             row = db.execute(
-                "SELECT value FROM company_settings WHERE key = ?", (key,)
+                "SELECT value FROM company_settings WHERE key = %s", (key,)
             ).fetchone()
             if row and row["value"]:
                 if key == "company_email":
@@ -395,7 +394,7 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
             template_id=template_id,
         )
         db.execute(
-            "UPDATE invoices SET data_path = ?, updated_at = ? WHERE id = ?",
+            "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
             (sheet_url, datetime.now().isoformat(), new_inv_id),
         )
         db.commit()
@@ -405,7 +404,7 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
         logger.error("Google Sheet creation failed: %s", e)
         sheet_url = None
 
-    new_invoice = db.execute("SELECT * FROM invoices WHERE id = ?", (new_inv_id,)).fetchone()
+    new_invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (new_inv_id,)).fetchone()
     logger.info("Created next invoice %s (chain from %s)", new_invoice_number, invoice["invoice_number"])
     result = dict(new_invoice)
     if not result.get("data_path"):
@@ -417,10 +416,10 @@ def create_next_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db
 def update_invoice(
     invoice_id: str,
     data: InvoiceUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     existing = db.execute(
-        "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -438,19 +437,19 @@ def update_invoice(
     if "paid_status" in updates and updates["paid_status"] == "paid":
         updates["paid_at"] = now
 
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
     values = list(updates.values()) + [invoice_id]
-    db.execute(f"UPDATE invoices SET {set_clause} WHERE id = ?", values)
+    db.execute(f"UPDATE invoices SET {set_clause} WHERE id = %s", values)
     db.commit()
 
-    row = db.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+    row = db.execute("SELECT * FROM invoices WHERE id = %s", (invoice_id,)).fetchone()
     return dict(row)
 
 
 @router.delete("/{invoice_id}")
-def delete_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
+def delete_invoice(invoice_id: str, db=Depends(get_db)):
     existing = db.execute(
-        "SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL", (invoice_id,)
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -460,7 +459,7 @@ def delete_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
 
     # Reverse billing on contract tasks for this invoice's line items
     line_items = db.execute(
-        "SELECT * FROM invoice_line_items WHERE invoice_id = ?", (invoice_id,)
+        "SELECT * FROM invoice_line_items WHERE invoice_id = %s", (invoice_id,)
     ).fetchall()
     for li in line_items:
         li = dict(li)
@@ -469,7 +468,7 @@ def delete_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
         # Find matching contract task and subtract this invoice's billing
         if inv.get("contract_id"):
             tasks = db.execute(
-                "SELECT * FROM contract_tasks WHERE contract_id = ? AND name = ?",
+                "SELECT * FROM contract_tasks WHERE contract_id = %s AND name = %s",
                 (inv["contract_id"], li["name"]),
             ).fetchall()
             for task in tasks:
@@ -477,17 +476,17 @@ def delete_invoice(invoice_id: str, db: sqlite3.Connection = Depends(get_db)):
                 new_billed = max(0, (task["billed_amount"] or 0) - (li.get("amount") or 0))
                 new_percent = (new_billed / task["amount"] * 100) if task["amount"] > 0 else 0
                 db.execute(
-                    "UPDATE contract_tasks SET billed_amount = ?, billed_percent = ?, updated_at = ? WHERE id = ?",
+                    "UPDATE contract_tasks SET billed_amount = %s, billed_percent = %s, updated_at = %s WHERE id = %s",
                     (new_billed, new_percent, now, task["id"]),
                 )
 
     # Soft-delete the invoice
-    db.execute("UPDATE invoices SET deleted_at = ? WHERE id = ?", (now, invoice_id))
+    db.execute("UPDATE invoices SET deleted_at = %s WHERE id = %s", (now, invoice_id))
 
     # Clear current_invoice_id if this was the current invoice
     if inv.get("project_id"):
         db.execute(
-            "UPDATE projects SET current_invoice_id = NULL WHERE id = ? AND current_invoice_id = ?",
+            "UPDATE projects SET current_invoice_id = NULL WHERE id = %s AND current_invoice_id = %s",
             (inv["project_id"], invoice_id),
         )
 

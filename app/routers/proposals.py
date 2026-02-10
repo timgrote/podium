@@ -1,5 +1,4 @@
 import logging
-import sqlite3
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -44,15 +43,15 @@ def get_defaults():
 def list_proposals(
     project_id: str | None = Query(None),
     status: str | None = Query(None),
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     query = "SELECT * FROM proposals WHERE deleted_at IS NULL"
     params: list = []
     if project_id:
-        query += " AND project_id = ?"
+        query += " AND project_id = %s"
         params.append(project_id)
     if status:
-        query += " AND status = ?"
+        query += " AND status = %s"
         params.append(status)
     query += " ORDER BY created_at DESC"
 
@@ -61,7 +60,7 @@ def list_proposals(
     for row in rows:
         p = dict(row)
         tasks = db.execute(
-            "SELECT * FROM proposal_tasks WHERE proposal_id = ? ORDER BY sort_order",
+            "SELECT * FROM proposal_tasks WHERE proposal_id = %s ORDER BY sort_order",
             (p["id"],),
         ).fetchall()
         p["tasks"] = [dict(t) for t in tasks]
@@ -74,7 +73,7 @@ def list_proposals(
 # ---------------------------------------------------------------------------
 
 @router.post("/generate", status_code=201)
-def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(get_db)):
+def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
     """All-in-one: auto-create client/project if needed, create proposal + tasks,
     optionally render template and upload Google Doc."""
     now = datetime.now().isoformat()
@@ -83,7 +82,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
     client_id = None
     if data.client_email:
         row = db.execute(
-            "SELECT id FROM clients WHERE email = ? AND deleted_at IS NULL",
+            "SELECT id FROM clients WHERE email = %s AND deleted_at IS NULL",
             (data.client_email,),
         ).fetchone()
         if row:
@@ -91,7 +90,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
 
     if not client_id and data.client_company:
         row = db.execute(
-            "SELECT id FROM clients WHERE company = ? AND deleted_at IS NULL",
+            "SELECT id FROM clients WHERE company = %s AND deleted_at IS NULL",
             (data.client_company,),
         ).fetchone()
         if row:
@@ -113,7 +112,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
 
         db.execute(
             "INSERT INTO clients (id, name, email, company, address, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (client_id, data.client_name, data.client_email,
              data.client_company, address, now, now),
         )
@@ -122,7 +121,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
         contact_id = generate_id("ct-")
         db.execute(
             "INSERT INTO contacts (id, name, email, client_id, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s)",
             (contact_id, data.client_name, data.client_email, client_id, now, now),
         )
 
@@ -130,20 +129,20 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
     project_id = data.project_id
     if project_id:
         existing = db.execute(
-            "SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL",
+            "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL",
             (project_id,),
         ).fetchone()
         if not existing:
             db.execute(
                 "INSERT INTO projects (id, name, client_id, status, created_at, updated_at) "
-                "VALUES (?, ?, ?, 'proposal', ?, ?)",
+                "VALUES (%s, %s, %s, 'proposal', %s, %s)",
                 (project_id, data.project_name, client_id, now, now),
             )
     else:
         project_id = generate_id("J")
         db.execute(
             "INSERT INTO projects (id, name, client_id, status, created_at, updated_at) "
-            "VALUES (?, ?, ?, 'proposal', ?, ?)",
+            "VALUES (%s, %s, %s, 'proposal', %s, %s)",
             (project_id, data.project_name, client_id, now, now),
         )
 
@@ -161,7 +160,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
         "INSERT INTO proposals (id, project_id, client_company, client_contact_email, "
         "total_fee, engineer_key, engineer_name, engineer_title, contact_method, "
         "proposal_date, status, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft', %s, %s)",
         (proposal_id, project_id, data.client_company, data.client_email,
          total_fee, engineer_key, engineer["name"], engineer["title"],
          data.contact_method, proposal_date, now, now),
@@ -171,7 +170,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
         task_id = generate_id("ptask-")
         db.execute(
             "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (task_id, proposal_id, i + 1, task.name, task.description, task.amount, now),
         )
 
@@ -200,7 +199,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
             )
 
             db.execute(
-                "UPDATE proposals SET data_path = ?, updated_at = ? WHERE id = ?",
+                "UPDATE proposals SET data_path = %s, updated_at = %s WHERE id = %s",
                 (doc_url, datetime.now().isoformat(), proposal_id),
             )
             db.commit()
@@ -220,7 +219,7 @@ def generate_proposal(data: ProposalGenerate, db: sqlite3.Connection = Depends(g
 # ---------------------------------------------------------------------------
 
 @router.get("/{proposal_id}")
-def get_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
+def get_proposal(proposal_id: str, db=Depends(get_db)):
     return _get_proposal_with_tasks(db, proposal_id)
 
 
@@ -229,9 +228,10 @@ def get_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.post("", status_code=201)
-def create_proposal(data: ProposalCreate, db: sqlite3.Connection = Depends(get_db)):
+def create_proposal(data: ProposalCreate, db=Depends(get_db)):
+    # Verify project exists
     project = db.execute(
-        "SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL", (data.project_id,)
+        "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (data.project_id,)
     ).fetchone()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -247,7 +247,7 @@ def create_proposal(data: ProposalCreate, db: sqlite3.Connection = Depends(get_d
         "INSERT INTO proposals (id, project_id, client_company, client_contact_email, "
         "total_fee, engineer_key, engineer_name, engineer_title, contact_method, "
         "proposal_date, status, data_path, pdf_path, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (proposal_id, data.project_id, data.client_company, data.client_contact_email,
          total_fee, data.engineer_key, data.engineer_name, data.engineer_title,
          data.contact_method, data.proposal_date,
@@ -259,7 +259,7 @@ def create_proposal(data: ProposalCreate, db: sqlite3.Connection = Depends(get_d
             task_id = generate_id("ptask-")
             db.execute(
                 "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (task_id, proposal_id, i + 1, task.name, task.description, task.amount, now),
             )
 
@@ -275,10 +275,10 @@ def create_proposal(data: ProposalCreate, db: sqlite3.Connection = Depends(get_d
 def update_proposal(
     proposal_id: str,
     data: ProposalUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     existing = db.execute(
-        "SELECT * FROM proposals WHERE id = ? AND deleted_at IS NULL", (proposal_id,)
+        "SELECT * FROM proposals WHERE id = %s AND deleted_at IS NULL", (proposal_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Proposal not found")
@@ -288,9 +288,9 @@ def update_proposal(
         return _get_proposal_with_tasks(db, proposal_id)
 
     updates["updated_at"] = datetime.now().isoformat()
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
     values = list(updates.values()) + [proposal_id]
-    db.execute(f"UPDATE proposals SET {set_clause} WHERE id = ?", values)
+    db.execute(f"UPDATE proposals SET {set_clause} WHERE id = %s", values)
     db.commit()
     return _get_proposal_with_tasks(db, proposal_id)
 
@@ -300,15 +300,15 @@ def update_proposal(
 # ---------------------------------------------------------------------------
 
 @router.delete("/{proposal_id}")
-def delete_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
+def delete_proposal(proposal_id: str, db=Depends(get_db)):
     existing = db.execute(
-        "SELECT * FROM proposals WHERE id = ? AND deleted_at IS NULL", (proposal_id,)
+        "SELECT * FROM proposals WHERE id = %s AND deleted_at IS NULL", (proposal_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Proposal not found")
 
     now = datetime.now().isoformat()
-    db.execute("UPDATE proposals SET deleted_at = ? WHERE id = ?", (now, proposal_id))
+    db.execute("UPDATE proposals SET deleted_at = %s WHERE id = %s", (now, proposal_id))
     db.commit()
     return {"success": True}
 
@@ -318,11 +318,11 @@ def delete_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.post("/{proposal_id}/generate-doc")
-def generate_doc(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
+def generate_doc(proposal_id: str, db=Depends(get_db)):
     """Generate a Google Doc for an existing proposal."""
     proposal = _get_proposal_dict(db, proposal_id)
     tasks = db.execute(
-        "SELECT * FROM proposal_tasks WHERE proposal_id = ? ORDER BY sort_order",
+        "SELECT * FROM proposal_tasks WHERE proposal_id = %s ORDER BY sort_order",
         (proposal_id,),
     ).fetchall()
     if not tasks:
@@ -332,7 +332,7 @@ def generate_doc(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
         "SELECT p.*, c.name as client_name, c.company as client_company, "
         "c.email as client_email, c.address as client_address "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
-        "WHERE p.id = ? AND p.deleted_at IS NULL",
+        "WHERE p.id = %s AND p.deleted_at IS NULL",
         (proposal["project_id"],),
     ).fetchone()
 
@@ -371,7 +371,7 @@ def generate_doc(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 
         now = datetime.now().isoformat()
         db.execute(
-            "UPDATE proposals SET data_path = ?, updated_at = ? WHERE id = ?",
+            "UPDATE proposals SET data_path = %s, updated_at = %s WHERE id = %s",
             (doc_url, now, proposal_id),
         )
         db.commit()
@@ -388,7 +388,7 @@ def generate_doc(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.post("/{proposal_id}/export-pdf")
-def export_pdf(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
+def export_pdf(proposal_id: str, db=Depends(get_db)):
     """Export proposal Google Doc as PDF, upload to Drive."""
     proposal = _get_proposal_dict(db, proposal_id)
 
@@ -406,7 +406,7 @@ def export_pdf(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
         pdf_bytes = export_google_doc_as_pdf(doc_id)
 
         project = db.execute(
-            "SELECT name FROM projects WHERE id = ? AND deleted_at IS NULL", (proposal["project_id"],)
+            "SELECT name FROM projects WHERE id = %s AND deleted_at IS NULL", (proposal["project_id"],)
         ).fetchone()
         pdf_filename = f"Proposal - {project['name'] if project else proposal_id}.pdf"
 
@@ -414,7 +414,7 @@ def export_pdf(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 
         now = datetime.now().isoformat()
         db.execute(
-            "UPDATE proposals SET pdf_path = ?, updated_at = ? WHERE id = ?",
+            "UPDATE proposals SET pdf_path = %s, updated_at = %s WHERE id = %s",
             (pdf_url, now, proposal_id),
         )
         db.commit()
@@ -431,7 +431,7 @@ def export_pdf(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.post("/{proposal_id}/send")
-def send_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
+def send_proposal(proposal_id: str, db=Depends(get_db)):
     """Export PDF and email to client."""
     proposal = _get_proposal_dict(db, proposal_id)
 
@@ -446,7 +446,7 @@ def send_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
     if not to_email:
         row = db.execute(
             "SELECT c.email FROM projects p JOIN clients c ON p.client_id = c.id "
-            "WHERE p.id = ? AND p.deleted_at IS NULL",
+            "WHERE p.id = %s AND p.deleted_at IS NULL",
             (proposal["project_id"],),
         ).fetchone()
         if row:
@@ -461,7 +461,7 @@ def send_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
         pdf_bytes = export_google_doc_as_pdf(doc_id)
 
         project = db.execute(
-            "SELECT name FROM projects WHERE id = ? AND deleted_at IS NULL", (proposal["project_id"],)
+            "SELECT name FROM projects WHERE id = %s AND deleted_at IS NULL", (proposal["project_id"],)
         ).fetchone()
         project_name = project["name"] if project else "Project"
         pdf_filename = f"Proposal - {project_name}.pdf"
@@ -491,7 +491,7 @@ def send_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 
         now = datetime.now().isoformat()
         db.execute(
-            "UPDATE proposals SET pdf_path = ?, sent_at = ?, status = 'sent', updated_at = ? WHERE id = ?",
+            "UPDATE proposals SET pdf_path = %s, sent_at = %s, status = 'sent', updated_at = %s WHERE id = %s",
             (pdf_url, now, now, proposal_id),
         )
         db.commit()
@@ -511,7 +511,7 @@ def send_proposal(proposal_id: str, db: sqlite3.Connection = Depends(get_db)):
 def add_proposal_task(
     proposal_id: str,
     data: ProposalTaskCreate,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     _get_proposal_dict(db, proposal_id)
 
@@ -519,13 +519,13 @@ def add_proposal_task(
     task_id = generate_id("ptask-")
 
     max_order = db.execute(
-        "SELECT COALESCE(MAX(sort_order), 0) as max_order FROM proposal_tasks WHERE proposal_id = ?",
+        "SELECT COALESCE(MAX(sort_order), 0) as max_order FROM proposal_tasks WHERE proposal_id = %s",
         (proposal_id,),
     ).fetchone()["max_order"]
 
     db.execute(
         "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (task_id, proposal_id, max_order + 1, data.name, data.description, data.amount, now),
     )
 
@@ -539,10 +539,10 @@ def update_proposal_task(
     proposal_id: str,
     task_id: str,
     data: ProposalTaskUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     existing = db.execute(
-        "SELECT * FROM proposal_tasks WHERE id = ? AND proposal_id = ?",
+        "SELECT * FROM proposal_tasks WHERE id = %s AND proposal_id = %s",
         (task_id, proposal_id),
     ).fetchone()
     if not existing:
@@ -552,9 +552,9 @@ def update_proposal_task(
     if not updates:
         return _get_proposal_with_tasks(db, proposal_id)
 
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
     values = list(updates.values()) + [task_id]
-    db.execute(f"UPDATE proposal_tasks SET {set_clause} WHERE id = ?", values)
+    db.execute(f"UPDATE proposal_tasks SET {set_clause} WHERE id = %s", values)
 
     _update_proposal_total(db, proposal_id)
     db.commit()
@@ -565,16 +565,16 @@ def update_proposal_task(
 def delete_proposal_task(
     proposal_id: str,
     task_id: str,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     existing = db.execute(
-        "SELECT * FROM proposal_tasks WHERE id = ? AND proposal_id = ?",
+        "SELECT * FROM proposal_tasks WHERE id = %s AND proposal_id = %s",
         (task_id, proposal_id),
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    db.execute("DELETE FROM proposal_tasks WHERE id = ?", (task_id,))
+    db.execute("DELETE FROM proposal_tasks WHERE id = %s", (task_id,))
     _update_proposal_total(db, proposal_id)
     db.commit()
     return {"success": True}
@@ -589,7 +589,7 @@ def promote_to_contract(
     proposal_id: str,
     signed_at: str | None = None,
     file_path: str | None = None,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     proposal = _get_proposal_dict(db, proposal_id)
 
@@ -599,13 +599,13 @@ def promote_to_contract(
 
     db.execute(
         "INSERT INTO contracts (id, project_id, total_amount, signed_at, file_path, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (contract_id, project_id, proposal["total_fee"],
          signed_at or now, file_path, now, now),
     )
 
     tasks = db.execute(
-        "SELECT * FROM proposal_tasks WHERE proposal_id = ? ORDER BY sort_order",
+        "SELECT * FROM proposal_tasks WHERE proposal_id = %s ORDER BY sort_order",
         (proposal_id,),
     ).fetchall()
 
@@ -614,26 +614,26 @@ def promote_to_contract(
         db.execute(
             "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, "
             "billed_amount, billed_percent, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, 0, 0, %s, %s)",
             (ctask_id, contract_id, task["sort_order"], task["name"],
              task["description"], task["amount"], now, now),
         )
 
     db.execute(
-        "UPDATE proposals SET status = 'accepted', updated_at = ? WHERE id = ?",
+        "UPDATE proposals SET status = 'accepted', updated_at = %s WHERE id = %s",
         (now, proposal_id),
     )
     db.execute(
-        "UPDATE projects SET status = 'contract', updated_at = ? WHERE id = ?",
+        "UPDATE projects SET status = 'contract', updated_at = %s WHERE id = %s",
         (now, project_id),
     )
 
     db.commit()
 
-    contract = db.execute("SELECT * FROM contracts WHERE id = ?", (contract_id,)).fetchone()
+    contract = db.execute("SELECT * FROM contracts WHERE id = %s", (contract_id,)).fetchone()
     result = dict(contract)
     contract_tasks = db.execute(
-        "SELECT * FROM contract_tasks WHERE contract_id = ? ORDER BY sort_order",
+        "SELECT * FROM contract_tasks WHERE contract_id = %s ORDER BY sort_order",
         (contract_id,),
     ).fetchall()
     result["tasks"] = [dict(t) for t in contract_tasks]
@@ -644,32 +644,32 @@ def promote_to_contract(
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _get_proposal_dict(db: sqlite3.Connection, proposal_id: str) -> dict:
+def _get_proposal_dict(db, proposal_id: str) -> dict:
     row = db.execute(
-        "SELECT * FROM proposals WHERE id = ? AND deleted_at IS NULL", (proposal_id,)
+        "SELECT * FROM proposals WHERE id = %s AND deleted_at IS NULL", (proposal_id,)
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Proposal not found")
     return dict(row)
 
 
-def _get_proposal_with_tasks(db: sqlite3.Connection, proposal_id: str) -> dict:
+def _get_proposal_with_tasks(db, proposal_id: str) -> dict:
     proposal = _get_proposal_dict(db, proposal_id)
     tasks = db.execute(
-        "SELECT * FROM proposal_tasks WHERE proposal_id = ? ORDER BY sort_order",
+        "SELECT * FROM proposal_tasks WHERE proposal_id = %s ORDER BY sort_order",
         (proposal_id,),
     ).fetchall()
     proposal["tasks"] = [dict(t) for t in tasks]
     return proposal
 
 
-def _update_proposal_total(db: sqlite3.Connection, proposal_id: str):
+def _update_proposal_total(db, proposal_id: str):
     total = db.execute(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM proposal_tasks WHERE proposal_id = ?",
+        "SELECT COALESCE(SUM(amount), 0) as total FROM proposal_tasks WHERE proposal_id = %s",
         (proposal_id,),
     ).fetchone()["total"]
     db.execute(
-        "UPDATE proposals SET total_fee = ?, updated_at = ? WHERE id = ?",
+        "UPDATE proposals SET total_fee = %s, updated_at = %s WHERE id = %s",
         (total, datetime.now().isoformat(), proposal_id),
     )
 
