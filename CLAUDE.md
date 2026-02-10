@@ -62,13 +62,16 @@ pytest tests/
 
 ## Deployment
 
-Auto-deploys on push to `main` via GitHub Actions (`.github/workflows/deploy.yml`). No build step — just `git pull` on the droplet, install deps, run migrations, restart.
+Auto-deploys on push to `master` via GitHub Actions (`.github/workflows/deploy.yml`). The workflow SSHs into the droplet and runs `scripts/deploy.sh`, which handles: git pull, pip install, tracked migrations, service restart, and health check.
 
 ```bash
-# Manual deploy
-ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
-  "cd /var/www/conductor && git pull"
+# Manual deploy (same script GitHub Actions runs)
+ssh root@100.105.238.37 "cd /var/www/conductor && bash scripts/deploy.sh"
 ```
+
+### Migration tracking
+
+Migrations in `db/migrations/` are tracked via a `_migrations` table. The deploy script only runs new migrations (by filename) and fails fast on errors — no silent `|| true`. On first run it seeds the tracking table with existing migration filenames so they aren't re-applied.
 
 ## Configuration
 
