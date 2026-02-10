@@ -1,5 +1,4 @@
 import logging
-import sqlite3
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,16 +14,16 @@ router = APIRouter()
 
 
 @router.get("/{contract_id}")
-def get_contract(contract_id: str, db: sqlite3.Connection = Depends(get_db)):
+def get_contract(contract_id: str, db=Depends(get_db)):
     row = db.execute(
-        "SELECT * FROM contracts WHERE id = ? AND deleted_at IS NULL", (contract_id,)
+        "SELECT * FROM contracts WHERE id = %s AND deleted_at IS NULL", (contract_id,)
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Contract not found")
 
     contract = dict(row)
     tasks = db.execute(
-        "SELECT * FROM contract_tasks WHERE contract_id = ? ORDER BY sort_order",
+        "SELECT * FROM contract_tasks WHERE contract_id = %s ORDER BY sort_order",
         (contract_id,),
     ).fetchall()
     contract["tasks"] = [dict(t) for t in tasks]
@@ -32,10 +31,10 @@ def get_contract(contract_id: str, db: sqlite3.Connection = Depends(get_db)):
 
 
 @router.post("", status_code=201)
-def create_contract(data: ContractCreate, db: sqlite3.Connection = Depends(get_db)):
+def create_contract(data: ContractCreate, db=Depends(get_db)):
     # Verify project exists
     project = db.execute(
-        "SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL", (data.project_id,)
+        "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (data.project_id,)
     ).fetchone()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -44,7 +43,7 @@ def create_contract(data: ContractCreate, db: sqlite3.Connection = Depends(get_d
     contract_id = generate_id("con-")
     db.execute(
         "INSERT INTO contracts (id, project_id, total_amount, signed_at, file_path, notes, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
         (contract_id, data.project_id, data.total_amount, data.signed_at, data.file_path, data.notes, now, now),
     )
     db.commit()
@@ -52,15 +51,15 @@ def create_contract(data: ContractCreate, db: sqlite3.Connection = Depends(get_d
 
 
 @router.delete("/{contract_id}")
-def delete_contract(contract_id: str, db: sqlite3.Connection = Depends(get_db)):
+def delete_contract(contract_id: str, db=Depends(get_db)):
     existing = db.execute(
-        "SELECT * FROM contracts WHERE id = ? AND deleted_at IS NULL", (contract_id,)
+        "SELECT * FROM contracts WHERE id = %s AND deleted_at IS NULL", (contract_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Contract not found")
 
     now = datetime.now().isoformat()
-    db.execute("UPDATE contracts SET deleted_at = ? WHERE id = ?", (now, contract_id))
+    db.execute("UPDATE contracts SET deleted_at = %s WHERE id = %s", (now, contract_id))
     db.commit()
     return {"success": True}
 
@@ -71,10 +70,10 @@ def delete_contract(contract_id: str, db: sqlite3.Connection = Depends(get_db)):
 def add_contract_task(
     contract_id: str,
     data: ContractTaskCreate,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     contract = db.execute(
-        "SELECT * FROM contracts WHERE id = ? AND deleted_at IS NULL", (contract_id,)
+        "SELECT * FROM contracts WHERE id = %s AND deleted_at IS NULL", (contract_id,)
     ).fetchone()
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
@@ -84,13 +83,13 @@ def add_contract_task(
 
     # Get next sort_order
     max_order = db.execute(
-        "SELECT COALESCE(MAX(sort_order), 0) as max_order FROM contract_tasks WHERE contract_id = ?",
+        "SELECT COALESCE(MAX(sort_order), 0) as max_order FROM contract_tasks WHERE contract_id = %s",
         (contract_id,),
     ).fetchone()["max_order"]
 
     db.execute(
         "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
         (task_id, contract_id, max_order + 1, data.name, data.description, data.amount, now, now),
     )
 
@@ -106,10 +105,10 @@ def update_contract_task(
     contract_id: str,
     task_id: str,
     data: ContractTaskUpdate,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     existing = db.execute(
-        "SELECT * FROM contract_tasks WHERE id = ? AND contract_id = ?",
+        "SELECT * FROM contract_tasks WHERE id = %s AND contract_id = %s",
         (task_id, contract_id),
     ).fetchone()
     if not existing:
@@ -120,9 +119,9 @@ def update_contract_task(
         return get_contract(contract_id, db)
 
     updates["updated_at"] = datetime.now().isoformat()
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
     values = list(updates.values()) + [task_id]
-    db.execute(f"UPDATE contract_tasks SET {set_clause} WHERE id = ?", values)
+    db.execute(f"UPDATE contract_tasks SET {set_clause} WHERE id = %s", values)
 
     _update_contract_total(db, contract_id)
     db.commit()
@@ -133,16 +132,16 @@ def update_contract_task(
 def delete_contract_task(
     contract_id: str,
     task_id: str,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     existing = db.execute(
-        "SELECT * FROM contract_tasks WHERE id = ? AND contract_id = ?",
+        "SELECT * FROM contract_tasks WHERE id = %s AND contract_id = %s",
         (task_id, contract_id),
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    db.execute("DELETE FROM contract_tasks WHERE id = ?", (task_id,))
+    db.execute("DELETE FROM contract_tasks WHERE id = %s", (task_id,))
     _update_contract_total(db, contract_id)
     db.commit()
     return {"success": True}
@@ -154,10 +153,10 @@ def delete_contract_task(
 def create_invoice_from_contract(
     contract_id: str,
     data: InvoiceFromContract,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     contract = db.execute(
-        "SELECT * FROM contracts WHERE id = ? AND deleted_at IS NULL", (contract_id,)
+        "SELECT * FROM contracts WHERE id = %s AND deleted_at IS NULL", (contract_id,)
     ).fetchone()
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
@@ -171,7 +170,7 @@ def create_invoice_from_contract(
 
     # Find previous invoice in chain
     prev_invoice = db.execute(
-        "SELECT id FROM invoices WHERE project_id = ? AND contract_id = ? AND deleted_at IS NULL "
+        "SELECT id FROM invoices WHERE project_id = %s AND contract_id = %s AND deleted_at IS NULL "
         "ORDER BY created_at DESC LIMIT 1",
         (project_id, contract_id),
     ).fetchone()
@@ -186,7 +185,7 @@ def create_invoice_from_contract(
         percent_this = task_spec["percent_this_invoice"]
 
         task = db.execute(
-            "SELECT * FROM contract_tasks WHERE id = ? AND contract_id = ?",
+            "SELECT * FROM contract_tasks WHERE id = %s AND contract_id = %s",
             (task_id, contract_id),
         ).fetchone()
         if not task:
@@ -210,14 +209,14 @@ def create_invoice_from_contract(
         new_billed = previous_billing + current_billing
         new_percent = (new_billed / task["amount"] * 100) if task["amount"] > 0 else 0
         db.execute(
-            "UPDATE contract_tasks SET billed_amount = ?, billed_percent = ?, updated_at = ? WHERE id = ?",
+            "UPDATE contract_tasks SET billed_amount = %s, billed_percent = %s, updated_at = %s WHERE id = %s",
             (new_billed, new_percent, now, task_id),
         )
 
     # Create invoice
     db.execute(
         "INSERT INTO invoices (id, invoice_number, project_id, contract_id, previous_invoice_id, "
-        "type, total_due, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'task', ?, ?, ?)",
+        "type, total_due, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, 'task', %s, %s, %s)",
         (inv_id, invoice_number, project_id, contract_id, previous_invoice_id, total_due, now, now),
     )
 
@@ -227,13 +226,13 @@ def create_invoice_from_contract(
         db.execute(
             "INSERT INTO invoice_line_items (id, invoice_id, sort_order, name, description, "
             "quantity, unit_price, amount, previous_billing, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (li_id, inv_id, i + 1, li["name"], li["description"],
              li["quantity"], li["unit_price"], li["amount"], li["previous_billing"], now),
         )
 
     # Set as current invoice on project
-    db.execute("UPDATE projects SET current_invoice_id = ? WHERE id = ?", (inv_id, project_id))
+    db.execute("UPDATE projects SET current_invoice_id = %s WHERE id = %s", (inv_id, project_id))
 
     db.commit()
 
@@ -246,7 +245,7 @@ def create_invoice_from_contract(
             "SELECT p.*, c.name as client_name, c.company as client_company, "
             "c.address as client_address "
             "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
-            "WHERE p.id = ?",
+            "WHERE p.id = %s",
             (project_id,),
         ).fetchone()
 
@@ -255,7 +254,7 @@ def create_invoice_from_contract(
         template_id = ""
         for key in ("company_email", "invoice_drive_folder_id", "invoice_template_id"):
             row = db.execute(
-                "SELECT value FROM company_settings WHERE key = ?", (key,)
+                "SELECT value FROM company_settings WHERE key = %s", (key,)
             ).fetchone()
             if row and row["value"]:
                 if key == "company_email":
@@ -291,7 +290,7 @@ def create_invoice_from_contract(
             client_project_number=p_dict.get("client_project_number") or "",
         )
         db.execute(
-            "UPDATE invoices SET data_path = ?, updated_at = ? WHERE id = ?",
+            "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
             (sheet_url, datetime.now().isoformat(), inv_id),
         )
         db.commit()
@@ -301,19 +300,19 @@ def create_invoice_from_contract(
         logger.error("Google Sheet creation failed: %s", e)
         sheet_url = None
 
-    invoice = db.execute("SELECT * FROM invoices WHERE id = ?", (inv_id,)).fetchone()
+    invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (inv_id,)).fetchone()
     result = dict(invoice)
     if not result.get("data_path"):
         result["_warning"] = "Invoice created but Google Sheet could not be generated"
     return result
 
 
-def _update_contract_total(db: sqlite3.Connection, contract_id: str):
+def _update_contract_total(db, contract_id: str):
     total = db.execute(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM contract_tasks WHERE contract_id = ?",
+        "SELECT COALESCE(SUM(amount), 0) as total FROM contract_tasks WHERE contract_id = %s",
         (contract_id,),
     ).fetchone()["total"]
     db.execute(
-        "UPDATE contracts SET total_amount = ?, updated_at = ? WHERE id = ?",
+        "UPDATE contracts SET total_amount = %s, updated_at = %s WHERE id = %s",
         (total, datetime.now().isoformat(), contract_id),
     )

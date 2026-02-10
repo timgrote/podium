@@ -119,6 +119,38 @@
 
             <div class="card bg-dark-card rounded-xl p-8 mb-6">
                 <div class="card-header mb-6">
+                    <h2 class="text-xl text-white mb-1">Database Connection</h2>
+                    <p class="text-gray-500 text-sm">PostgreSQL connection string — changes take effect on next request</p>
+                </div>
+
+                <div class="form-group mb-5">
+                    <label for="database_url" class="block mb-2 text-gray-400 text-sm font-medium">Database URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="database_url" placeholder="postgresql://conductor:conductor@localhost:5432/conductor" class="flex-1 py-3 px-4 rounded-md border border-dark-border bg-dark-bg text-white text-base font-mono text-sm focus:outline-none focus:border-primary">
+                        <button type="button" id="db-save-btn" onclick="saveDatabaseUrl()" class="px-4 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border-none bg-primary text-white hover:bg-primary-hover whitespace-nowrap">Save</button>
+                        <button type="button" onclick="resetDatabaseUrl()" class="px-4 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border border-dark-border bg-dark-card text-gray-400 hover:bg-[#2d2d4a] whitespace-nowrap">Reset</button>
+                    </div>
+                    <div id="db-status" class="mt-2 text-sm"></div>
+                    <div id="db-error" class="hidden mt-2 text-sm text-red-400"></div>
+                </div>
+
+                <div class="mt-4 p-4 rounded-md bg-dark-bg border border-dark-border">
+                    <p class="text-gray-500 text-xs mb-2 font-medium uppercase tracking-wide">Quick Copy</p>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500 text-xs w-20 shrink-0">Local dev:</span>
+                            <code id="hint-local" class="text-xs text-gray-400 font-mono cursor-pointer hover:text-white transition-colors" onclick="copyHint(this)" title="Click to copy">postgresql://conductor:conductor@localhost:5432/conductor</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500 text-xs w-20 shrink-0">Production:</span>
+                            <code id="hint-prod" class="text-xs text-gray-400 font-mono cursor-pointer hover:text-white transition-colors" onclick="copyHint(this)" title="Click to copy">postgresql://conductor:&lt;pw&gt;@&lt;droplet-ip&gt;:5432/conductor</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-dark-card rounded-xl p-8 mb-6">
+                <div class="card-header mb-6">
                     <h2 class="text-xl text-white mb-1">Branding</h2>
                     <p class="text-gray-500 text-sm">Customize the look of your dashboard and client-facing pages</p>
                 </div>
@@ -271,8 +303,80 @@
             }
         });
 
+        // --- Database Connection ---
+        async function loadDatabaseUrl() {
+            try {
+                const resp = await fetch('/api/company/database');
+                const data = await resp.json();
+                document.getElementById('database_url').value = data.database_url || '';
+                const status = document.getElementById('db-status');
+                status.textContent = '';
+                const dot = document.createElement('span');
+                if (data.connected) {
+                    dot.className = 'text-green-400';
+                    dot.textContent = '\u25CF Connected';
+                } else {
+                    dot.className = 'text-red-400';
+                    dot.textContent = '\u25CF Disconnected';
+                    if (data.error) {
+                        document.getElementById('db-error').textContent = data.error;
+                        document.getElementById('db-error').classList.remove('hidden');
+                    }
+                }
+                status.appendChild(dot);
+            } catch (e) {
+                const status = document.getElementById('db-status');
+                status.textContent = 'Could not check connection';
+                status.className = 'mt-2 text-sm text-gray-500';
+            }
+        }
+
+        async function saveDatabaseUrl() {
+            const url = document.getElementById('database_url').value.trim();
+            const btn = document.getElementById('db-save-btn');
+            const errorEl = document.getElementById('db-error');
+            btn.textContent = 'Saving...';
+            errorEl.classList.add('hidden');
+            try {
+                const resp = await fetch('/api/company/database', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ database_url: url })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    btn.textContent = 'Saved!';
+                    setTimeout(() => { btn.textContent = 'Save'; }, 2000);
+                    loadDatabaseUrl();
+                } else {
+                    errorEl.textContent = data.error || 'Failed to save';
+                    errorEl.classList.remove('hidden');
+                    btn.textContent = 'Save';
+                }
+            } catch (e) {
+                errorEl.textContent = 'Request failed';
+                errorEl.classList.remove('hidden');
+                btn.textContent = 'Save';
+            }
+        }
+
+        async function resetDatabaseUrl() {
+            document.getElementById('database_url').value = '';
+            await saveDatabaseUrl();
+        }
+
+        function copyHint(el) {
+            const text = el.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = el.textContent;
+                el.textContent = 'Copied!';
+                setTimeout(() => { el.textContent = orig; }, 1500);
+            });
+        }
+
         // Load settings on page load
         loadSettings();
+        loadDatabaseUrl();
     </script>
 </body>
 </html>

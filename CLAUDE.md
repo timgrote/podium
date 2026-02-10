@@ -9,9 +9,9 @@ Conductor is a multi-tenant SaaS platform for project-based service businesses. 
 ## Architecture
 
 ```
-Frontend (Static HTML/JS)  →  FastAPI (/api/*)  →  SQLite Database
+Frontend (Static HTML/JS)  →  FastAPI (/api/*)  →  PostgreSQL Database
      ↓                           ↓                      ↓
-Caddy (TLS/Auth)           app/routers/*          db/conductor.db
+Caddy (TLS/Auth)           app/routers/*          postgresql://...
 ```
 
 **Three layers:**
@@ -28,7 +28,11 @@ FastAPI serves both API routes and static files from a single process (`app/main
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cd db && python3 init_db.py && cd ..
+
+# Initialize database (requires local PostgreSQL running)
+python3 db/init_db.py              # Fresh DB with seed data
+python3 db/init_db.py --no-seed    # Fresh DB, schema only
+python3 db/init_db.py --seed-only  # Add seed data to existing DB
 
 # Start server
 source .venv/bin/activate
@@ -37,22 +41,33 @@ uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 # Open: http://localhost:3000/ops/dashboard.html
 ```
 
-### Database initialization options
+### PostgreSQL Setup (Local Dev)
 
 ```bash
-python3 db/init_db.py              # Fresh DB with seed data (3 clients, 3 projects, invoices, etc.)
-python3 db/init_db.py --no-seed    # Fresh DB, schema only
-python3 db/init_db.py --seed-only  # Add seed data to existing DB
+sudo apt update && sudo apt install postgresql postgresql-contrib
+sudo systemctl enable postgresql && sudo systemctl start postgresql
+sudo -u postgres createuser --superuser conductor
+sudo -u postgres createdb conductor -O conductor
+sudo -u postgres psql -c "ALTER USER conductor PASSWORD 'conductor';"
+# Also create test database:
+sudo -u postgres createdb conductor_test -O conductor
+```
+
+### Running Tests
+
+```bash
+# Requires conductor_test database to exist
+pytest tests/
 ```
 
 ## Deployment
 
-Auto-deploys on push to `master`, `main`, or `feature/db-schema` via GitHub Actions (`.github/workflows/deploy.yml`). No build step — just `git reset --hard` on the droplet.
+Auto-deploys on push to `main` via GitHub Actions (`.github/workflows/deploy.yml`). No build step — just `git pull` on the droplet, install deps, run migrations, restart.
 
 ```bash
 # Manual deploy
 ssh -i ~/.ssh/digitalocean_n8n root@n8n.irrigationengineers.com \
-  "cd /opt/n8n-docker-caddy/podium && git pull"
+  "cd /var/www/conductor && git pull"
 ```
 
 ## Configuration
@@ -61,7 +76,7 @@ All settings use `CONDUCTOR_` prefix, loaded via pydantic-settings in `app/confi
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `CONDUCTOR_DB_PATH` | `db/conductor.db` | Path to SQLite database |
+| `CONDUCTOR_DATABASE_URL` | `postgresql://conductor:conductor@localhost:5432/conductor` | PostgreSQL connection string |
 | `CONDUCTOR_HOST` | `0.0.0.0` | Server bind address |
 | `CONDUCTOR_PORT` | `3000` | Server port |
 | `CONDUCTOR_UPLOAD_DIR` | `uploads/` | File upload directory |
@@ -69,6 +84,14 @@ All settings use `CONDUCTOR_` prefix, loaded via pydantic-settings in `app/confi
 | `CONDUCTOR_GOOGLE_SERVICE_ACCOUNT_PATH` | | Path to Google credentials JSON (local dev) |
 | `CONDUCTOR_INVOICE_TEMPLATE_ID` | `16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI` | Google Sheets invoice template |
 | `CONDUCTOR_INVOICE_DRIVE_FOLDER_ID` | | Google Drive folder for generated invoices |
+
+### Endpoint Configuration
+
+| Environment | `CONDUCTOR_DATABASE_URL` |
+|------------|--------------------------|
+| Local dev | `postgresql://conductor:conductor@localhost:5432/conductor` |
+| Local → live | `postgresql://conductor:<pw>@<droplet-ip>:5432/conductor` |
+| Production | `postgresql://conductor:<pw>@localhost:5432/conductor` |
 
 ## API Endpoints
 
@@ -107,7 +130,8 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 
 - **ID generation**: Short 8-char UUIDs with entity prefixes — `c-` (client), `con-` (contract), `prop-` (proposal), `inv-` (invoice). See `app/utils.py:generate_id()`.
 - **Soft deletes**: All tables have `deleted_at` column. Queries must filter `WHERE deleted_at IS NULL`.
-- **Database access**: Use `Depends(get_db)` for FastAPI dependency injection. Connection uses `sqlite3.Row` factory and enables foreign keys.
+- **Database access**: Use `Depends(get_db)` for FastAPI dependency injection. Connection wrapper uses `psycopg2` with `RealDictCursor` — rows are dicts natively.
+- **Parameter placeholders**: Use `%s` (psycopg2 format), NOT `?` (sqlite3 format).
 - **Invoice chaining**: `previous_invoice_id` links invoices for task-based billing across multiple pay apps.
 - **Contract tasks**: Track `billed_amount` and `billed_percent` for partial billing.
 - **File uploads**: Stored in `uploads/` directory, paths saved in database.
@@ -120,4 +144,4 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 - Don't hardcode project data in HTML
 - Don't modify production database directly except for schema migrations
 - Don't skip `deleted_at IS NULL` checks in queries
-- Don't create raw SQL without parameter binding (use `?` placeholders)
+- Don't create raw SQL without parameter binding (use `%s` placeholders)

@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Deploy to DigitalOcean via SSH
         uses: appleboy/ssh-action@v0.1.4
         with:
@@ -23,9 +23,17 @@ jobs:
             git pull origin main
             source /home/deploy/.openclaw/venv/bin/activate
             pip3 install -r requirements.txt
-            
+
+            # Run any pending database migrations
+            if [ -d "db/migrations" ]; then
+              for f in db/migrations/*.sql; do
+                echo "Running migration: $f"
+                sudo -u postgres psql -d conductor -f "$f" 2>&1 || true
+              done
+            fi
+
             # Restart conductor service gracefully
             sudo systemctl restart conductor-api
             sudo systemctl status conductor-api --no-pager
-            
+
             echo "✅ Conductor deployed and running on port 3000"

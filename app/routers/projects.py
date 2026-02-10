@@ -1,4 +1,3 @@
-import sqlite3
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,16 +9,16 @@ from ..utils import generate_id, next_invoice_number
 router = APIRouter()
 
 
-def _get_contracts_for_project(db: sqlite3.Connection, project_id: str) -> list[dict]:
+def _get_contracts_for_project(db, project_id: str) -> list[dict]:
     contracts = []
     rows = db.execute(
-        "SELECT * FROM contracts WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at",
+        "SELECT * FROM contracts WHERE project_id = %s AND deleted_at IS NULL ORDER BY created_at",
         (project_id,),
     ).fetchall()
     for c in rows:
         contract = dict(c)
         tasks = db.execute(
-            "SELECT * FROM contract_tasks WHERE contract_id = ? ORDER BY sort_order",
+            "SELECT * FROM contract_tasks WHERE contract_id = %s ORDER BY sort_order",
             (c["id"],),
         ).fetchall()
         contract["tasks"] = [dict(t) for t in tasks]
@@ -27,24 +26,24 @@ def _get_contracts_for_project(db: sqlite3.Connection, project_id: str) -> list[
     return contracts
 
 
-def _get_invoices_for_project(db: sqlite3.Connection, project_id: str) -> list[dict]:
+def _get_invoices_for_project(db, project_id: str) -> list[dict]:
     rows = db.execute(
-        "SELECT * FROM invoices WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at",
+        "SELECT * FROM invoices WHERE project_id = %s AND deleted_at IS NULL ORDER BY created_at",
         (project_id,),
     ).fetchall()
     return [dict(r) for r in rows]
 
 
-def _get_proposals_for_project(db: sqlite3.Connection, project_id: str) -> list[dict]:
+def _get_proposals_for_project(db, project_id: str) -> list[dict]:
     rows = db.execute(
-        "SELECT * FROM proposals WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at",
+        "SELECT * FROM proposals WHERE project_id = %s AND deleted_at IS NULL ORDER BY created_at",
         (project_id,),
     ).fetchall()
     proposals = []
     for p in rows:
         proposal = dict(p)
         tasks = db.execute(
-            "SELECT * FROM proposal_tasks WHERE proposal_id = ? ORDER BY sort_order",
+            "SELECT * FROM proposal_tasks WHERE proposal_id = %s ORDER BY sort_order",
             (p["id"],),
         ).fetchall()
         proposal["tasks"] = [dict(t) for t in tasks]
@@ -53,7 +52,7 @@ def _get_proposals_for_project(db: sqlite3.Connection, project_id: str) -> list[
 
 
 @router.get("", response_model=list[ProjectSummary])
-def list_projects(db: sqlite3.Connection = Depends(get_db)):
+def list_projects(db=Depends(get_db)):
     rows = db.execute(
         "SELECT * FROM v_project_summary ORDER BY id"
     ).fetchall()
@@ -67,7 +66,7 @@ def list_projects(db: sqlite3.Connection = Depends(get_db)):
         client_email = None
         if p.get("client_id"):
             client_row = db.execute(
-                "SELECT email FROM clients WHERE id = ?", (p["client_id"],)
+                "SELECT email FROM clients WHERE id = %s", (p["client_id"],)
             ).fetchone()
             if client_row:
                 client_email = client_row["email"]
@@ -99,9 +98,9 @@ def list_projects(db: sqlite3.Connection = Depends(get_db)):
 
 
 @router.get("/{project_id}", response_model=ProjectDetail)
-def get_project(project_id: str, db: sqlite3.Connection = Depends(get_db)):
+def get_project(project_id: str, db=Depends(get_db)):
     row = db.execute(
-        "SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL", (project_id,)
+        "SELECT * FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -112,7 +111,7 @@ def get_project(project_id: str, db: sqlite3.Connection = Depends(get_db)):
     client_name = client_company = client_email = client_phone = None
     if p.get("client_id"):
         client_row = db.execute(
-            "SELECT name, company, email, phone FROM clients WHERE id = ?", (p["client_id"],)
+            "SELECT name, company, email, phone FROM clients WHERE id = %s", (p["client_id"],)
         ).fetchone()
         if client_row:
             client_name = client_row["name"]
@@ -122,7 +121,7 @@ def get_project(project_id: str, db: sqlite3.Connection = Depends(get_db)):
 
     # Summary totals
     summary = db.execute(
-        "SELECT * FROM v_project_summary WHERE id = ?", (project_id,)
+        "SELECT * FROM v_project_summary WHERE id = %s", (project_id,)
     ).fetchone()
 
     contracts = _get_contracts_for_project(db, project_id)
@@ -157,27 +156,27 @@ def get_project(project_id: str, db: sqlite3.Connection = Depends(get_db)):
 
 
 @router.post("", response_model=ProjectDetail, status_code=201)
-def create_project(data: ProjectCreate, db: sqlite3.Connection = Depends(get_db)):
+def create_project(data: ProjectCreate, db=Depends(get_db)):
     now = datetime.now().isoformat()
 
     # Auto-create client if info provided but no client_id
     client_id = data.client_id
     if not client_id and data.client_email:
         existing = db.execute(
-            "SELECT id FROM clients WHERE email = ? AND deleted_at IS NULL", (data.client_email,)
+            "SELECT id FROM clients WHERE email = %s AND deleted_at IS NULL", (data.client_email,)
         ).fetchone()
         if existing:
             client_id = existing["id"]
         elif data.client_name:
             client_id = generate_id("c-")
             db.execute(
-                "INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (%s, %s, %s, %s, %s)",
                 (client_id, data.client_name, data.client_email, now, now),
             )
 
     db.execute(
         "INSERT INTO projects (id, name, client_id, status, data_path, notes, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
         (data.job_id, data.project_name, client_id, data.status, data.data_path, data.notes, now, now),
     )
 
@@ -190,7 +189,7 @@ def create_project(data: ProjectCreate, db: sqlite3.Connection = Depends(get_db)
 
         db.execute(
             "INSERT INTO contracts (id, project_id, total_amount, signed_at, file_path, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (contract_id, data.job_id, total, signed_at, file_path, now, now),
         )
 
@@ -198,7 +197,7 @@ def create_project(data: ProjectCreate, db: sqlite3.Connection = Depends(get_db)
             task_id = generate_id("ctask-")
             db.execute(
                 "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                 (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0), now, now),
             )
 
@@ -207,9 +206,9 @@ def create_project(data: ProjectCreate, db: sqlite3.Connection = Depends(get_db)
 
 
 @router.patch("/{project_id}", response_model=ProjectDetail)
-def update_project(project_id: str, data: ProjectUpdate, db: sqlite3.Connection = Depends(get_db)):
+def update_project(project_id: str, data: ProjectUpdate, db=Depends(get_db)):
     existing = db.execute(
-        "SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL", (project_id,)
+        "SELECT * FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -219,9 +218,9 @@ def update_project(project_id: str, data: ProjectUpdate, db: sqlite3.Connection 
         return get_project(project_id, db)
 
     updates["updated_at"] = datetime.now().isoformat()
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
     values = list(updates.values()) + [project_id]
-    db.execute(f"UPDATE projects SET {set_clause} WHERE id = ?", values)
+    db.execute(f"UPDATE projects SET {set_clause} WHERE id = %s", values)
     db.commit()
     return get_project(project_id, db)
 
@@ -230,10 +229,10 @@ def update_project(project_id: str, data: ProjectUpdate, db: sqlite3.Connection 
 def delete_project(
     project_id: str,
     cascade: bool = False,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     existing = db.execute(
-        "SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL", (project_id,)
+        "SELECT * FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -243,19 +242,19 @@ def delete_project(
     if cascade:
         # Soft-delete contracts and invoices
         db.execute(
-            "UPDATE contracts SET deleted_at = ? WHERE project_id = ? AND deleted_at IS NULL",
+            "UPDATE contracts SET deleted_at = %s WHERE project_id = %s AND deleted_at IS NULL",
             (now, project_id),
         )
         db.execute(
-            "UPDATE invoices SET deleted_at = ? WHERE project_id = ? AND deleted_at IS NULL",
+            "UPDATE invoices SET deleted_at = %s WHERE project_id = %s AND deleted_at IS NULL",
             (now, project_id),
         )
         db.execute(
-            "UPDATE proposals SET deleted_at = ? WHERE project_id = ? AND deleted_at IS NULL",
+            "UPDATE proposals SET deleted_at = %s WHERE project_id = %s AND deleted_at IS NULL",
             (now, project_id),
         )
 
-    db.execute("UPDATE projects SET deleted_at = ? WHERE id = ?", (now, project_id))
+    db.execute("UPDATE projects SET deleted_at = %s WHERE id = %s", (now, project_id))
     db.commit()
     return {"success": True}
 
@@ -267,11 +266,11 @@ def add_invoice_to_project(
     invoice_type: str = "list",
     description: str | None = None,
     total_due: float = 0,
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     """Add a standalone (non-contract) invoice to a project."""
     existing = db.execute(
-        "SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL", (project_id,)
+        "SELECT * FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -284,10 +283,10 @@ def add_invoice_to_project(
 
     db.execute(
         "INSERT INTO invoices (id, invoice_number, project_id, type, description, total_due, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
         (inv_id, invoice_number, project_id, invoice_type, description, total_due, now, now),
     )
     db.commit()
 
-    row = db.execute("SELECT * FROM invoices WHERE id = ?", (inv_id,)).fetchone()
+    row = db.execute("SELECT * FROM invoices WHERE id = %s", (inv_id,)).fetchone()
     return dict(row)

@@ -1,5 +1,4 @@
 import os
-import sqlite3
 from datetime import datetime
 
 from pathlib import PurePath
@@ -23,31 +22,31 @@ async def submit_proposal(
     turnaround: int = Form(5),
     scope: str = Form(""),
     proposal_pdf: UploadFile | None = File(None),
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     now = datetime.now().isoformat()
 
     # Find or create client
     client_row = db.execute(
-        "SELECT id FROM clients WHERE email = ? AND deleted_at IS NULL", (client_email,)
+        "SELECT id FROM clients WHERE email = %s AND deleted_at IS NULL", (client_email,)
     ).fetchone()
     if client_row:
         client_id = client_row["id"]
     else:
         client_id = generate_id("c-")
         db.execute(
-            "INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (%s, %s, %s, %s, %s)",
             (client_id, client_name, client_email, now, now),
         )
 
     # Find or create project
     project = db.execute(
-        "SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL", (job_id,)
+        "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (job_id,)
     ).fetchone()
     if not project:
         db.execute(
             "INSERT INTO projects (id, name, client_id, status, created_at, updated_at) "
-            "VALUES (?, ?, ?, 'proposal', ?, ?)",
+            "VALUES (%s, %s, %s, 'proposal', %s, %s)",
             (job_id, project_name, client_id, now, now),
         )
 
@@ -67,7 +66,7 @@ async def submit_proposal(
     prop_id = generate_id("prop-")
     db.execute(
         "INSERT INTO proposals (id, project_id, pdf_path, client_company, client_contact_email, "
-        "total_fee, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'sent', ?, ?)",
+        "total_fee, status, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, 'sent', %s, %s)",
         (prop_id, job_id, pdf_path, None, client_email, amount, now, now),
     )
 
@@ -81,7 +80,7 @@ async def submit_contract(
     client_name: str = Form(...),
     client_email: str = Form(...),
     signed_contract: UploadFile | None = File(None),
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     now = datetime.now().isoformat()
 
@@ -99,14 +98,14 @@ async def submit_contract(
 
     # Verify project exists
     project = db.execute(
-        "SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL", (job_id,)
+        "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (job_id,)
     ).fetchone()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Update project status
     db.execute(
-        "UPDATE projects SET status = 'contract', updated_at = ? WHERE id = ?",
+        "UPDATE projects SET status = 'contract', updated_at = %s WHERE id = %s",
         (now, job_id),
     )
 
@@ -115,7 +114,7 @@ async def submit_contract(
         contract_id = generate_id("con-")
         db.execute(
             "INSERT INTO contracts (id, project_id, file_path, signed_at, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s)",
             (contract_id, job_id, file_path, now, now, now),
         )
 
@@ -131,7 +130,7 @@ async def submit_payment(
     confirmation: str = Form(...),
     notes: str = Form(""),
     receipt: UploadFile | None = File(None),
-    db: sqlite3.Connection = Depends(get_db),
+    db=Depends(get_db),
 ):
     now = datetime.now().isoformat()
 
@@ -147,14 +146,14 @@ async def submit_payment(
 
     # Mark invoice as paid
     inv_row = db.execute(
-        "SELECT id FROM invoices WHERE invoice_number = ? AND deleted_at IS NULL",
+        "SELECT id FROM invoices WHERE invoice_number = %s AND deleted_at IS NULL",
         (invoice,),
     ).fetchone()
     if not inv_row:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
     db.execute(
-        "UPDATE invoices SET paid_status = 'paid', paid_at = ?, updated_at = ? WHERE id = ?",
+        "UPDATE invoices SET paid_status = 'paid', paid_at = %s, updated_at = %s WHERE id = %s",
         (now, now, inv_row["id"]),
     )
 

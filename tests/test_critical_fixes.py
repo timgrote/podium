@@ -20,12 +20,12 @@ def _seed_project(db, project_id="TEST01", client_id="c-test1"):
     now = datetime.now().isoformat()
     db.execute(
         "INSERT INTO clients (id, name, email, created_at, updated_at) "
-        "VALUES (?, 'Test Client', 'test@example.com', ?, ?)",
+        "VALUES (%s, 'Test Client', 'test@example.com', %s, %s)",
         (client_id, now, now),
     )
     db.execute(
         "INSERT INTO projects (id, name, client_id, status, created_at, updated_at) "
-        "VALUES (?, 'Test Project', ?, 'contract', ?, ?)",
+        "VALUES (%s, 'Test Project', %s, 'contract', %s, %s)",
         (project_id, client_id, now, now),
     )
     db.commit()
@@ -36,7 +36,7 @@ def _seed_invoice(db, project_id="TEST01", invoice_id="inv-001", number="TEST01-
     now = datetime.now().isoformat()
     db.execute(
         "INSERT INTO invoices (id, invoice_number, project_id, type, total_due, "
-        "created_at, updated_at) VALUES (?, ?, ?, 'list', 100, ?, ?)",
+        "created_at, updated_at) VALUES (%s, %s, %s, 'list', 100, %s, %s)",
         (invoice_id, number, project_id, now, now),
     )
     db.commit()
@@ -197,12 +197,12 @@ def test_google_sheet_file_not_found_handled_gracefully(client, db):
     now = datetime.now().isoformat()
     db.execute(
         "INSERT INTO contracts (id, project_id, total_amount, created_at, updated_at) "
-        "VALUES ('con-test1', 'TEST01', 1000, ?, ?)",
+        "VALUES ('con-test1', 'TEST01', 1000, %s, %s)",
         (now, now),
     )
     db.execute(
         "INSERT INTO contract_tasks (id, contract_id, sort_order, name, amount, "
-        "created_at, updated_at) VALUES ('ct-1', 'con-test1', 1, 'Design', 1000, ?, ?)",
+        "created_at, updated_at) VALUES ('ct-1', 'con-test1', 1, 'Design', 1000, %s, %s)",
         (now, now),
     )
     db.commit()
