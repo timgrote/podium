@@ -73,8 +73,7 @@ if [ "$ROW_COUNT" -eq 0 ] && [ -d "$MIGRATIONS_DIR" ]; then
     for f in "$MIGRATIONS_DIR"/*.sql; do
         [ -f "$f" ] || continue
         BASENAME=$(basename "$f")
-        run_sql -v migration_name="$BASENAME" -c \
-            "INSERT INTO _migrations (filename) VALUES (:'migration_name')" >/dev/null
+        run_sql -c "INSERT INTO _migrations (filename) VALUES (\$\$$BASENAME\$\$)" >/dev/null
         echo "    Marked as applied: $BASENAME"
     done
 fi
@@ -84,8 +83,7 @@ if [ -d "$MIGRATIONS_DIR" ]; then
     for f in "$MIGRATIONS_DIR"/*.sql; do
         [ -f "$f" ] || continue
         BASENAME=$(basename "$f")
-        ALREADY=$(run_sql -v migration_name="$BASENAME" -tAc \
-            "SELECT 1 FROM _migrations WHERE filename = :'migration_name'")
+        ALREADY=$(run_sql -tAc "SELECT 1 FROM _migrations WHERE filename = \$\$$BASENAME\$\$")
         if [ "$ALREADY" = "1" ]; then
             echo "    Skip (already applied): $BASENAME"
             continue
@@ -95,7 +93,7 @@ if [ -d "$MIGRATIONS_DIR" ]; then
         {
             cat "$f"
             echo ""
-            echo "INSERT INTO _migrations (filename) VALUES ('$(echo "$BASENAME" | sed "s/'/''/g")');"
+            echo "INSERT INTO _migrations (filename) VALUES (\$\$$BASENAME\$\$);"
         } | run_sql
         echo "    Done: $BASENAME"
     done
