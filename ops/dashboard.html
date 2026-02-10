@@ -712,28 +712,22 @@
             background: #4d5b4d;
         }
 
-        .proposal-task-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: flex-start;
-        }
-        .proposal-task-row input[type="text"] {
-            padding: 8px 12px;
-            background: #1a1a2e;
-            border: 1px solid #333;
-            border-radius: 6px;
-            color: #fff;
-        }
-        .proposal-task-row .ptask-name { flex: 2; }
-        .proposal-task-row .ptask-desc { flex: 3; }
+        .proposal-task-row input[type="text"],
         .proposal-task-row input[type="number"] {
-            width: 100px;
             padding: 8px 12px;
             background: #1a1a2e;
             border: 1px solid #333;
             border-radius: 6px;
             color: #fff;
+        }
+        .proposal-task-row .ptask-name { flex: 1; }
+        .proposal-task-row textarea.ptask-desc {
+            padding: 8px 12px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #ccc;
+            line-height: 1.4;
         }
         .proposal-total {
             display: flex;
@@ -1099,22 +1093,60 @@
             </div>
             <div class="modal-body">
                 <form id="add-proposal-form" onsubmit="saveProposal(event)">
+                    <!-- Client selection -->
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="proposal-project-select">Project</label>
-                            <select id="proposal-project-select" required onchange="prefillProposalClient()">
-                                <option value="">-- Select project --</option>
+                            <label for="proposal-client-select">Client</label>
+                            <select id="proposal-client-select" required onchange="onProposalClientChange()">
+                                <option value="">-- Select client --</option>
                             </select>
+                        </div>
+                    </div>
+                    <!-- New client fields (hidden by default) -->
+                    <div id="new-client-fields" style="display:none">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="proposal-new-client-name">Client Name</label>
+                                <input type="text" id="proposal-new-client-name" placeholder="e.g., John Smith">
+                            </div>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="proposal-client-company">Client Company</label>
+                            <label for="proposal-client-company">Company</label>
                             <input type="text" id="proposal-client-company" placeholder="e.g., Acme Corp">
                         </div>
                         <div class="form-group">
                             <label for="proposal-client-email">Client Email</label>
                             <input type="email" id="proposal-client-email" placeholder="e.g., client@example.com">
+                        </div>
+                    </div>
+                    <!-- Project name (required) -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="proposal-project-name">Project Name <span style="color:#f87171">*</span></label>
+                            <input type="text" id="proposal-project-name" placeholder="e.g., Smith Residence Irrigation" required>
+                        </div>
+                    </div>
+                    <!-- Engineer + contact method -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="proposal-engineer">Engineer</label>
+                            <select id="proposal-engineer">
+                                <option value="tim">Tim Grote</option>
+                                <option value="ally">Ally Liebow</option>
+                                <option value="matara">Matara Liebow</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="proposal-contact-method">Contact Method</label>
+                            <input type="text" id="proposal-contact-method" value="email" placeholder="e.g., email, site meeting">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="proposal-date">Proposal Date</label>
+                            <input type="date" id="proposal-date">
                         </div>
                     </div>
 
@@ -1129,9 +1161,17 @@
                         <span class="total-amount" id="proposal-total-display">$0</span>
                     </div>
 
+                    <div class="form-row" style="margin-top:12px">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                            <input type="checkbox" id="proposal-generate-doc" checked>
+                            Generate Google Doc
+                        </label>
+                    </div>
+
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeAddProposalModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Create Proposal</button>
+                        <button type="button" id="proposal-cancel-btn" class="btn btn-secondary" onclick="closeAddProposalModal()">Cancel</button>
+                        <button type="submit" id="proposal-create-btn" class="btn btn-primary">Create Proposal</button>
+                        <span id="proposal-spinner" class="hidden" style="color: #888; font-size: 0.85rem; margin-left: 8px;">Creating proposal...</span>
                     </div>
                 </form>
             </div>
@@ -2365,6 +2405,7 @@
         // --- Proposal functions ---
         const PROPOSALS_API = '/api/proposals';
         let currentProposalJobId = null;
+        let proposalDefaults = {};
         let promoteState = { jobId: null, proposalId: null };
 
         function renderProposalsSection(project) {
@@ -2381,8 +2422,9 @@
                     return `
                     <div class="detail-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div class="detail-item-info">
+                            <div class="detail-item-info" style="display:flex;align-items:center;gap:8px;">
                                 <span class="proposal-status proposal-status-${prop.status || 'draft'}">${prop.status || 'draft'}</span>
+                                ${prop.data_path && prop.data_path.includes('google.com') ? `<a href="${escapeHtml(prop.data_path)}" target="_blank" rel="noopener" style="color:#818cf8;font-size:0.8rem;" onclick="event.stopPropagation()">Open Doc</a>` : ''}
                             </div>
                             <div class="detail-item-actions">
                                 ${(prop.status === 'draft' || prop.status === 'sent') ? `<button class="action-btn action-promote" onclick="event.stopPropagation(); openPromoteModal('${project.job_id}', '${prop.id}')">Promote</button>` : ''}
@@ -2411,29 +2453,66 @@
         function openAddProposalModal(jobId) {
             currentProposalJobId = jobId || null;
             document.getElementById('add-proposal-form').reset();
-            document.getElementById('proposal-tasks-list').innerHTML = '';
+            const tasksList = document.getElementById('proposal-tasks-list');
+            while (tasksList.firstChild) tasksList.removeChild(tasksList.firstChild);
+            document.getElementById('new-client-fields').style.display = 'none';
 
-            // Populate project dropdown
-            const select = document.getElementById('proposal-project-select');
+            // Populate client dropdown
+            const select = document.getElementById('proposal-client-select');
             while (select.firstChild) select.removeChild(select.firstChild);
             const defaultOpt = document.createElement('option');
             defaultOpt.value = '';
-            defaultOpt.textContent = '-- Select project --';
+            defaultOpt.textContent = '-- Select client --';
             select.appendChild(defaultOpt);
-            allProjects.forEach(p => {
+            allClients.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = p.job_id;
-                opt.textContent = `${p.job_id} - ${p.project_name || 'Untitled'}`;
+                opt.value = c.id;
+                opt.textContent = c.company ? c.name + ' (' + c.company + ')' : c.name;
                 select.appendChild(opt);
             });
+            const newOpt = document.createElement('option');
+            newOpt.value = '__new__';
+            newOpt.textContent = '+ Add New Client';
+            select.appendChild(newOpt);
 
+            // If opened from a project, prefill client and project name
             if (jobId) {
-                select.value = jobId;
-                prefillProposalClient();
+                const project = allProjects.find(p => p.job_id === jobId);
+                if (project) {
+                    const matchedClient = allClients.find(c =>
+                        c.name === project.client_name || c.company === project.client_company
+                    );
+                    if (matchedClient) {
+                        select.value = matchedClient.id;
+                        onProposalClientChange();
+                    }
+                    document.getElementById('proposal-project-name').value = project.project_name || '';
+                }
             }
 
-            addProposalTaskRow(); // Start with one empty task row
-            updateProposalTotal();
+            document.getElementById('proposal-date').value = new Date().toISOString().split('T')[0];
+
+            // Fetch default tasks and pre-populate
+            fetch(PROPOSALS_API + '/defaults')
+                .then(r => r.json())
+                .then(data => {
+                    proposalDefaults = data;
+                    if (data.tasks && data.tasks.length > 0) {
+                        data.tasks.forEach(t => addProposalTaskRow(t));
+                    } else {
+                        addProposalTaskRow();
+                    }
+                    // Always show changes task last
+                    if (data.changes_task) {
+                        addProposalTaskRow(data.changes_task, true);
+                    }
+                    updateProposalTotal();
+                })
+                .catch(() => {
+                    addProposalTaskRow();
+                    updateProposalTotal();
+                });
+
             document.getElementById('add-proposal-modal').classList.add('active');
         }
 
@@ -2446,26 +2525,95 @@
             if (e.target.classList.contains('modal')) closeAddProposalModal();
         });
 
-        function prefillProposalClient() {
-            const projectId = document.getElementById('proposal-project-select').value;
-            if (!projectId) return;
-            const project = allProjects.find(p => p.job_id === projectId);
-            if (project) {
-                document.getElementById('proposal-client-company').value = project.client_company || project.client_name || '';
-                document.getElementById('proposal-client-email').value = project.client_email || '';
+        function onProposalClientChange() {
+            const val = document.getElementById('proposal-client-select').value;
+            const newFields = document.getElementById('new-client-fields');
+            if (val === '__new__') {
+                newFields.style.display = '';
+                document.getElementById('proposal-client-email').value = '';
+                document.getElementById('proposal-client-company').value = '';
+                document.getElementById('proposal-new-client-name').required = true;
+            } else {
+                newFields.style.display = 'none';
+                document.getElementById('proposal-new-client-name').required = false;
+                if (val) {
+                    const client = allClients.find(c => c.id === val);
+                    if (client) {
+                        document.getElementById('proposal-client-email').value = client.email || '';
+                        document.getElementById('proposal-client-company').value = client.company || '';
+                    }
+                } else {
+                    document.getElementById('proposal-client-email').value = '';
+                    document.getElementById('proposal-client-company').value = '';
+                }
             }
         }
 
-        function addProposalTaskRow() {
+        function addProposalTaskRow(defaults, isChanges) {
             const tasksList = document.getElementById('proposal-tasks-list');
             const row = document.createElement('div');
             row.className = 'proposal-task-row';
-            row.innerHTML = `
-                <input type="text" placeholder="Task name" class="ptask-name" required>
-                <input type="text" placeholder="Description (optional)" class="ptask-desc">
-                <input type="number" placeholder="Amount" class="ptask-amount" min="0" step="0.01" required oninput="updateProposalTotal()">
-                <button type="button" class="btn-remove" onclick="this.parentElement.remove(); updateProposalTotal()">&times;</button>
-            `;
+            row.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #333;border-radius:6px;margin-bottom:8px;';
+            if (isChanges) {
+                row.dataset.changesTask = 'true';
+                row.style.borderColor = '#555';
+                row.style.opacity = '0.7';
+            }
+
+            // Top line: name + amount + remove
+            const topLine = document.createElement('div');
+            topLine.style.cssText = 'display:flex;gap:8px;align-items:center;';
+
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.placeholder = 'Task name';
+            nameInput.className = 'ptask-name';
+            nameInput.required = true;
+            nameInput.value = (defaults && defaults.name) || '';
+            topLine.appendChild(nameInput);
+
+            const amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.placeholder = 'Amount';
+            amountInput.className = 'ptask-amount';
+            amountInput.min = '0';
+            amountInput.step = '0.01';
+            amountInput.required = !isChanges;
+            amountInput.style.width = '120px';
+            amountInput.value = (defaults && defaults.amount) || '';
+            amountInput.oninput = function() {
+                updateProposalTotal();
+                if (row.dataset.changesTask) {
+                    row.style.opacity = parseFloat(amountInput.value) > 0 ? '1' : '0.7';
+                }
+            };
+            topLine.appendChild(amountInput);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn-remove';
+            removeBtn.textContent = '\u00d7';
+            removeBtn.onclick = function() { row.remove(); updateProposalTotal(); };
+            topLine.appendChild(removeBtn);
+
+            row.appendChild(topLine);
+
+            // Collapsible description
+            const details = document.createElement('details');
+            details.style.cssText = 'margin-top:2px;';
+            const summary = document.createElement('summary');
+            summary.style.cssText = 'cursor:pointer;font-size:0.75rem;color:#888;user-select:none;';
+            summary.textContent = 'Scope description';
+            details.appendChild(summary);
+            const descArea = document.createElement('textarea');
+            descArea.placeholder = 'Scope description (markdown supported)';
+            descArea.className = 'ptask-desc';
+            descArea.rows = 4;
+            descArea.style.cssText = 'width:100%;resize:vertical;font-family:monospace;font-size:0.8rem;margin-top:4px;';
+            descArea.value = (defaults && defaults.description) || '';
+            details.appendChild(descArea);
+            row.appendChild(details);
+
             tasksList.appendChild(row);
         }
 
@@ -2482,44 +2630,108 @@
         async function saveProposal(event) {
             event.preventDefault();
 
-            const projectId = document.getElementById('proposal-project-select').value;
-            if (!projectId) {
-                alert('Please select a project.');
+            const projectName = document.getElementById('proposal-project-name').value.trim();
+            if (!projectName) {
+                alert('Project name is required.');
+                return;
+            }
+
+            // Resolve client info — always read company/email from their input fields
+            const clientSelectVal = document.getElementById('proposal-client-select').value;
+            let clientName = '';
+            const clientCompany = document.getElementById('proposal-client-company').value.trim();
+            const clientEmail = document.getElementById('proposal-client-email').value.trim() || null;
+
+            if (clientSelectVal === '__new__') {
+                clientName = document.getElementById('proposal-new-client-name').value.trim();
+                if (!clientName) {
+                    alert('Please enter the new client name.');
+                    return;
+                }
+            } else if (clientSelectVal) {
+                const client = allClients.find(c => c.id === clientSelectVal);
+                if (client) {
+                    clientName = client.name;
+                }
+            } else {
+                alert('Please select a client.');
                 return;
             }
 
             const taskRows = document.querySelectorAll('#proposal-tasks-list .proposal-task-row');
-            const tasks = Array.from(taskRows).map(row => ({
-                name: row.querySelector('.ptask-name').value.trim(),
-                description: row.querySelector('.ptask-desc').value.trim() || null,
-                amount: parseFloat(row.querySelector('.ptask-amount').value) || 0,
-            })).filter(t => t.name);
+            const tasks = Array.from(taskRows).map(row => {
+                const amount = parseFloat(row.querySelector('.ptask-amount').value) || 0;
+                const isChanges = row.dataset.changesTask === 'true';
+                return {
+                    name: row.querySelector('.ptask-name').value.trim(),
+                    description: row.querySelector('.ptask-desc').value.trim() || null,
+                    amount: amount,
+                    _skip: isChanges && amount <= 0,
+                };
+            }).filter(t => t.name && !t._skip);
+            // Clean up internal flag
+            tasks.forEach(t => delete t._skip);
 
-            const proposal = {
-                project_id: projectId,
-                client_company: document.getElementById('proposal-client-company').value.trim() || null,
-                client_contact_email: document.getElementById('proposal-client-email').value.trim() || null,
-                total_fee: 0,
+            if (tasks.length === 0) {
+                alert('Add at least one task.');
+                return;
+            }
+
+            // Use /generate endpoint — auto-creates client/project
+            const body = {
+                client_name: clientName,
+                client_email: clientEmail,
+                client_company: clientCompany || null,
+                project_name: projectName,
+                project_id: currentProposalJobId || null,
+                engineer_key: document.getElementById('proposal-engineer').value,
+                contact_method: document.getElementById('proposal-contact-method').value.trim() || null,
+                proposal_date: document.getElementById('proposal-date').value || null,
                 tasks: tasks,
+                generate_doc: document.getElementById('proposal-generate-doc').checked,
             };
 
+            // Show loading state
+            const createBtn = document.getElementById('proposal-create-btn');
+            const cancelBtn = document.getElementById('proposal-cancel-btn');
+            const spinner = document.getElementById('proposal-spinner');
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating...';
+            cancelBtn.disabled = true;
+            spinner.classList.remove('hidden');
+            document.body.style.cursor = 'wait';
+
             try {
-                const response = await fetch(PROPOSALS_API, {
+                const response = await fetch(PROPOSALS_API + '/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(proposal),
+                    body: JSON.stringify(body),
                 });
 
+                const data = await response.json();
                 if (response.ok) {
+                    const reopenJobId = data.project_id;
                     closeAddProposalModal();
-                    refreshData();
+                    if (data._warning) {
+                        alert(data._warning);
+                    }
+                    // Open the Google Doc if one was created
+                    if (data.data_path && data.data_path.includes('google.com')) {
+                        window.open(data.data_path, '_blank');
+                    }
+                    await refreshAndReopen(reopenJobId);
                 } else {
-                    const err = await response.json();
-                    alert('Failed to create proposal: ' + (err.detail || 'Unknown error'));
+                    alert('Failed to create proposal: ' + (data.detail || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error creating proposal:', error);
                 alert('Failed to create proposal. Please try again.');
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create Proposal';
+                cancelBtn.disabled = false;
+                spinner.classList.add('hidden');
+                document.body.style.cursor = '';
             }
         }
 

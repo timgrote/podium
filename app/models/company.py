@@ -13,3 +13,5 @@ class CompanySettings(BaseModel):
     logo_filename: str | None = None
     invoice_template_id: str | None = None
     invoice_drive_folder_id: str | None = None
+    proposal_template_id: str | None = None
+    proposal_drive_folder_id: str | None = None

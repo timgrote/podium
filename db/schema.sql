@@ -129,11 +129,16 @@ CREATE INDEX idx_contract_tasks_contract ON contract_tasks(contract_id);
 CREATE TABLE proposals (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects(id),
-    data_path TEXT,                         -- word doc / google doc
-    pdf_path TEXT,                          -- generated PDF
+    data_path TEXT,                         -- word doc / google doc URL
+    pdf_path TEXT,                          -- generated PDF URL
     client_company TEXT,
     client_contact_email TEXT,
     total_fee REAL DEFAULT 0,
+    engineer_key TEXT,                      -- tim/ally/matara
+    engineer_name TEXT,
+    engineer_title TEXT,
+    contact_method TEXT,                    -- e.g., 'site meeting', 'phone call'
+    proposal_date TEXT,                     -- date shown on proposal doc
     sent_at TEXT,
     status TEXT DEFAULT 'draft',            -- draft, sent, accepted, rejected
     created_at TEXT DEFAULT (datetime('now')),

@@ -1,11 +1,18 @@
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .routers import clients, company, contracts, flows, invoices, projects, proposals
 
 app = FastAPI(title="Conductor API", version="1.0.0")
+
+
+@app.get("/")
+def root_redirect():
+    return RedirectResponse(url="/ops/dashboard.html")
+
 
 # --- API routers ---
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
@@ -17,10 +24,8 @@ app.include_router(invoices.router, prefix="/api/invoices", tags=["invoices"])
 app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 
 # --- Static files ---
-root = Path(__file__).resolve().parent.parent
+static_root = Path(__file__).resolve().parent.parent
 
-app.mount("/ops", StaticFiles(directory=root / "ops", html=True), name="ops")
-app.mount("/flows", StaticFiles(directory=root / "flows", html=True), name="flows")
-app.mount("/uploads", StaticFiles(directory=root / "uploads"), name="uploads")
-# Root last so it doesn't shadow other mounts
-app.mount("/", StaticFiles(directory=root, html=True), name="root")
+app.mount("/ops", StaticFiles(directory=static_root / "ops", html=True), name="ops")
+app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
+app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")

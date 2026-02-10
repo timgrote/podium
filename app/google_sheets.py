@@ -66,6 +66,10 @@ def get_sheets_service():
     return build("sheets", "v4", credentials=_get_credentials(), cache_discovery=False)
 
 
+def get_docs_service():
+    return build("docs", "v1", credentials=_get_credentials(), cache_discovery=False)
+
+
 def get_gmail_service():
     return build("gmail", "v1", credentials=_get_credentials(), cache_discovery=False)
 
