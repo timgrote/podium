@@ -2494,7 +2494,10 @@
 
             // Fetch default tasks and pre-populate
             fetch(PROPOSALS_API + '/defaults')
-                .then(r => r.json())
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to load defaults: ' + r.status);
+                    return r.json();
+                })
                 .then(data => {
                     proposalDefaults = data;
                     if (data.tasks && data.tasks.length > 0) {
@@ -2508,7 +2511,8 @@
                     }
                     updateProposalTotal();
                 })
-                .catch(() => {
+                .catch(err => {
+                    console.error('Failed to load proposal defaults:', err);
                     addProposalTaskRow();
                     updateProposalTotal();
                 });

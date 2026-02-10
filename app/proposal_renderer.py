@@ -203,9 +203,14 @@ def _replace_signature_image(docs_service, drive_service, doc_id: str, signature
             fileId=signature_file_id, fields="imageMediaMetadata", supportsAllDrives=True,
         ).execute()
         im = img_meta.get("imageMediaMetadata", {})
-        aspect = im.get("width", 1) / im.get("height", 1)
-    except Exception:
-        aspect = 6.0
+        height = im.get("height", 0)
+        if not height:
+            logger.warning("Signature image %s has zero height; skipping", signature_file_id)
+            return
+        aspect = im.get("width", 1) / height
+    except Exception as e:
+        logger.warning("Could not read signature image metadata for %s: %s", signature_file_id, e)
+        return
 
     new_width = ph_height * aspect
     sig_uri = f"https://drive.google.com/uc?id={signature_file_id}&export=download"
@@ -239,5 +244,7 @@ def export_google_doc_as_pdf(doc_id: str) -> bytes:
     url = f"https://docs.google.com/document/d/{doc_id}/export?format=pdf"
     response = session.get(url)
     if response.status_code != 200:
-        raise RuntimeError(f"PDF export failed with status {response.status_code}")
+        body_preview = response.text[:200] if response.text else "(empty)"
+        logger.error("PDF export failed for doc %s: status=%d body=%s", doc_id, response.status_code, body_preview)
+        raise RuntimeError(f"PDF export failed for document {doc_id} with status {response.status_code}")
     return response.content
