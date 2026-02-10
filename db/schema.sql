@@ -3,7 +3,7 @@
 --
 -- Naming conventions:
 --   - Tables: plural, snake_case
---   - Primary keys: id (auto-increment) or natural key where appropriate
+--   - Primary keys: id (application-generated text) or natural key where appropriate
 --   - Foreign keys: singular_table_id
 --   - Timestamps: created_at, updated_at, deleted_at (soft delete)
 

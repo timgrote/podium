@@ -45,7 +45,7 @@ class PgConnection:
     def __init__(self, conn: psycopg2.extensions.connection):
         self._conn = conn
 
-    def execute(self, sql: str, params=None) -> "PgCursor":
+    def execute(self, sql: str, params=None):
         cur = self._conn.cursor()
         cur.execute(sql, params)
         return cur
@@ -72,4 +72,5 @@ def get_db() -> Generator[PgConnection, None, None]:
     try:
         yield db
     finally:
+        db.rollback()
         db.close()
