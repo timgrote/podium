@@ -97,11 +97,13 @@
         }
 
         // Wait for auth-check to complete, then populate
-        function waitForUser() {
+        function waitForUser(attempts = 0) {
             if (window.__user) {
                 populateForm(window.__user);
+            } else if (attempts > 100) {
+                showMsg('error-msg', 'Failed to load user data. Please refresh the page.');
             } else {
-                setTimeout(waitForUser, 50);
+                setTimeout(() => waitForUser(attempts + 1), 50);
             }
         }
 
@@ -123,7 +125,10 @@
 
             try {
                 const res = await fetch('/api/auth/avatar', { method: 'POST', body: form });
-                if (!res.ok) throw new Error('Upload failed');
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || 'Upload failed');
+                }
                 const data = await res.json();
                 window.__user.avatar_url = data.avatar_url;
                 showAvatar(window.__user);
@@ -149,7 +154,10 @@
                         last_name: document.getElementById('last_name').value,
                     }),
                 });
-                if (!res.ok) throw new Error('Save failed');
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || 'Save failed');
+                }
                 const updated = await res.json();
                 window.__user.first_name = updated.first_name;
                 window.__user.last_name = updated.last_name;
@@ -171,7 +179,11 @@
         }
 
         async function doLogout() {
-            await fetch('/api/auth/logout', { method: 'POST' });
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (err) {
+                console.error('Logout request failed:', err);
+            }
             window.location.href = '/ops/login.html';
         }
     </script>

@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..auth import (
     SESSION_COOKIE,
@@ -21,10 +21,13 @@ from ..utils import generate_id
 
 router = APIRouter()
 
+MAX_AVATAR_SIZE = 5 * 1024 * 1024  # 5 MB
+ALLOWED_AVATAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
 
 class AuthRequest(BaseModel):
     email: str
-    password: str
+    password: str = Field(..., min_length=6)
 
 
 @router.post("/signup")
@@ -34,7 +37,7 @@ def signup(data: AuthRequest, db=Depends(get_db)):
         (data.email,),
     ).fetchone()
     if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Email already registered. Please log in instead.")
 
     emp_id = generate_id("emp-")
     now = datetime.now().isoformat()
@@ -47,9 +50,16 @@ def signup(data: AuthRequest, db=Depends(get_db)):
         "VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (emp_id, first_name, "", data.email, pw_hash, now, now),
     )
-    db.commit()
 
-    token = create_session(db, emp_id)
+    try:
+        token = create_session(db, emp_id)
+    except Exception:
+        db.commit()  # Ensure employee is saved
+        raise HTTPException(
+            status_code=201,
+            detail="Account created but session failed. Please log in.",
+        )
+
     resp = JSONResponse(content={
         "id": emp_id,
         "first_name": first_name,
@@ -67,12 +77,15 @@ def signup(data: AuthRequest, db=Depends(get_db)):
 @router.post("/login")
 def login(data: AuthRequest, db=Depends(get_db)):
     row = db.execute(
-        "SELECT id, first_name, last_name, email, avatar_url, password_hash "
+        "SELECT id, first_name, last_name, email, avatar_url, password_hash, is_active "
         "FROM employees WHERE email = %s AND deleted_at IS NULL",
         (data.email,),
     ).fetchone()
     if not row or not row["password_hash"]:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not row["is_active"]:
+        raise HTTPException(status_code=401, detail="Account is deactivated")
 
     if not verify_password(data.password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -116,15 +129,27 @@ def upload_avatar(
     employee: dict = Depends(require_auth),
     db=Depends(get_db),
 ):
+    ext = os.path.splitext(file.filename or "avatar.png")[1].lower() or ".png"
+    if ext not in ALLOWED_AVATAR_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"File type {ext} not allowed. Use JPG, PNG, GIF, or WebP.")
+
     avatars_dir = os.path.join(settings.upload_dir, "avatars")
     os.makedirs(avatars_dir, exist_ok=True)
 
-    ext = os.path.splitext(file.filename or "avatar.png")[1] or ".png"
     filename = f"{employee['id']}{ext}"
     filepath = os.path.join(avatars_dir, filename)
 
-    with open(filepath, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    try:
+        with open(filepath, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+
+        if os.path.getsize(filepath) > MAX_AVATAR_SIZE:
+            os.remove(filepath)
+            raise HTTPException(status_code=400, detail="Avatar must be under 5 MB.")
+    except HTTPException:
+        raise
+    except OSError:
+        raise HTTPException(status_code=500, detail="Failed to save avatar. Please try again.")
 
     avatar_url = f"/uploads/avatars/{filename}"
     now = datetime.now().isoformat()
@@ -143,7 +168,7 @@ class ResetRequest(BaseModel):
 
 class ResetPassword(BaseModel):
     token: str
-    password: str
+    password: str = Field(..., min_length=6)
 
 
 @router.post("/reset-request")
@@ -176,7 +201,7 @@ def request_reset(
 
 @router.post("/reset-password")
 def reset_password(data: ResetPassword, db=Depends(get_db)):
-    """Consume a reset token and set a new password."""
+    """Consume a reset token and set a new password (atomic transaction)."""
     employee_id = consume_reset_token(db, data.token)
     if not employee_id:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
@@ -189,6 +214,7 @@ def reset_password(data: ResetPassword, db=Depends(get_db)):
     )
     # Invalidate all existing sessions so they must log in with new password
     db.execute("DELETE FROM sessions WHERE employee_id = %s", (employee_id,))
+    # Single commit: token consumption + password update + session invalidation
     db.commit()
 
     return {"success": True}
