@@ -184,6 +184,58 @@ def seed_data(conn):
         ''', li)
     print(f"Added {len(line_items)} invoice line items")
 
+    # --- Employees ---
+    employees = [
+        ('emp-tim', 'Tim', 'Grote', 'tim@irrigationengineers.com', None, True, now, now, None),
+        ('emp-ally', 'Ally', 'Liebow', 'ally@irrigationengineers.com', None, True, now, now, None),
+        ('emp-matara', 'Matara', 'Liebow', 'matara@irrigationengineers.com', None, True, now, now, None),
+    ]
+    for e in employees:
+        cur.execute('''
+            INSERT INTO employees (id, first_name, last_name, email, bot_id, is_active, created_at, updated_at, deleted_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', e)
+    print(f"Added {len(employees)} employees")
+
+    # --- Project Tasks ---
+    today = now[:10]
+    project_tasks = [
+        ('task-001', 'JBHL21', None, 'Review irrigation layout for lots 50-75', 'Check spacing and head coverage for the first half of phase 2', 'in_progress', None, '2024-08-01', '2024-09-15', None, 1, 'emp-tim', None, now, now, None),
+        ('task-002', 'JBHL21', None, 'Submit CD set to county for review', None, 'todo', None, today, '2024-10-01', None, 2, None, None, now, now, None),
+        ('task-003', 'JBHL21', 'task-001', 'Update head schedule for lots 60-65', None, 'todo', None, today, None, None, 1, None, None, now, now, None),
+        ('task-004', 'JBTH22', None, 'Finalize as-built documentation', 'Measure installed heads and update drawings', 'todo', None, '2024-08-15', '2024-08-30', None, 1, 'emp-ally', None, now, now, None),
+    ]
+    for t in project_tasks:
+        cur.execute('''
+            INSERT INTO project_tasks (id, project_id, parent_id, title, description, status, priority, start_date, due_date, reminder_at, sort_order, created_by, completed_at, created_at, updated_at, deleted_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', t)
+    print(f"Added {len(project_tasks)} project tasks")
+
+    # --- Task Assignees ---
+    task_assignees = [
+        ('task-001', 'emp-tim'),
+        ('task-001', 'emp-ally'),
+        ('task-002', 'emp-tim'),
+        ('task-004', 'emp-ally'),
+    ]
+    for ta in task_assignees:
+        cur.execute('''
+            INSERT INTO project_task_assignees (task_id, employee_id) VALUES (%s, %s)
+        ''', ta)
+    print(f"Added {len(task_assignees)} task assignees")
+
+    # --- Task Notes ---
+    task_notes = [
+        ('note-001', 'task-001', 'emp-tim', 'Started review - lots 50-55 look good, need to check 56-60 for pressure issues', now),
+        ('note-002', 'task-001', 'emp-ally', 'Confirmed pressure calcs for 56-60 are within spec', now),
+    ]
+    for tn in task_notes:
+        cur.execute('''
+            INSERT INTO project_task_notes (id, task_id, author_id, content, created_at) VALUES (%s, %s, %s, %s, %s)
+        ''', tn)
+    print(f"Added {len(task_notes)} task notes")
+
     # --- Company Settings ---
     company_settings = [
         ('company_name', 'Irrigation Engineers, Inc.'),
@@ -210,7 +262,7 @@ def verify_data(conn):
     print("\n--- Verification ---")
 
     # Count records
-    tables = ['clients', 'contacts', 'projects', 'contracts', 'contract_tasks', 'proposals', 'invoices']
+    tables = ['clients', 'contacts', 'projects', 'contracts', 'contract_tasks', 'proposals', 'invoices', 'employees', 'project_tasks', 'project_task_assignees', 'project_task_notes']
     for table in tables:
         cur.execute(f"SELECT COUNT(*) as count FROM {table}")
         count = cur.fetchone()['count']

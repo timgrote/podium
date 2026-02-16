@@ -99,6 +99,48 @@
             </div>
 
             <div class="card bg-dark-card rounded-xl p-8 mb-6">
+                <div class="card-header mb-6 flex justify-between items-start">
+                    <div>
+                        <h2 class="text-xl text-white mb-1">Team Members</h2>
+                        <p class="text-gray-500 text-sm">Internal staff who can be assigned to project tasks</p>
+                    </div>
+                    <button type="button" onclick="openEmployeeForm()" class="px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border-none bg-primary text-white hover:bg-primary-hover">+ Add Employee</button>
+                </div>
+
+                <div id="employee-form" class="hidden mb-5 p-4 rounded-md bg-dark-bg border border-dark-border">
+                    <input type="hidden" id="emp-edit-id">
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="block mb-1 text-gray-400 text-sm">First Name *</label>
+                            <input type="text" id="emp-first-name" required class="w-full py-2 px-3 rounded-md border border-dark-border bg-dark-card text-white text-sm focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-400 text-sm">Last Name *</label>
+                            <input type="text" id="emp-last-name" required class="w-full py-2 px-3 rounded-md border border-dark-border bg-dark-card text-white text-sm focus:outline-none focus:border-primary">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="block mb-1 text-gray-400 text-sm">Email</label>
+                            <input type="email" id="emp-email" class="w-full py-2 px-3 rounded-md border border-dark-border bg-dark-card text-white text-sm focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-400 text-sm">Bot ID</label>
+                            <input type="text" id="emp-bot-id" placeholder="Discord bot ID" class="w-full py-2 px-3 rounded-md border border-dark-border bg-dark-card text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="saveEmployee()" class="px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border-none bg-primary text-white hover:bg-primary-hover">Save</button>
+                        <button type="button" onclick="closeEmployeeForm()" class="px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border border-dark-border bg-dark-card text-gray-400 hover:bg-[#2d2d4a]">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="employees-list" class="flex flex-col gap-2">
+                    <div class="text-gray-500 text-sm">Loading...</div>
+                </div>
+            </div>
+
+            <div class="card bg-dark-card rounded-xl p-8 mb-6">
                 <div class="card-header mb-6">
                     <h2 class="text-xl text-white mb-1">Google Integration</h2>
                     <p class="text-gray-500 text-sm">Configure Google Drive folder for generated invoice sheets</p>
@@ -374,9 +416,147 @@
             });
         }
 
+        // --- Employees ---
+        async function loadEmployees() {
+            try {
+                const resp = await fetch('/api/employees');
+                const employees = await resp.json();
+                const container = document.getElementById('employees-list');
+                container.textContent = '';
+
+                if (employees.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'text-gray-500 text-sm text-center py-4';
+                    empty.textContent = 'No team members yet';
+                    container.appendChild(empty);
+                    return;
+                }
+
+                employees.forEach(function(emp) {
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-between items-center p-3 rounded-md bg-dark-bg';
+
+                    const info = document.createElement('div');
+                    const name = document.createElement('span');
+                    name.className = 'text-white font-medium';
+                    name.textContent = emp.first_name + ' ' + emp.last_name;
+                    info.appendChild(name);
+
+                    if (emp.email) {
+                        const email = document.createElement('span');
+                        email.className = 'text-gray-500 text-sm ml-3';
+                        email.textContent = emp.email;
+                        info.appendChild(email);
+                    }
+                    if (emp.bot_id) {
+                        const bot = document.createElement('span');
+                        bot.className = 'text-gray-600 text-xs ml-3';
+                        bot.textContent = 'Bot: ' + emp.bot_id;
+                        info.appendChild(bot);
+                    }
+
+                    const actions = document.createElement('div');
+                    actions.className = 'flex gap-2';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.type = 'button';
+                    editBtn.className = 'px-3 py-1 rounded text-xs border border-dark-border bg-dark-card text-gray-400 hover:bg-[#2d2d4a] cursor-pointer';
+                    editBtn.textContent = 'Edit';
+                    editBtn.onclick = function() { editEmployee(emp); };
+                    actions.appendChild(editBtn);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'px-3 py-1 rounded text-xs bg-[#4a2c2c] text-red-400 hover:bg-[#5a3c3c] cursor-pointer border-none';
+                    delBtn.textContent = 'Delete';
+                    delBtn.onclick = function() { deleteEmployee(emp.id); };
+                    actions.appendChild(delBtn);
+
+                    row.appendChild(info);
+                    row.appendChild(actions);
+                    container.appendChild(row);
+                });
+            } catch (e) {
+                console.error('Failed to load employees:', e);
+            }
+        }
+
+        function openEmployeeForm() {
+            document.getElementById('emp-edit-id').value = '';
+            document.getElementById('emp-first-name').value = '';
+            document.getElementById('emp-last-name').value = '';
+            document.getElementById('emp-email').value = '';
+            document.getElementById('emp-bot-id').value = '';
+            document.getElementById('employee-form').classList.remove('hidden');
+        }
+
+        function closeEmployeeForm() {
+            document.getElementById('employee-form').classList.add('hidden');
+        }
+
+        function editEmployee(emp) {
+            document.getElementById('emp-edit-id').value = emp.id;
+            document.getElementById('emp-first-name').value = emp.first_name;
+            document.getElementById('emp-last-name').value = emp.last_name;
+            document.getElementById('emp-email').value = emp.email || '';
+            document.getElementById('emp-bot-id').value = emp.bot_id || '';
+            document.getElementById('employee-form').classList.remove('hidden');
+        }
+
+        async function saveEmployee() {
+            const id = document.getElementById('emp-edit-id').value;
+            const body = {
+                first_name: document.getElementById('emp-first-name').value.trim(),
+                last_name: document.getElementById('emp-last-name').value.trim(),
+                email: document.getElementById('emp-email').value.trim() || null,
+                bot_id: document.getElementById('emp-bot-id').value.trim() || null,
+            };
+
+            if (!body.first_name || !body.last_name) {
+                alert('First and last name are required');
+                return;
+            }
+
+            try {
+                const url = id ? '/api/employees/' + id : '/api/employees';
+                const method = id ? 'PATCH' : 'POST';
+                const resp = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    alert('Error: ' + (err.detail || 'Failed to save'));
+                    return;
+                }
+                closeEmployeeForm();
+                loadEmployees();
+            } catch (e) {
+                console.error('Failed to save employee:', e);
+                alert('Failed to save employee');
+            }
+        }
+
+        async function deleteEmployee(id) {
+            if (!confirm('Delete this team member?')) return;
+            try {
+                const resp = await fetch('/api/employees/' + id, { method: 'DELETE' });
+                if (!resp.ok) {
+                    alert('Failed to delete');
+                    return;
+                }
+                loadEmployees();
+            } catch (e) {
+                console.error('Failed to delete employee:', e);
+                alert('Failed to delete');
+            }
+        }
+
         // Load settings on page load
         loadSettings();
         loadDatabaseUrl();
+        loadEmployees();
     </script>
 </body>
 </html>

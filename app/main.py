@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routers import clients, company, contracts, flows, invoices, projects, proposals
+from .routers import clients, company, contracts, employees, flows, invoices, projects, proposals, tasks
 
 app = FastAPI(title="Conductor API", version="1.0.0")
 
@@ -21,6 +21,8 @@ app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(contracts.router, prefix="/api/contracts", tags=["contracts"])
 app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
 app.include_router(invoices.router, prefix="/api/invoices", tags=["invoices"])
+app.include_router(employees.router, prefix="/api/employees", tags=["employees"])
+app.include_router(tasks.router, prefix="/api", tags=["tasks"])
 app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 
 # --- Static files ---
