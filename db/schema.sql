@@ -215,6 +215,73 @@ CREATE TABLE invoice_line_items (
 CREATE INDEX idx_invoice_items_invoice ON invoice_line_items(invoice_id);
 
 -- ============================================================================
+-- EMPLOYEES
+-- Internal staff members (engineers, PMs, etc.)
+-- ============================================================================
+CREATE TABLE employees (
+    id TEXT PRIMARY KEY,                    -- e.g., 'emp-abc123'
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT,
+    bot_id TEXT,                            -- Discord bot ID for future reminders
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+-- ============================================================================
+-- PROJECT TASKS
+-- Internal tasks on a project (separate from contract_tasks billing items)
+-- ============================================================================
+CREATE TABLE project_tasks (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id),
+    parent_id TEXT REFERENCES project_tasks(id),  -- one level of subtasks
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'todo',             -- todo, in_progress, blocked, done, canceled
+    priority INTEGER,                       -- nullable, not in UI yet
+    start_date DATE,
+    due_date DATE,
+    reminder_at TIMESTAMPTZ,               -- for future cron, not implemented yet
+    sort_order INTEGER DEFAULT 0,
+    created_by TEXT REFERENCES employees(id),
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_project_tasks_project ON project_tasks(project_id);
+CREATE INDEX idx_project_tasks_parent ON project_tasks(parent_id);
+CREATE INDEX idx_project_tasks_status ON project_tasks(status);
+
+-- ============================================================================
+-- PROJECT TASK ASSIGNEES
+-- Junction: which employees are assigned to which tasks
+-- ============================================================================
+CREATE TABLE project_task_assignees (
+    task_id TEXT NOT NULL REFERENCES project_tasks(id) ON DELETE CASCADE,
+    employee_id TEXT NOT NULL REFERENCES employees(id),
+    PRIMARY KEY (task_id, employee_id)
+);
+
+-- ============================================================================
+-- PROJECT TASK NOTES
+-- Timestamped comments on tasks
+-- ============================================================================
+CREATE TABLE project_task_notes (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES project_tasks(id) ON DELETE CASCADE,
+    author_id TEXT REFERENCES employees(id),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_task_notes_task ON project_task_notes(task_id);
+
+-- ============================================================================
 -- VIEWS
 -- Computed totals and useful joins
 -- ============================================================================

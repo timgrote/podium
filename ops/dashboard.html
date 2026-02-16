@@ -740,6 +740,52 @@
         }
         .proposal-total .total-amount { color: #4ade80; }
 
+        /* Task status badges in dashboard */
+        .task-status { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 500; }
+        .task-status-todo { background: #3b3b6d; color: #a5a5ff; }
+        .task-status-in_progress { background: #4b4b3d; color: #ffd700; }
+        .task-status-blocked { background: #4a2c2c; color: #ff6b6b; }
+        .task-status-done { background: #2d4a3d; color: #4ade80; }
+        .task-status-canceled { background: #333; color: #888; }
+        .dash-task-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #1a1a2e; border-radius: 6px; }
+        .dash-task-item.done { opacity: 0.5; }
+        .dash-task-title { color: #fff; font-size: 0.85rem; flex: 1; }
+        .dash-task-title.done { text-decoration: line-through; }
+        .dash-task-assignee { color: #888; font-size: 0.75rem; }
+        .dash-task-due { font-size: 0.75rem; color: #888; }
+        .dash-task-due.overdue { color: #ff6b6b; }
+        .done-toggle { cursor: pointer; color: #888; font-size: 0.8rem; padding: 6px 0; user-select: none; }
+        .done-toggle:hover { color: #aaa; }
+        .dash-task-title { cursor: pointer; }
+        .dash-task-title:hover { color: #4a9eff; }
+
+        /* Task detail modal */
+        .task-detail-field { margin-bottom: 16px; }
+        .task-detail-label { color: #888; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .task-detail-value { color: #e0e0e0; font-size: 0.9rem; }
+        .task-detail-description { color: #ccc; font-size: 0.85rem; line-height: 1.5; padding: 10px; background: #1a1a2e; border-radius: 6px; white-space: pre-wrap; }
+        .task-detail-meta { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+        .task-detail-meta-item { display: flex; flex-direction: column; gap: 2px; }
+        .task-note-item { padding: 10px 12px; background: #1a1a2e; border-radius: 6px; margin-bottom: 8px; }
+        .task-note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .task-note-author { color: #4a9eff; font-size: 0.8rem; font-weight: 500; }
+        .task-note-date { color: #666; font-size: 0.7rem; }
+        .task-note-content { color: #ccc; font-size: 0.85rem; line-height: 1.4; white-space: pre-wrap; }
+        .task-note-delete { background: none; border: none; color: #666; cursor: pointer; font-size: 0.8rem; padding: 0 4px; }
+        .task-note-delete:hover { color: #ff6b6b; }
+        .task-note-input { display: flex; gap: 8px; margin-top: 8px; }
+        .task-note-input textarea { flex: 1; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 8px 10px; font-size: 0.85rem; resize: vertical; min-height: 36px; font-family: inherit; }
+        .task-note-input textarea:focus { outline: none; border-color: #4a9eff; }
+        .task-note-send { background: #4a9eff; color: #fff; border: none; border-radius: 6px; padding: 8px 14px; font-size: 0.8rem; cursor: pointer; align-self: flex-end; }
+        .task-note-send:hover { background: #3a8edf; }
+        .task-edit-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+        .task-edit-row label { color: #888; font-size: 0.8rem; min-width: 60px; }
+        .task-edit-row input, .task-edit-row select, .task-edit-row textarea { flex: 1; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 6px 10px; font-size: 0.85rem; font-family: inherit; }
+        .task-edit-row input:focus, .task-edit-row select:focus, .task-edit-row textarea:focus { outline: none; border-color: #4a9eff; }
+        .task-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid #333; }
+        .task-subtask-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #1a1a2e; border-radius: 6px; margin-bottom: 4px; font-size: 0.85rem; }
+        .task-subtask-title { color: #ccc; flex: 1; }
+
         @media (max-width: 768px) {
             table { display: block; overflow-x: auto; }
             .detail-sections { grid-template-columns: 1fr; }
@@ -1205,6 +1251,18 @@
         </div>
     </div>
 
+    <!-- Task Detail Modal -->
+    <div id="task-detail-modal" class="modal">
+        <div class="modal-content modal-wide" style="max-width: 640px;">
+            <div class="modal-header">
+                <h3 id="task-detail-title">Task</h3>
+                <button class="modal-close" onclick="closeTaskDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="task-detail-body">
+            </div>
+        </div>
+    </div>
+
     <script>
         const PROJECTS_API = '/api/projects';
         const COMPANY_API = '/api/company';
@@ -1212,6 +1270,7 @@
 
         let allProjects = [];
         let allClients = [];
+        let allEmployees = [];
         const expandedProjects = new Set();
         const projectDetailCache = new Map();
 
@@ -1254,36 +1313,730 @@
             }
         }
 
-        // Render the detail content with proposals, contracts, and invoices sections
+        // Render the detail content: left column (contracts, proposals, invoices), right column (tasks)
         function renderProjectDetail(jobId, project, contentDiv) {
-            contentDiv.innerHTML = `
-                <div class="detail-sections" style="grid-template-columns: 25% 1fr;">
-                    <div class="detail-column">
-                        <div class="detail-section">
-                            <div class="detail-section-header">
-                                <span class="detail-section-title">Contracts</span>
-                                <button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openAddContractModal('${jobId}')" title="Add Contract">+</button>
-                            </div>
-                            ${renderContractsSection(project)}
-                        </div>
-                        <div class="detail-section" style="margin-top: 16px;">
-                            <div class="detail-section-header">
-                                <span class="detail-section-title">Proposals</span>
-                                <button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openAddProposalModal('${jobId}')" title="Add Proposal">+</button>
-                            </div>
-                            ${renderProposalsSection(project)}
-                        </div>
-                    </div>
-                    <div class="detail-section">
-                        <div class="detail-section-header">
-                            <span class="detail-section-title">Invoices</span>
-                            <button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openCreateInvoiceModal('${jobId}')" title="Create Invoice">+</button>
-                        </div>
-                        ${renderInvoicesSection(project)}
-                    </div>
-                </div>
-            `;
+            // Build layout using DOM methods to avoid innerHTML on the container
+            contentDiv.textContent = '';
+
+            const sections = document.createElement('div');
+            sections.className = 'detail-sections';
+            sections.style.gridTemplateColumns = '25% 1fr';
+
+            // --- Left column: Contracts + Proposals + Invoices ---
+            const leftCol = document.createElement('div');
+            leftCol.className = 'detail-column';
+
+            // Contracts section
+            const contractsSection = document.createElement('div');
+            contractsSection.className = 'detail-section';
+            contractsSection.insertAdjacentHTML('beforeend',
+                '<div class="detail-section-header">' +
+                    '<span class="detail-section-title">Contracts</span>' +
+                    '<button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openAddContractModal(\'' + jobId + '\')" title="Add Contract">+</button>' +
+                '</div>' + renderContractsSection(project)
+            );
+            leftCol.appendChild(contractsSection);
+
+            // Proposals section
+            const proposalsSection = document.createElement('div');
+            proposalsSection.className = 'detail-section';
+            proposalsSection.style.marginTop = '16px';
+            proposalsSection.insertAdjacentHTML('beforeend',
+                '<div class="detail-section-header">' +
+                    '<span class="detail-section-title">Proposals</span>' +
+                    '<button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openAddProposalModal(\'' + jobId + '\')" title="Add Proposal">+</button>' +
+                '</div>' + renderProposalsSection(project)
+            );
+            leftCol.appendChild(proposalsSection);
+
+            // Invoices section
+            const invoicesSection = document.createElement('div');
+            invoicesSection.className = 'detail-section';
+            invoicesSection.style.marginTop = '16px';
+            invoicesSection.insertAdjacentHTML('beforeend',
+                '<div class="detail-section-header">' +
+                    '<span class="detail-section-title">Invoices</span>' +
+                    '<button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openCreateInvoiceModal(\'' + jobId + '\')" title="Create Invoice">+</button>' +
+                '</div>' + renderInvoicesSection(project)
+            );
+            leftCol.appendChild(invoicesSection);
+
+            sections.appendChild(leftCol);
+
+            // --- Right column: Tasks ---
+            const tasksSection = document.createElement('div');
+            tasksSection.className = 'detail-section';
+
+            const tasksHeader = document.createElement('div');
+            tasksHeader.className = 'detail-section-header';
+            const tasksTitle = document.createElement('span');
+            tasksTitle.className = 'detail-section-title';
+            tasksTitle.textContent = 'Tasks';
+            tasksHeader.appendChild(tasksTitle);
+
+            const tasksRight = document.createElement('div');
+            tasksRight.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+
+            const fullViewLink = document.createElement('a');
+            fullViewLink.href = '/ops/project.html?job=' + jobId;
+            fullViewLink.style.cssText = 'color: #4a9eff; font-size: 0.75rem; text-decoration: none;';
+            fullViewLink.textContent = 'Full View →';
+
+            const addTaskBtn = document.createElement('button');
+            addTaskBtn.className = 'icon-btn';
+            addTaskBtn.style.cssText = 'width:28px;height:28px;font-size:1.2rem;';
+            addTaskBtn.title = 'Add Task';
+            addTaskBtn.textContent = '+';
+            addTaskBtn.addEventListener('click', function() {
+                openQuickAddTask(jobId);
+            });
+
+            tasksRight.appendChild(fullViewLink);
+            tasksRight.appendChild(addTaskBtn);
+            tasksHeader.appendChild(tasksRight);
+
+            tasksSection.appendChild(tasksHeader);
+
+            const tasksBody = document.createElement('div');
+            tasksBody.id = 'dash-tasks-' + jobId;
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'detail-empty';
+            loadingMsg.textContent = 'Loading tasks...';
+            tasksBody.appendChild(loadingMsg);
+            tasksSection.appendChild(tasksBody);
+
+            sections.appendChild(tasksSection);
+            contentDiv.appendChild(sections);
+
+            // Load tasks asynchronously
+            loadDashboardTasks(jobId);
         }
+
+        // Load and render tasks for a project in the dashboard detail view
+        async function loadDashboardTasks(jobId) {
+            const container = document.getElementById('dash-tasks-' + jobId);
+            if (!container) return;
+
+            try {
+                const res = await fetch('/api/projects/' + jobId + '/tasks');
+                if (!res.ok) throw new Error('Failed to load tasks');
+                const tasks = await res.json();
+
+                container.textContent = '';
+
+                const activeTasks = tasks.filter(t => t.status !== 'done');
+                const doneTasks = tasks.filter(t => t.status === 'done');
+
+                if (activeTasks.length === 0 && doneTasks.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'detail-empty';
+                    empty.textContent = 'No tasks yet';
+                    container.appendChild(empty);
+                    return;
+                }
+
+                // Active tasks
+                activeTasks.forEach(task => {
+                    container.appendChild(renderDashTask(task, jobId));
+                    // Render subtasks indented
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        task.subtasks.forEach(sub => {
+                            const subEl = renderDashTask(sub, jobId);
+                            subEl.style.marginLeft = '24px';
+                            container.appendChild(subEl);
+                        });
+                    }
+                });
+
+                // Done tasks (collapsible)
+                if (doneTasks.length > 0) {
+                    const toggle = document.createElement('div');
+                    toggle.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px 0; cursor: pointer; user-select: none;';
+
+                    const arrow = document.createElement('span');
+                    arrow.textContent = '▸';
+                    arrow.style.cssText = 'color: #888; font-size: 0.75rem; transition: transform 0.2s;';
+
+                    const label = document.createElement('span');
+                    label.style.cssText = 'color: #888; font-size: 0.8rem;';
+                    label.textContent = 'Completed (' + doneTasks.length + ')';
+
+                    toggle.appendChild(arrow);
+                    toggle.appendChild(label);
+                    container.appendChild(toggle);
+
+                    const doneList = document.createElement('div');
+                    doneList.style.display = 'none';
+
+                    doneTasks.forEach(task => {
+                        doneList.appendChild(renderDashTask(task, jobId));
+                    });
+
+                    container.appendChild(doneList);
+
+                    toggle.addEventListener('click', function() {
+                        const isOpen = doneList.style.display !== 'none';
+                        doneList.style.display = isOpen ? 'none' : 'block';
+                        arrow.textContent = isOpen ? '▸' : '▾';
+                    });
+                }
+            } catch (err) {
+                container.textContent = '';
+                const errMsg = document.createElement('div');
+                errMsg.className = 'detail-empty';
+                errMsg.textContent = 'Failed to load tasks';
+                container.appendChild(errMsg);
+            }
+        }
+
+        // Render a single task item for the dashboard
+        function renderDashTask(task, jobId) {
+            const item = document.createElement('div');
+            item.className = 'dash-task-item' + (task.status === 'done' ? ' done' : '');
+
+            // Done toggle checkbox
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = task.status === 'done';
+            checkbox.style.cssText = 'cursor: pointer; accent-color: #4ade80;';
+            checkbox.addEventListener('change', async function() {
+                const newStatus = checkbox.checked ? 'done' : 'todo';
+                try {
+                    await fetch('/api/tasks/' + task.id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: newStatus })
+                    });
+                    loadDashboardTasks(jobId);
+                } catch (e) { /* reload to reset */ loadDashboardTasks(jobId); }
+            });
+            item.appendChild(checkbox);
+
+            // Title (clickable to open detail)
+            const title = document.createElement('span');
+            title.className = 'dash-task-title' + (task.status === 'done' ? ' done' : '');
+            title.textContent = task.title;
+            title.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openTaskDetailModal(task.id, jobId);
+            });
+            item.appendChild(title);
+
+            // Status badge (for non-done, non-todo)
+            if (task.status && task.status !== 'todo' && task.status !== 'done') {
+                const badge = document.createElement('span');
+                badge.className = 'task-status task-status-' + task.status;
+                badge.textContent = task.status.replace('_', ' ');
+                item.appendChild(badge);
+            }
+
+            // Assignees
+            if (task.assignees && task.assignees.length > 0) {
+                const assignee = document.createElement('span');
+                assignee.className = 'dash-task-assignee';
+                assignee.textContent = task.assignees.map(a => a.first_name).join(', ');
+                item.appendChild(assignee);
+            }
+
+            // Due date
+            if (task.due_date) {
+                const due = document.createElement('span');
+                due.className = 'dash-task-due';
+                const dueDate = new Date(task.due_date + 'T00:00:00');
+                const now = new Date();
+                now.setHours(0,0,0,0);
+                if (dueDate < now && task.status !== 'done') due.className += ' overdue';
+                due.textContent = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                item.appendChild(due);
+            }
+
+            return item;
+        }
+
+        // Load employees for assignee display
+        async function loadDashEmployees() {
+            try {
+                const res = await fetch('/api/employees');
+                if (res.ok) allEmployees = await res.json();
+            } catch (e) { /* non-critical */ }
+        }
+
+        // Open task detail modal
+        async function openTaskDetailModal(taskId, jobId) {
+            const modal = document.getElementById('task-detail-modal');
+            const body = document.getElementById('task-detail-body');
+            const titleEl = document.getElementById('task-detail-title');
+
+            body.textContent = '';
+            const loading = document.createElement('div');
+            loading.className = 'detail-empty';
+            loading.textContent = 'Loading...';
+            body.appendChild(loading);
+            modal.classList.add('active');
+
+            try {
+                const res = await fetch('/api/tasks/' + taskId);
+                if (!res.ok) throw new Error('Failed to load task');
+                const task = await res.json();
+
+                titleEl.textContent = task.title;
+
+                // Three-dot menu in header (for delete, etc.)
+                const headerEl = titleEl.parentElement;
+                let existingMenu = headerEl.querySelector('.task-kebab-wrap');
+                if (existingMenu) existingMenu.remove();
+                const kebabWrap = document.createElement('div');
+                kebabWrap.className = 'task-kebab-wrap';
+                kebabWrap.style.cssText = 'position: relative; display: inline-block; margin-left: auto; margin-right: 8px;';
+                const kebabBtn = document.createElement('button');
+                kebabBtn.style.cssText = 'background: none; border: none; color: #888; cursor: pointer; font-size: 1.2rem; padding: 4px 8px; border-radius: 4px; line-height: 1;';
+                kebabBtn.textContent = '⋮';
+                kebabBtn.title = 'More actions';
+                const kebabMenu = document.createElement('div');
+                kebabMenu.style.cssText = 'display: none; position: absolute; right: 0; top: 100%; background: #1e1e3a; border: 1px solid #333; border-radius: 6px; min-width: 140px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.4);';
+                const deleteOption = document.createElement('div');
+                deleteOption.style.cssText = 'padding: 8px 14px; color: #ff6b6b; font-size: 0.8rem; cursor: pointer; white-space: nowrap;';
+                deleteOption.textContent = 'Delete task';
+                deleteOption.addEventListener('mouseenter', function() { deleteOption.style.background = '#2a2a4a'; });
+                deleteOption.addEventListener('mouseleave', function() { deleteOption.style.background = 'none'; });
+                deleteOption.addEventListener('click', async function() {
+                    kebabMenu.style.display = 'none';
+                    if (!confirm('Delete this task and its subtasks?')) return;
+                    await fetch('/api/tasks/' + taskId, { method: 'DELETE' });
+                    closeTaskDetailModal();
+                    loadDashboardTasks(jobId);
+                });
+                kebabMenu.appendChild(deleteOption);
+                kebabBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    kebabMenu.style.display = kebabMenu.style.display === 'none' ? 'block' : 'none';
+                });
+                document.addEventListener('click', function handler() {
+                    kebabMenu.style.display = 'none';
+                }, { once: false });
+                kebabWrap.appendChild(kebabBtn);
+                kebabWrap.appendChild(kebabMenu);
+                headerEl.insertBefore(kebabWrap, headerEl.querySelector('.modal-close'));
+
+                body.textContent = '';
+
+                // --- Meta row: status, priority, due date, assignees ---
+                const meta = document.createElement('div');
+                meta.className = 'task-detail-meta';
+
+                // Status
+                const statusItem = document.createElement('div');
+                statusItem.className = 'task-detail-meta-item';
+                const statusLabel = document.createElement('div');
+                statusLabel.className = 'task-detail-label';
+                statusLabel.textContent = 'Status';
+                const statusSelect = document.createElement('select');
+                statusSelect.style.cssText = 'background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 4px 8px; font-size: 0.8rem;';
+                ['todo', 'in_progress', 'blocked', 'done'].forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s.replace('_', ' ');
+                    if (s === task.status) opt.selected = true;
+                    statusSelect.appendChild(opt);
+                });
+                statusSelect.addEventListener('change', async function() {
+                    await fetch('/api/tasks/' + taskId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: statusSelect.value })
+                    });
+                    loadDashboardTasks(jobId);
+                });
+                statusItem.appendChild(statusLabel);
+                statusItem.appendChild(statusSelect);
+                meta.appendChild(statusItem);
+
+                // Start date
+                const startItem = document.createElement('div');
+                startItem.className = 'task-detail-meta-item';
+                const startLabel = document.createElement('div');
+                startLabel.className = 'task-detail-label';
+                startLabel.textContent = 'Start';
+                const startInput = document.createElement('input');
+                startInput.type = 'date';
+                startInput.value = task.start_date || '';
+                startInput.style.cssText = 'background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 4px 8px; font-size: 0.8rem;';
+                startInput.addEventListener('change', async function() {
+                    await fetch('/api/tasks/' + taskId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ start_date: startInput.value || null })
+                    });
+                    loadDashboardTasks(jobId);
+                });
+                startItem.appendChild(startLabel);
+                startItem.appendChild(startInput);
+                meta.appendChild(startItem);
+
+                // Due date
+                const dueItem = document.createElement('div');
+                dueItem.className = 'task-detail-meta-item';
+                const dueLabel = document.createElement('div');
+                dueLabel.className = 'task-detail-label';
+                dueLabel.textContent = 'Due';
+                const dueInput = document.createElement('input');
+                dueInput.type = 'date';
+                dueInput.value = task.due_date || '';
+                dueInput.style.cssText = 'background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 4px 8px; font-size: 0.8rem;';
+                dueInput.addEventListener('change', async function() {
+                    await fetch('/api/tasks/' + taskId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ due_date: dueInput.value || null })
+                    });
+                    loadDashboardTasks(jobId);
+                });
+                dueItem.appendChild(dueLabel);
+                dueItem.appendChild(dueInput);
+                meta.appendChild(dueItem);
+
+                // Assignees
+                const assignItem = document.createElement('div');
+                assignItem.className = 'task-detail-meta-item';
+                assignItem.style.flex = '1';
+                const assignLabel = document.createElement('div');
+                assignLabel.className = 'task-detail-label';
+                assignLabel.textContent = 'Assignees';
+                const assignDiv = document.createElement('div');
+                assignDiv.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px;';
+                const currentAssigneeIds = (task.assignees || []).map(a => a.id);
+                allEmployees.filter(e => e.is_active).forEach(emp => {
+                    const chip = document.createElement('span');
+                    const isAssigned = currentAssigneeIds.includes(emp.id);
+                    chip.style.cssText = 'padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; ' +
+                        (isAssigned ? 'background: #1e3a5f; color: #4a9eff; border: 1px solid #4a9eff;' : 'background: #1a1a2e; color: #888; border: 1px solid #333;');
+                    chip.textContent = emp.first_name;
+                    chip.dataset.empId = emp.id;
+                    chip.dataset.assigned = isAssigned ? '1' : '0';
+                    chip.addEventListener('click', async function() {
+                        const nowAssigned = chip.dataset.assigned === '1';
+                        let newIds;
+                        if (nowAssigned) {
+                            newIds = currentAssigneeIds.filter(id => id !== emp.id);
+                        } else {
+                            newIds = [...currentAssigneeIds, emp.id];
+                        }
+                        await fetch('/api/tasks/' + taskId, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ assignee_ids: newIds })
+                        });
+                        loadDashboardTasks(jobId);
+                        openTaskDetailModal(taskId, jobId); // refresh modal
+                    });
+                    assignDiv.appendChild(chip);
+                });
+                assignItem.appendChild(assignLabel);
+                assignItem.appendChild(assignDiv);
+                meta.appendChild(assignItem);
+
+                body.appendChild(meta);
+
+                // --- Description ---
+                if (task.description) {
+                    const descField = document.createElement('div');
+                    descField.className = 'task-detail-field';
+                    const descLabel = document.createElement('div');
+                    descLabel.className = 'task-detail-label';
+                    descLabel.textContent = 'Description';
+                    const descValue = document.createElement('div');
+                    descValue.className = 'task-detail-description';
+                    descValue.textContent = task.description;
+                    descField.appendChild(descLabel);
+                    descField.appendChild(descValue);
+                    body.appendChild(descField);
+                }
+
+                // --- Subtasks ---
+                if (task.subtasks && task.subtasks.length > 0) {
+                    const subField = document.createElement('div');
+                    subField.className = 'task-detail-field';
+                    const subLabel = document.createElement('div');
+                    subLabel.className = 'task-detail-label';
+                    subLabel.textContent = 'Subtasks';
+                    subField.appendChild(subLabel);
+
+                    task.subtasks.forEach(sub => {
+                        const subItem = document.createElement('div');
+                        subItem.className = 'task-subtask-item';
+                        const subCheck = document.createElement('input');
+                        subCheck.type = 'checkbox';
+                        subCheck.checked = sub.status === 'done';
+                        subCheck.style.cssText = 'cursor: pointer; accent-color: #4ade80;';
+                        subCheck.addEventListener('change', async function() {
+                            await fetch('/api/tasks/' + sub.id, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: subCheck.checked ? 'done' : 'todo' })
+                            });
+                            loadDashboardTasks(jobId);
+                            openTaskDetailModal(taskId, jobId);
+                        });
+                        const subTitle = document.createElement('span');
+                        subTitle.className = 'task-subtask-title';
+                        if (sub.status === 'done') subTitle.style.textDecoration = 'line-through';
+                        subTitle.textContent = sub.title;
+                        subItem.appendChild(subCheck);
+                        subItem.appendChild(subTitle);
+                        subField.appendChild(subItem);
+                    });
+                    body.appendChild(subField);
+                }
+
+                // --- Notes ---
+                const notesField = document.createElement('div');
+                notesField.className = 'task-detail-field';
+                const notesHeader = document.createElement('div');
+                notesHeader.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+                const notesLabel = document.createElement('div');
+                notesLabel.className = 'task-detail-label';
+                notesLabel.textContent = 'Notes';
+                const addNoteBtn = document.createElement('button');
+                addNoteBtn.style.cssText = 'background: none; border: 1px solid #333; color: #888; cursor: pointer; width: 22px; height: 22px; border-radius: 4px; font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center;';
+                addNoteBtn.textContent = '+';
+                addNoteBtn.title = 'Add note';
+                notesHeader.appendChild(notesLabel);
+                notesHeader.appendChild(addNoteBtn);
+                notesField.appendChild(notesHeader);
+
+                // Expandable note input (hidden by default)
+                const noteInputWrap = document.createElement('div');
+                noteInputWrap.style.cssText = 'display: none; margin: 8px 0;';
+                const noteTextarea = document.createElement('textarea');
+                noteTextarea.placeholder = 'Write a note...';
+                noteTextarea.rows = 2;
+                noteTextarea.style.cssText = 'width: 100%; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 8px 10px; font-size: 0.85rem; resize: vertical; font-family: inherit; box-sizing: border-box;';
+                const noteActions = document.createElement('div');
+                noteActions.style.cssText = 'display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px;';
+                const noteCancelBtn = document.createElement('button');
+                noteCancelBtn.style.cssText = 'background: none; border: 1px solid #333; color: #888; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;';
+                noteCancelBtn.textContent = 'Cancel';
+                noteCancelBtn.addEventListener('click', function() { noteInputWrap.style.display = 'none'; noteTextarea.value = ''; });
+                const noteSaveBtn = document.createElement('button');
+                noteSaveBtn.style.cssText = 'background: #4a9eff; border: none; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;';
+                noteSaveBtn.textContent = 'Save';
+                noteSaveBtn.addEventListener('click', async function() {
+                    const content = noteTextarea.value.trim();
+                    if (!content) return;
+                    noteSaveBtn.disabled = true;
+                    try {
+                        await fetch('/api/tasks/' + taskId + '/notes', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ content: content, author_id: allEmployees.length > 0 ? allEmployees[0].id : null })
+                        });
+                        openTaskDetailModal(taskId, jobId);
+                    } catch (e) { noteSaveBtn.disabled = false; }
+                });
+                noteActions.appendChild(noteCancelBtn);
+                noteActions.appendChild(noteSaveBtn);
+                noteInputWrap.appendChild(noteTextarea);
+                noteInputWrap.appendChild(noteActions);
+                notesField.appendChild(noteInputWrap);
+
+                addNoteBtn.addEventListener('click', function() {
+                    noteInputWrap.style.display = 'block';
+                    noteTextarea.focus();
+                });
+
+                const notesList = document.createElement('div');
+                notesList.id = 'task-detail-notes';
+                const sortedNotes = [...(task.notes || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+                sortedNotes.forEach(note => {
+                    const noteItem = document.createElement('div');
+                    noteItem.className = 'task-note-item';
+
+                    const noteHeader = document.createElement('div');
+                    noteHeader.className = 'task-note-header';
+                    const noteAuthor = document.createElement('span');
+                    noteAuthor.className = 'task-note-author';
+                    noteAuthor.textContent = note.author_name || 'Unknown';
+                    const noteRight = document.createElement('div');
+                    noteRight.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+                    const noteDate = document.createElement('span');
+                    noteDate.className = 'task-note-date';
+                    noteDate.textContent = note.created_at ? new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                    const noteDelete = document.createElement('button');
+                    noteDelete.className = 'task-note-delete';
+                    noteDelete.textContent = '×';
+                    noteDelete.addEventListener('click', async function() {
+                        if (!confirm('Delete this note?')) return;
+                        await fetch('/api/tasks/notes/' + note.id, { method: 'DELETE' });
+                        openTaskDetailModal(taskId, jobId);
+                    });
+                    noteRight.appendChild(noteDate);
+                    noteRight.appendChild(noteDelete);
+                    noteHeader.appendChild(noteAuthor);
+                    noteHeader.appendChild(noteRight);
+
+                    const noteContent = document.createElement('div');
+                    noteContent.className = 'task-note-content';
+                    noteContent.textContent = note.content;
+
+                    noteItem.appendChild(noteHeader);
+                    noteItem.appendChild(noteContent);
+                    notesList.appendChild(noteItem);
+                });
+                notesField.appendChild(notesList);
+
+                body.appendChild(notesField);
+
+            } catch (err) {
+                body.textContent = '';
+                const errMsg = document.createElement('div');
+                errMsg.className = 'detail-empty';
+                errMsg.textContent = 'Failed to load task details';
+                body.appendChild(errMsg);
+            }
+        }
+
+        // Quick add task from dashboard
+        function openQuickAddTask(jobId) {
+            const modal = document.getElementById('task-detail-modal');
+            const body = document.getElementById('task-detail-body');
+            const titleEl = document.getElementById('task-detail-title');
+
+            titleEl.textContent = 'New Task';
+            body.textContent = '';
+
+            const form = document.createElement('div');
+
+            // Title
+            const titleRow = document.createElement('div');
+            titleRow.className = 'task-edit-row';
+            const titleLabel = document.createElement('label');
+            titleLabel.textContent = 'Title';
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.id = 'quick-task-title';
+            titleInput.placeholder = 'Task title...';
+            titleRow.appendChild(titleLabel);
+            titleRow.appendChild(titleInput);
+            form.appendChild(titleRow);
+
+            // Description
+            const descRow = document.createElement('div');
+            descRow.className = 'task-edit-row';
+            const descLabel = document.createElement('label');
+            descLabel.textContent = 'Details';
+            const descInput = document.createElement('textarea');
+            descInput.id = 'quick-task-desc';
+            descInput.rows = 2;
+            descInput.placeholder = 'Description (optional)';
+            descRow.appendChild(descLabel);
+            descRow.appendChild(descInput);
+            form.appendChild(descRow);
+
+            // Start date (default to today)
+            const startRow = document.createElement('div');
+            startRow.className = 'task-edit-row';
+            const startLabel = document.createElement('label');
+            startLabel.textContent = 'Start';
+            const startInput = document.createElement('input');
+            startInput.type = 'date';
+            startInput.id = 'quick-task-start';
+            startInput.value = new Date().toISOString().split('T')[0];
+            startRow.appendChild(startLabel);
+            startRow.appendChild(startInput);
+            form.appendChild(startRow);
+
+            // Due date
+            const dueRow = document.createElement('div');
+            dueRow.className = 'task-edit-row';
+            const dueLabel = document.createElement('label');
+            dueLabel.textContent = 'Due';
+            const dueInput = document.createElement('input');
+            dueInput.type = 'date';
+            dueInput.id = 'quick-task-due';
+            dueRow.appendChild(dueLabel);
+            dueRow.appendChild(dueInput);
+            form.appendChild(dueRow);
+
+            // Assignees
+            const assignRow = document.createElement('div');
+            assignRow.className = 'task-edit-row';
+            assignRow.style.alignItems = 'flex-start';
+            const assignLabel = document.createElement('label');
+            assignLabel.textContent = 'Assign';
+            assignLabel.style.paddingTop = '4px';
+            const assignDiv = document.createElement('div');
+            assignDiv.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; flex: 1;';
+            allEmployees.filter(e => e.is_active).forEach(emp => {
+                const chip = document.createElement('span');
+                chip.style.cssText = 'padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; cursor: pointer; background: #1a1a2e; color: #888; border: 1px solid #333;';
+                chip.textContent = emp.first_name;
+                chip.dataset.empId = emp.id;
+                chip.dataset.selected = '0';
+                chip.addEventListener('click', function() {
+                    const sel = chip.dataset.selected === '1';
+                    chip.dataset.selected = sel ? '0' : '1';
+                    chip.style.background = sel ? '#1a1a2e' : '#1e3a5f';
+                    chip.style.color = sel ? '#888' : '#4a9eff';
+                    chip.style.borderColor = sel ? '#333' : '#4a9eff';
+                });
+                assignDiv.appendChild(chip);
+            });
+            assignRow.appendChild(assignLabel);
+            assignRow.appendChild(assignDiv);
+            form.appendChild(assignRow);
+
+            // Actions
+            const actions = document.createElement('div');
+            actions.className = 'task-modal-actions';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-secondary';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', closeTaskDetailModal);
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'btn btn-primary';
+            saveBtn.textContent = 'Create Task';
+            saveBtn.addEventListener('click', async function() {
+                const title = document.getElementById('quick-task-title').value.trim();
+                if (!title) { document.getElementById('quick-task-title').focus(); return; }
+                const selectedIds = [];
+                assignDiv.querySelectorAll('[data-selected="1"]').forEach(c => selectedIds.push(c.dataset.empId));
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Creating...';
+                try {
+                    await fetch('/api/projects/' + jobId + '/tasks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: title,
+                            description: document.getElementById('quick-task-desc').value.trim() || null,
+                            start_date: document.getElementById('quick-task-start').value || null,
+                            due_date: document.getElementById('quick-task-due').value || null,
+                            assignee_ids: selectedIds
+                        })
+                    });
+                    closeTaskDetailModal();
+                    loadDashboardTasks(jobId);
+                } catch (e) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Create Task';
+                }
+            });
+            actions.appendChild(cancelBtn);
+            actions.appendChild(saveBtn);
+            form.appendChild(actions);
+
+            body.appendChild(form);
+            modal.classList.add('active');
+            titleInput.focus();
+        }
+
+        function closeTaskDetailModal() {
+            document.getElementById('task-detail-modal').classList.remove('active');
+        }
+
+        document.getElementById('task-detail-modal').addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) closeTaskDetailModal();
+        });
 
         // Render contracts section
         function renderContractsSection(project) {
@@ -2948,6 +3701,7 @@
         loadCompany();
         loadProjects().then(() => initResizableColumns());
         loadClients();
+        loadDashEmployees();
     </script>
 </body>
 </html>
