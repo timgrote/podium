@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routers import clients, company, contracts, employees, flows, invoices, projects, proposals, tasks
+from .routers import auth, clients, company, contracts, employees, flows, invoices, projects, proposals, tasks
 
 app = FastAPI(title="Conductor API", version="1.0.0")
 
@@ -15,6 +15,7 @@ def root_redirect():
 
 
 # --- API routers ---
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
 app.include_router(company.router, prefix="/api/company", tags=["company"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])

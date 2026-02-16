@@ -224,11 +224,39 @@ CREATE TABLE employees (
     last_name TEXT NOT NULL,
     email TEXT,
     bot_id TEXT,                            -- Discord bot ID for future reminders
+    password_hash TEXT,                     -- bcrypt hash for auth
+    avatar_url TEXT,                        -- path to uploaded avatar image
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ
 );
+
+-- ============================================================================
+-- SESSIONS
+-- Server-side session tokens for employee authentication
+-- ============================================================================
+CREATE TABLE sessions (
+    token TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL REFERENCES employees(id),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX idx_sessions_employee ON sessions(employee_id);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+
+-- ============================================================================
+-- PASSWORD RESETS
+-- Time-limited tokens for admin-initiated password resets
+-- ============================================================================
+CREATE TABLE password_resets (
+    token TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL REFERENCES employees(id),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ              -- set when token is consumed
+);
+CREATE INDEX idx_password_resets_employee ON password_resets(employee_id);
 
 -- ============================================================================
 -- PROJECT TASKS

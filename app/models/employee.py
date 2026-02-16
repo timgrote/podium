@@ -15,6 +15,7 @@ class EmployeeUpdate(BaseModel):
     last_name: str | None = None
     email: str | None = None
     bot_id: str | None = None
+    avatar_url: str | None = None
     is_active: bool | None = None
 
 
@@ -24,6 +25,7 @@ class EmployeeResponse(BaseModel):
     last_name: str
     email: str | None = None
     bot_id: str | None = None
+    avatar_url: str | None = None
     is_active: bool = True
     created_at: datetime | str | None = None
     updated_at: datetime | str | None = None
