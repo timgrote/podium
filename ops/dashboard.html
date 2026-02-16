@@ -1602,9 +1602,12 @@
                 deleteOption.addEventListener('click', async function() {
                     kebabMenu.style.display = 'none';
                     if (!confirm('Delete this task and its subtasks?')) return;
-                    await fetch('/api/tasks/' + taskId, { method: 'DELETE' });
-                    closeTaskDetailModal();
-                    loadDashboardTasks(jobId);
+                    try {
+                        const res = await fetch('/api/tasks/' + taskId, { method: 'DELETE' });
+                        if (!res.ok) throw new Error('Delete failed');
+                        closeTaskDetailModal();
+                        loadDashboardTasks(jobId);
+                    } catch (e) { alert('Failed to delete task'); }
                 });
                 kebabMenu.appendChild(deleteOption);
                 kebabBtn.addEventListener('click', function(e) {
@@ -1640,12 +1643,15 @@
                     statusSelect.appendChild(opt);
                 });
                 statusSelect.addEventListener('change', async function() {
-                    await fetch('/api/tasks/' + taskId, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: statusSelect.value })
-                    });
-                    loadDashboardTasks(jobId);
+                    try {
+                        const res = await fetch('/api/tasks/' + taskId, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: statusSelect.value })
+                        });
+                        if (!res.ok) throw new Error('Update failed');
+                        loadDashboardTasks(jobId);
+                    } catch (e) { alert('Failed to update status'); }
                 });
                 statusItem.appendChild(statusLabel);
                 statusItem.appendChild(statusSelect);
@@ -1662,12 +1668,15 @@
                 startInput.value = task.start_date || '';
                 startInput.style.cssText = 'background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 4px 8px; font-size: 0.8rem;';
                 startInput.addEventListener('change', async function() {
-                    await fetch('/api/tasks/' + taskId, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ start_date: startInput.value || null })
-                    });
-                    loadDashboardTasks(jobId);
+                    try {
+                        const res = await fetch('/api/tasks/' + taskId, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ start_date: startInput.value || null })
+                        });
+                        if (!res.ok) throw new Error('Update failed');
+                        loadDashboardTasks(jobId);
+                    } catch (e) { alert('Failed to update start date'); }
                 });
                 startItem.appendChild(startLabel);
                 startItem.appendChild(startInput);
@@ -1684,12 +1693,15 @@
                 dueInput.value = task.due_date || '';
                 dueInput.style.cssText = 'background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; padding: 4px 8px; font-size: 0.8rem;';
                 dueInput.addEventListener('change', async function() {
-                    await fetch('/api/tasks/' + taskId, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ due_date: dueInput.value || null })
-                    });
-                    loadDashboardTasks(jobId);
+                    try {
+                        const res = await fetch('/api/tasks/' + taskId, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ due_date: dueInput.value || null })
+                        });
+                        if (!res.ok) throw new Error('Update failed');
+                        loadDashboardTasks(jobId);
+                    } catch (e) { alert('Failed to update due date'); }
                 });
                 dueItem.appendChild(dueLabel);
                 dueItem.appendChild(dueInput);
@@ -1721,13 +1733,16 @@
                         } else {
                             newIds = [...currentAssigneeIds, emp.id];
                         }
-                        await fetch('/api/tasks/' + taskId, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ assignee_ids: newIds })
-                        });
-                        loadDashboardTasks(jobId);
-                        openTaskDetailModal(taskId, jobId); // refresh modal
+                        try {
+                            const res = await fetch('/api/tasks/' + taskId, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ assignee_ids: newIds })
+                            });
+                            if (!res.ok) throw new Error('Update failed');
+                            loadDashboardTasks(jobId);
+                            openTaskDetailModal(taskId, jobId); // refresh modal
+                        } catch (e) { alert('Failed to update assignees'); }
                     });
                     assignDiv.appendChild(chip);
                 });
@@ -1769,13 +1784,16 @@
                         subCheck.checked = sub.status === 'done';
                         subCheck.style.cssText = 'cursor: pointer; accent-color: #4ade80;';
                         subCheck.addEventListener('change', async function() {
-                            await fetch('/api/tasks/' + sub.id, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: subCheck.checked ? 'done' : 'todo' })
-                            });
-                            loadDashboardTasks(jobId);
-                            openTaskDetailModal(taskId, jobId);
+                            try {
+                                const res = await fetch('/api/tasks/' + sub.id, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ status: subCheck.checked ? 'done' : 'todo' })
+                                });
+                                if (!res.ok) throw new Error('Update failed');
+                                loadDashboardTasks(jobId);
+                                openTaskDetailModal(taskId, jobId);
+                            } catch (e) { alert('Failed to update subtask'); }
                         });
                         const subTitle = document.createElement('span');
                         subTitle.className = 'task-subtask-title';
@@ -1866,8 +1884,11 @@
                     noteDelete.textContent = '×';
                     noteDelete.addEventListener('click', async function() {
                         if (!confirm('Delete this note?')) return;
-                        await fetch('/api/tasks/notes/' + note.id, { method: 'DELETE' });
-                        openTaskDetailModal(taskId, jobId);
+                        try {
+                            const res = await fetch('/api/tasks/notes/' + note.id, { method: 'DELETE' });
+                            if (!res.ok) throw new Error('Delete failed');
+                            openTaskDetailModal(taskId, jobId);
+                        } catch (e) { alert('Failed to delete note'); }
                     });
                     noteRight.appendChild(noteDate);
                     noteRight.appendChild(noteDelete);

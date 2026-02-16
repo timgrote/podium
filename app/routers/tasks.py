@@ -113,78 +113,7 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
     return _build_task_response(db, row)
 
 
-# --- Single-task endpoints ---
-
-@router.get("/tasks/{task_id}", response_model=TaskResponse)
-def get_task(task_id: str, db=Depends(get_db)):
-    row = db.execute(
-        "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return _build_task_response(db, row)
-
-
-@router.patch("/tasks/{task_id}", response_model=TaskResponse)
-def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db)):
-    existing = db.execute(
-        "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
-    ).fetchone()
-    if not existing:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    updates = {}
-    dump = data.model_dump()
-    for k, v in dump.items():
-        if k == "assignee_ids":
-            continue
-        if v is not None:
-            if k in ("start_date", "due_date", "reminder_at"):
-                updates[k] = str(v)
-            else:
-                updates[k] = v
-
-    # Handle status → completed_at
-    if data.status == "done" and existing["status"] != "done":
-        updates["completed_at"] = datetime.now().isoformat()
-    elif data.status and data.status != "done" and existing["status"] == "done":
-        updates["completed_at"] = None
-
-    if updates:
-        updates["updated_at"] = datetime.now().isoformat()
-        set_clause = ", ".join(f"{k} = %s" for k in updates)
-        values = list(updates.values()) + [task_id]
-        db.execute(f"UPDATE project_tasks SET {set_clause} WHERE id = %s", values)
-
-    if data.assignee_ids is not None:
-        _set_assignees(db, task_id, data.assignee_ids)
-
-    db.commit()
-
-    row = db.execute("SELECT * FROM project_tasks WHERE id = %s", (task_id,)).fetchone()
-    return _build_task_response(db, row)
-
-
-@router.delete("/tasks/{task_id}")
-def delete_task(task_id: str, db=Depends(get_db)):
-    existing = db.execute(
-        "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
-    ).fetchone()
-    if not existing:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    now = datetime.now().isoformat()
-    # Soft delete subtasks too
-    db.execute(
-        "UPDATE project_tasks SET deleted_at = %s WHERE parent_id = %s AND deleted_at IS NULL",
-        (now, task_id),
-    )
-    db.execute("UPDATE project_tasks SET deleted_at = %s WHERE id = %s", (now, task_id))
-    db.commit()
-    return {"success": True}
-
-
-# --- Task Notes ---
+# --- Task Notes (registered before /tasks/{task_id} to avoid route shadowing) ---
 
 @router.post("/tasks/{task_id}/notes", response_model=TaskNoteResponse, status_code=201)
 def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db)):
@@ -224,5 +153,77 @@ def delete_note(note_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail="Note not found")
 
     db.execute("DELETE FROM project_task_notes WHERE id = %s", (note_id,))
+    db.commit()
+    return {"success": True}
+
+
+# --- Single-task endpoints ---
+
+@router.get("/tasks/{task_id}", response_model=TaskResponse)
+def get_task(task_id: str, db=Depends(get_db)):
+    row = db.execute(
+        "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return _build_task_response(db, row)
+
+
+@router.patch("/tasks/{task_id}", response_model=TaskResponse)
+def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    updates = {}
+    dump = data.model_dump(exclude_unset=True)
+    for k, v in dump.items():
+        if k == "assignee_ids":
+            continue
+        if v is None:
+            updates[k] = None
+        elif k in ("start_date", "due_date", "reminder_at"):
+            updates[k] = str(v)
+        else:
+            updates[k] = v
+
+    # Handle status → completed_at
+    if data.status == "done" and existing["status"] != "done":
+        updates["completed_at"] = datetime.now().isoformat()
+    elif data.status and data.status != "done" and existing["status"] == "done":
+        updates["completed_at"] = None
+
+    if updates:
+        updates["updated_at"] = datetime.now().isoformat()
+        set_clause = ", ".join(f"{k} = %s" for k in updates)
+        values = list(updates.values()) + [task_id]
+        db.execute(f"UPDATE project_tasks SET {set_clause} WHERE id = %s", values)
+
+    if data.assignee_ids is not None:
+        _set_assignees(db, task_id, data.assignee_ids)
+
+    db.commit()
+
+    row = db.execute("SELECT * FROM project_tasks WHERE id = %s", (task_id,)).fetchone()
+    return _build_task_response(db, row)
+
+
+@router.delete("/tasks/{task_id}")
+def delete_task(task_id: str, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    now = datetime.now().isoformat()
+    # Soft delete subtasks too
+    db.execute(
+        "UPDATE project_tasks SET deleted_at = %s WHERE parent_id = %s AND deleted_at IS NULL",
+        (now, task_id),
+    )
+    db.execute("UPDATE project_tasks SET deleted_at = %s WHERE id = %s", (now, task_id))
     db.commit()
     return {"success": True}
