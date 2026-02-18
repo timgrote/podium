@@ -13,6 +13,7 @@ class InvoiceCreate(BaseModel):
 class InvoiceUpdate(BaseModel):
     sent_status: str | None = None
     paid_status: str | None = None
+    paid_at: str | None = None
     total_due: float | None = None
     description: str | None = None
     data_path: str | None = None

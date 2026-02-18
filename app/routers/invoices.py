@@ -435,7 +435,9 @@ def update_invoice(
     if "sent_status" in updates and updates["sent_status"] == "sent":
         updates["sent_at"] = now
     if "paid_status" in updates and updates["paid_status"] == "paid":
-        updates["paid_at"] = now
+        # Only auto-set paid_at if not explicitly provided
+        if "paid_at" not in updates:
+            updates["paid_at"] = now
 
     set_clause = ", ".join(f"{k} = %s" for k in updates)
     values = list(updates.values()) + [invoice_id]

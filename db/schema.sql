@@ -59,6 +59,9 @@ CREATE TABLE projects (
     pm_name TEXT,                           -- project manager name (denormalized for convenience)
     pm_email TEXT,                          -- project manager email
     client_project_number TEXT,             -- client's internal project/PO number
+    location TEXT,                           -- e.g., 'Austin, TX'
+    project_number TEXT,                    -- user-facing identifier, e.g., '26-001' (auto-incremented)
+    job_code TEXT,                          -- editable shorthand, e.g., 'rvi-absal'
     status TEXT DEFAULT 'proposal',         -- proposal, contract, invoiced, paid, complete
     data_path TEXT,                         -- dropbox folder path, e.g., 'TBG/HeronLakes'
     notes TEXT,                             -- markdown
@@ -324,6 +327,9 @@ SELECT
     p.pm_name,
     p.pm_email,
     p.client_project_number,
+    p.location,
+    p.project_number,
+    p.job_code,
     c.name AS client_name,
     c.company AS client_company,
     c.email AS client_email,
@@ -343,7 +349,8 @@ LEFT JOIN (
 ) ct ON p.id = ct.project_id
 WHERE p.deleted_at IS NULL
 GROUP BY p.id, p.name, p.status, p.client_id, p.pm_name, p.pm_email,
-         p.client_project_number, c.name, c.company, c.email, c.address,
+         p.client_project_number, p.location, p.project_number, p.job_code,
+         c.name, c.company, c.email, c.address,
          ct.total_contracted;
 
 -- Company settings (key-value store)

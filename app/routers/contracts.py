@@ -41,11 +41,28 @@ def create_contract(data: ContractCreate, db=Depends(get_db)):
 
     now = datetime.now().isoformat()
     contract_id = generate_id("con-")
+
+    # If tasks provided, compute total from tasks
+    total = data.total_amount
+    if data.tasks:
+        total = sum(t.get("amount", 0) for t in data.tasks)
+
     db.execute(
         "INSERT INTO contracts (id, project_id, total_amount, signed_at, file_path, notes, created_at, updated_at) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (contract_id, data.project_id, data.total_amount, data.signed_at, data.file_path, data.notes, now, now),
+        (contract_id, data.project_id, total, data.signed_at, data.file_path, data.notes, now, now),
     )
+
+    # Create inline tasks if provided
+    if data.tasks:
+        for i, task in enumerate(data.tasks):
+            task_id = generate_id("ctask-")
+            db.execute(
+                "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0), now, now),
+            )
+
     db.commit()
     return get_contract(contract_id, db)
 

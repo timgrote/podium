@@ -7,6 +7,7 @@ class ContractCreate(BaseModel):
     signed_at: str | None = None
     file_path: str | None = None
     notes: str | None = None
+    tasks: list[dict] | None = None
 
 
 class ContractTaskCreate(BaseModel):

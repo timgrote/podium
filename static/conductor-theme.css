@@ -1,0 +1,96 @@
+/*
+ * Conductor Custom Themes for daisyUI v5
+ * Two themes: dark (ops dashboard) and light (client-facing flows)
+ */
+
+[data-theme="conductor-dark"] {
+  color-scheme: dark;
+
+  /* Base surfaces */
+  --color-base-100: oklch(27.63% 0.0548 282.21);   /* #242442 - card background */
+  --color-base-200: oklch(22.84% 0.0385 282.93);   /* #1a1a2e - page background */
+  --color-base-300: oklch(38.67% 0.0000 263.28);   /* #444444 - borders */
+  --color-base-content: oklch(100.00% 0.0001 263.28); /* white - text */
+
+  /* Primary - purple accent */
+  --color-primary: oklch(59.73% 0.2238 279.77);     /* #6c63ff */
+  --color-primary-content: oklch(100.00% 0.0001 263.28); /* white */
+
+  /* Secondary - muted card surface */
+  --color-secondary: oklch(31.14% 0.0516 282.99);   /* #2d2d4a */
+  --color-secondary-content: oklch(84.52% 0.0001 263.28); /* #cccccc */
+
+  /* Accent - emerald/complete */
+  --color-accent: oklch(69.59% 0.1491 162.51);      /* #10b981 */
+  --color-accent-content: oklch(100.00% 0.0001 263.28);
+
+  /* Neutral - dark gray */
+  --color-neutral: oklch(32.11% 0.0000 263.28);     /* #333333 */
+  --color-neutral-content: oklch(84.52% 0.0001 263.28);
+
+  /* Semantic colors */
+  --color-info: oklch(75.75% 0.1282 282.91);        /* #a5a5ff - proposal status */
+  --color-info-content: oklch(22.84% 0.0385 282.93);
+  --color-success: oklch(80.03% 0.1820 151.73);     /* #4ade80 - paid status */
+  --color-success-content: oklch(22.84% 0.0385 282.93);
+  --color-warning: oklch(88.68% 0.1821 95.34);      /* #ffd700 - invoiced status */
+  --color-warning-content: oklch(22.84% 0.0385 282.93);
+  --color-error: oklch(63.69% 0.2078 25.32);        /* #ef4444 - danger/delete */
+  --color-error-content: oklch(100.00% 0.0001 263.28);
+
+  /* Design tokens */
+  --radius-selector: 1.25rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+[data-theme="conductor-light"] {
+  color-scheme: light;
+
+  /* Base surfaces */
+  --color-base-100: oklch(100.00% 0.0001 263.28);   /* white - card background */
+  --color-base-200: oklch(96.70% 0.0030 264.51);    /* #f3f4f6 - page background */
+  --color-base-300: oklch(87.04% 0.0030 264.51);    /* #d1d5db - borders */
+  --color-base-content: oklch(27.47% 0.0060 286.03); /* #1f2937 - text */
+
+  /* Primary - green brand */
+  --color-primary: oklch(40.88% 0.0765 146.16);     /* #2c5530 */
+  --color-primary-content: oklch(100.00% 0.0001 263.28);
+
+  /* Secondary */
+  --color-secondary: oklch(55.45% 0.0001 263.28);   /* #6b7280 */
+  --color-secondary-content: oklch(100.00% 0.0001 263.28);
+
+  /* Accent */
+  --color-accent: oklch(69.59% 0.1491 162.51);      /* #10b981 */
+  --color-accent-content: oklch(100.00% 0.0001 263.28);
+
+  /* Neutral */
+  --color-neutral: oklch(37.29% 0.0140 277.57);     /* #374151 */
+  --color-neutral-content: oklch(100.00% 0.0001 263.28);
+
+  /* Semantic colors */
+  --color-info: oklch(59.73% 0.2238 279.77);        /* purple for accents */
+  --color-info-content: oklch(100.00% 0.0001 263.28);
+  --color-success: oklch(80.03% 0.1820 151.73);     /* #4ade80 */
+  --color-success-content: oklch(22.84% 0.0385 282.93);
+  --color-warning: oklch(88.68% 0.1821 95.34);      /* #ffd700 */
+  --color-warning-content: oklch(27.47% 0.0060 286.03);
+  --color-error: oklch(63.69% 0.2078 25.32);        /* #ef4444 */
+  --color-error-content: oklch(100.00% 0.0001 263.28);
+
+  /* Design tokens */
+  --radius-selector: 1.25rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}

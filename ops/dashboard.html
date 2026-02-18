@@ -819,8 +819,12 @@
                 <div class="text-gray-500 text-sm mt-1">Revenue (Paid)</div>
             </div>
             <div class="bg-dark-card rounded-xl p-6 text-center">
-                <div class="text-[2.5rem] font-bold text-blue-400" id="stat-pipeline">-</div>
-                <div class="text-gray-500 text-sm mt-1">Pipeline Value</div>
+                <div class="text-[2.5rem] font-bold text-orange-400" id="stat-proposals">-</div>
+                <div class="text-gray-500 text-sm mt-1">Open Proposals</div>
+            </div>
+            <div class="bg-dark-card rounded-xl p-6 text-center min-w-0">
+                <div class="text-[2rem] sm:text-[2.5rem] font-bold text-blue-400 whitespace-nowrap" id="stat-pipeline">-</div>
+                <div class="text-gray-500 text-sm mt-1">Pipeline (Contracted)</div>
             </div>
         </div>
 
@@ -837,7 +841,7 @@
                 <table id="projects-table" style="display: none;">
                     <thead>
                         <tr>
-                            <th>Job ID</th>
+                            <th>Project #</th>
                             <th>Client</th>
                             <th>Project</th>
                             <th>Total</th>
@@ -939,12 +943,12 @@
                 <form id="add-project-form" onsubmit="saveProject(event)">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="new-job-id">Job ID</label>
-                            <input type="text" id="new-job-id" required placeholder="e.g., 2026-005">
-                        </div>
-                        <div class="form-group">
                             <label for="new-project-name">Project Name</label>
                             <input type="text" id="new-project-name" required placeholder="e.g., Oak Valley HOA">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-job-code">Job Code</label>
+                            <input type="text" id="new-job-code" placeholder="e.g., rvi-absal (optional)">
                         </div>
                     </div>
                     <div class="form-row">
@@ -966,10 +970,11 @@
                         </div>
                     </div>
 
-                    <div class="tasks-section">
-                        <label>Billable Tasks</label>
-                        <div id="tasks-list"></div>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="addTaskRow()">+ Add Task</button>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="new-location">Location</label>
+                            <input type="text" id="new-location" placeholder="e.g., Austin, TX">
+                        </div>
                     </div>
 
                     <div class="form-row">
@@ -1012,15 +1017,21 @@
             </div>
             <div class="modal-body">
                 <form id="edit-project-form" onsubmit="saveEditProject(event)">
-                    <input type="hidden" id="edit-job-id-original">
+                    <input type="hidden" id="edit-project-id">
                     <div class="form-row">
-                        <div class="form-group">
-                            <label for="edit-job-id">Job ID</label>
-                            <input type="text" id="edit-job-id" required>
-                        </div>
                         <div class="form-group">
                             <label for="edit-project-name">Project Name</label>
                             <input type="text" id="edit-project-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-project-number">Project Number</label>
+                            <input type="text" id="edit-project-number" placeholder="e.g., 26-001">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-job-code">Job Code</label>
+                            <input type="text" id="edit-job-code" placeholder="e.g., rvi-absal">
                         </div>
                     </div>
                     <div class="form-row">
@@ -1046,6 +1057,10 @@
                     <div class="form-group">
                         <label for="edit-client-project-number">Client Project Number</label>
                         <input type="text" id="edit-client-project-number" placeholder="e.g., PO-2026-001">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-location">Location</label>
+                        <input type="text" id="edit-location" placeholder="e.g., Austin, TX">
                     </div>
                     <div class="form-group">
                         <label for="edit-status">Status</label>
@@ -1104,25 +1119,40 @@
 
     <!-- Add Contract Modal -->
     <div id="add-contract-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-wide">
             <div class="modal-header">
                 <h3 id="add-contract-title">Add Contract</h3>
                 <button class="modal-close" onclick="closeAddContractModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="add-contract-form" onsubmit="saveContract(event)">
-                    <div class="form-group">
-                        <label for="contract-amount">Total Amount</label>
-                        <input type="number" id="contract-amount" required min="0" step="0.01" placeholder="e.g., 5000">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="contract-signed-date">Signed Date</label>
+                            <input type="date" id="contract-signed-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="contract-file-path">File Path (optional)</label>
+                            <input type="text" id="contract-file-path" placeholder="e.g., /contracts/2026-005-contract.pdf">
+                        </div>
                     </div>
+
                     <div class="form-group">
-                        <label for="contract-signed-date">Signed Date</label>
-                        <input type="date" id="contract-signed-date" required>
+                        <label>Contract Tasks</label>
+                        <div style="display:flex;gap:8px;margin-bottom:4px;">
+                            <label style="flex:1">Task</label>
+                            <label style="width:120px;text-align:right;padding-left:8px;border-left:1px solid #444">Fee</label>
+                            <span style="width:28px"></span>
+                        </div>
+                        <div id="contract-tasks-list"></div>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="addContractTaskRow()">+ Add Task</button>
                     </div>
-                    <div class="form-group">
-                        <label for="contract-file-path">File Path (optional)</label>
-                        <input type="text" id="contract-file-path" placeholder="e.g., /contracts/2026-005-contract.pdf">
+
+                    <div class="proposal-total">
+                        <span>Total Contract:</span>
+                        <span class="total-amount" id="contract-total-display">$0</span>
                     </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeAddContractModal()">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save Contract</button>
@@ -1148,6 +1178,14 @@
                             <select id="proposal-client-select" required onchange="onProposalClientChange()">
                                 <option value="">-- Select client --</option>
                             </select>
+                        </div>
+                    </div>
+                    <!-- Existing client name (shown when existing client selected) -->
+                    <div id="existing-client-name-row" class="form-row" style="display:none">
+                        <div class="form-group">
+                            <label>Client Name</label>
+                            <input type="text" id="proposal-existing-client-name" readonly
+                                   style="background:#1a1a2e;color:#ccc;cursor:default;border-color:#333;">
                         </div>
                     </div>
                     <!-- New client fields (hidden by default) -->
@@ -1199,7 +1237,11 @@
                     </div>
 
                     <div class="tasks-section">
-                        <label>Tasks &amp; Fees</label>
+                        <div style="display:flex;gap:8px;margin-bottom:4px;">
+                            <label style="flex:1">Task</label>
+                            <label style="width:120px;text-align:right;padding-left:8px;border-left:1px solid #444">Fee</label>
+                            <span style="width:28px"></span>
+                        </div>
                         <div id="proposal-tasks-list"></div>
                         <button type="button" class="btn btn-secondary btn-small" onclick="addProposalTaskRow()">+ Add Task</button>
                     </div>
@@ -1307,7 +1349,7 @@
             const contentDiv = detailRow.querySelector('.detail-content');
 
             // Use data from allProjects (already includes contracts/invoices from list API)
-            const project = allProjects.find(p => p.job_id === jobId);
+            const project = allProjects.find(p => p.id === jobId);
             if (project) {
                 renderProjectDetail(jobId, project, contentDiv);
             } else {
@@ -2057,9 +2099,6 @@
             document.getElementById('task-detail-modal').classList.remove('active');
         }
 
-        document.getElementById('task-detail-modal').addEventListener('click', function(e) {
-            if (e.target.classList.contains('modal')) closeTaskDetailModal();
-        });
 
         // Render contracts section
         function renderContractsSection(project) {
@@ -2109,7 +2148,7 @@
                                 <span style="color: #4ade80;">$${Number(amount).toLocaleString()}</span>
                             </div>
                             <div style="text-align: right; margin-top: 8px;">
-                                <button class="action-btn action-invoice" onclick="event.stopPropagation(); createInvoiceFromContract('${project.job_id}', '${contract.id || 'legacy'}')">Create Invoice</button>
+                                <button class="action-btn action-invoice" onclick="event.stopPropagation(); createInvoiceFromContract('${project.id}', '${contract.id || 'legacy'}')">Create Invoice</button>
                             </div>
                         </div>
                         ` : `<div style="color: #666; font-size: 0.8rem;">$${Number(amount).toLocaleString()}</div>`}
@@ -2160,12 +2199,12 @@
                         <div class="detail-item-actions">
                             ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">Sheet</a>` : ''}
                             ${inv.pdf_path ? `<a href="${inv.pdf_path}" target="_blank" class="action-btn action-view">PDF</a>` : ''}
-                            ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${inv.id}', '${project.job_id}')">Export PDF</button>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceViaGoogle('${inv.id}', '${project.job_id}')">Send</button>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.job_id}', '${inv.invoice_number}')">Mark Sent</button>` : ''}
-                            ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.job_id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
-                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="createNextInvoice('${project.job_id}', '${inv.invoice_number}')">Next Invoice</button>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.job_id}', '${inv.invoice_number}')">Delete</button>` : ''}
+                            ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${inv.id}', '${project.id}')">Export PDF</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceViaGoogle('${inv.id}', '${project.id}')">Send</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.id}', '${inv.invoice_number}')">Mark Sent</button>` : ''}
+                            ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
+                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="createNextInvoice('${project.id}', '${inv.invoice_number}')">Next Invoice</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.id}', '${inv.invoice_number}')">Delete</button>` : ''}
                         </div>
                     </div>
                 `}).join('')}
@@ -2196,7 +2235,6 @@
         function mapProject(p) {
             return {
                 ...p,
-                job_id: p.job_id,
                 project_name: p.project_name,
                 client_name: p.client_name || '',
                 client_email: p.client_email || '',
@@ -2229,22 +2267,22 @@
                     const total = getProjectTotal(project);
                     const invoiced = getProjectInvoiced(project);
                     const paid = getProjectPaid(project);
-                    const jobId = project.job_id;
+                    const jobId = project.id;
 
                     // Project row (clickable to expand)
                     const row = document.createElement('tr');
                     row.className = 'project-row';
                     row.dataset.jobId = jobId;
                     row.onclick = (e) => {
-                        // Don't toggle if clicking action buttons
-                        if (e.target.closest('.action-btn')) return;
+                        // Don't toggle if clicking action buttons or hamburger menu
+                        if (e.target.closest('.actions-cell')) return;
                         toggleProjectDetail(jobId);
                     };
                     // Note: All user data sanitized via escapeHtml()
                     row.innerHTML = `
-                        <td><span class="expand-icon">▶</span> <strong>${escapeHtml(jobId)}</strong></td>
+                        <td><span class="expand-icon">▶</span> <strong>${escapeHtml(project.project_number || jobId)}</strong>${project.job_code ? '<br><span class="date">' + escapeHtml(project.job_code) + '</span>' : ''}</td>
                         <td>${escapeHtml(project.client_name)}<br><span class="date">${escapeHtml(project.client_email)}</span></td>
-                        <td>${escapeHtml(project.project_name || '-')}</td>
+                        <td>${escapeHtml(project.project_name || '-')}${project.location ? '<br><span class="date">' + escapeHtml(project.location) + '</span>' : ''}</td>
                         <td class="amount">$${total.toLocaleString()}</td>
                         <td class="amount">$${invoiced.toLocaleString()}</td>
                         <td class="amount">$${paid.toLocaleString()}</td>
@@ -2279,16 +2317,29 @@
 
         function updateStats(projects) {
             const total = projects.length;
-            const pending = projects.filter(p => ['proposal', 'contract', 'invoiced'].includes(p.status)).length;
+            const pending = projects.filter(p => p.status === 'invoiced').length;
             const paidProjects = projects.filter(p => ['paid', 'complete'].includes(p.status));
             const revenue = paidProjects.reduce((sum, p) => sum + getProjectPaid(p), 0);
+
+            // Pipeline = contracted amounts for non-paid/complete projects
             const pipeline = projects.filter(p => !['paid', 'complete'].includes(p.status))
-                                    .reduce((sum, p) => sum + getProjectTotal(p), 0);
+                                    .reduce((sum, p) => sum + (p.total_contracted || 0), 0);
+
+            // Open proposals = total value of proposals on projects without a contract yet
+            const proposalValue = projects
+                .filter(p => p.status === 'proposal' && p.proposals && p.proposals.length > 0)
+                .reduce((sum, p) => {
+                    return sum + p.proposals.reduce((pSum, prop) => {
+                        const tasks = prop.tasks || [];
+                        return pSum + tasks.reduce((tSum, t) => tSum + Number(t.amount || 0), 0);
+                    }, 0);
+                }, 0);
 
             document.getElementById('stat-total').textContent = total;
             document.getElementById('stat-pending').textContent = pending;
             document.getElementById('stat-revenue').textContent = '$' + revenue.toLocaleString();
-            document.getElementById('stat-pipeline').textContent = '$' + pipeline.toLocaleString();
+            document.getElementById('stat-proposals').textContent = '$' + proposalValue.toLocaleString();
+            document.getElementById('stat-pipeline').textContent = '$' + Math.round(pipeline).toLocaleString();
         }
 
         function formatStatus(status) {
@@ -2350,8 +2401,8 @@
             return `
                 <button class="hamburger-btn" onclick="event.stopPropagation(); toggleHamburger(this)" title="Actions">&#8942;</button>
                 <div class="hamburger-menu">
-                    <button onclick="event.stopPropagation(); openEditProjectModal('${project.job_id}')">Edit</button>
-                    <button class="danger" onclick="event.stopPropagation(); openDeleteProjectModal('${project.job_id}')">Delete</button>
+                    <button onclick="event.stopPropagation(); openEditProjectModal('${project.id}')">Edit</button>
+                    <button class="danger" onclick="event.stopPropagation(); openDeleteProjectModal('${project.id}')">Delete</button>
                 </div>
             `;
         }
@@ -2405,14 +2456,14 @@
         }
 
         function viewProject(jobId) {
-            const project = allProjects.find(p => p.job_id === jobId);
+            const project = allProjects.find(p => p.id === jobId);
             if (!project) return;
 
             const total = getProjectTotal(project);
             const invoiced = getProjectInvoiced(project);
             const paid = getProjectPaid(project);
 
-            document.getElementById('modal-title').textContent = `${project.job_id} - ${project.project_name || 'Project'}`;
+            document.getElementById('modal-title').textContent = `${project.project_number || project.id} - ${project.project_name || 'Project'}`;
 
             let tasksHtml = '';
             if (project.tasks && project.tasks.length > 0) {
@@ -2467,7 +2518,7 @@
                 <div class="invoices-section">
                     <div class="invoices-header">
                         <span class="invoices-title">INVOICES</span>
-                        <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${project.job_id}')">+ Create</button>
+                        <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${project.id}')">+ Create</button>
                     </div>
                     ${getInvoicesHtml(project)}
                 </div>
@@ -2496,16 +2547,12 @@
         }
 
         // Close modal on background click
-        document.getElementById('project-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closeModal();
-        });
+        // Modals only close via explicit OK/Cancel buttons
 
         // Add Project Modal functions
         function openAddProjectModal() {
             document.getElementById('add-project-form').reset();
-            document.getElementById('tasks-list').innerHTML = '';
             document.getElementById('contract-date-group').style.display = 'none';
-            addTaskRow(); // Start with one empty task row
             document.getElementById('add-project-modal').classList.add('active');
         }
 
@@ -2513,19 +2560,16 @@
             document.getElementById('add-project-modal').classList.remove('active');
         }
 
-        document.getElementById('add-project-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closeAddProjectModal();
-        });
 
         // Delete Project functions
         let deleteProjectJobId = null;
 
         function openDeleteProjectModal(jobId) {
-            const project = allProjects.find(p => p.job_id === jobId);
+            const project = allProjects.find(p => p.id === jobId);
             if (!project) return;
 
             deleteProjectJobId = jobId;
-            document.getElementById('delete-project-id').textContent = jobId;
+            document.getElementById('delete-project-id').textContent = project.project_number || jobId;
             document.getElementById('delete-project-name').textContent = project.project_name || '';
             document.getElementById('delete-cascade').checked = false;
 
@@ -2560,15 +2604,12 @@
             deleteProjectJobId = null;
         }
 
-        document.getElementById('delete-project-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closeDeleteProjectModal();
-        });
 
         async function confirmDeleteProject() {
             if (!deleteProjectJobId) return;
 
             const cascade = document.getElementById('delete-cascade').checked;
-            const project = allProjects.find(p => p.job_id === deleteProjectJobId);
+            const project = allProjects.find(p => p.id === deleteProjectJobId);
 
             // If project has associated data and cascade is not checked, warn
             const hasData = (project.contracts && project.contracts.length > 0) ||
@@ -2597,20 +2638,22 @@
         }
 
         // Edit Project Modal
-        function openEditProjectModal(jobId) {
-            const project = allProjects.find(p => p.job_id === jobId);
+        function openEditProjectModal(projectId) {
+            const project = allProjects.find(p => p.id === projectId);
             if (!project) return;
             // Close hamburger menu
             document.querySelectorAll('.hamburger-menu.open').forEach(m => m.classList.remove('open'));
 
-            document.getElementById('edit-job-id-original').value = jobId;
-            document.getElementById('edit-job-id').value = jobId;
+            document.getElementById('edit-project-id').value = projectId;
             document.getElementById('edit-project-name').value = project.project_name || '';
+            document.getElementById('edit-project-number').value = project.project_number || '';
+            document.getElementById('edit-job-code').value = project.job_code || '';
             document.getElementById('edit-client-name').value = project.client_name || '';
             document.getElementById('edit-client-email').value = project.client_email || '';
             document.getElementById('edit-pm-name').value = project.pm_name || '';
             document.getElementById('edit-pm-email').value = project.pm_email || '';
             document.getElementById('edit-client-project-number').value = project.client_project_number || '';
+            document.getElementById('edit-location').value = project.location || '';
             document.getElementById('edit-status').value = project.status || 'proposal';
             document.getElementById('edit-project-modal').classList.add('active');
         }
@@ -2619,19 +2662,19 @@
             document.getElementById('edit-project-modal').classList.remove('active');
         }
 
-        document.getElementById('edit-project-modal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) closeEditProjectModal();
-        });
 
         async function saveEditProject(e) {
             e.preventDefault();
-            const originalId = document.getElementById('edit-job-id-original').value;
+            const originalId = document.getElementById('edit-project-id').value;
             const payload = {
                 name: document.getElementById('edit-project-name').value,
                 status: document.getElementById('edit-status').value,
                 pm_name: document.getElementById('edit-pm-name').value || null,
                 pm_email: document.getElementById('edit-pm-email').value || null,
                 client_project_number: document.getElementById('edit-client-project-number').value || null,
+                location: document.getElementById('edit-location').value || null,
+                project_number: document.getElementById('edit-project-number').value.trim() || null,
+                job_code: document.getElementById('edit-job-code').value.trim() || null,
             };
 
             try {
@@ -2716,11 +2759,12 @@
             }
 
             const project = {
-                job_id: document.getElementById('new-job-id').value.trim(),
                 project_name: document.getElementById('new-project-name').value.trim(),
+                job_code: document.getElementById('new-job-code').value.trim() || null,
                 client_name: clientName,
                 client_email: clientEmail,
                 client_id: clientId || null,
+                location: document.getElementById('new-location').value.trim() || null,
                 status: document.getElementById('new-status').value,
                 tasks: tasks,
             };
@@ -2786,7 +2830,7 @@
                         <div class="invoice-item-actions">
                             ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">${sheetUrl.includes('google.com') ? 'Sheet' : 'View'}</a>` : ''}
                             ${inv.pdf_path ? `<a href="${inv.pdf_path}" target="_blank" class="action-btn action-view">PDF</a>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.job_id}', '${inv.invoice_number}')">Delete</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.id}', '${inv.invoice_number}')">Delete</button>` : ''}
                         </div>
                     </div>`;
                 }).join('')}
@@ -2797,7 +2841,7 @@
 
         function openCreateInvoiceModal(jobId, contractId) {
             currentInvoiceJobId = jobId;
-            const project = allProjects.find(p => p.job_id === jobId);
+            const project = allProjects.find(p => p.id === jobId);
             if (!project) return;
 
             // Find the specific contract, or fall back to first contract with tasks
@@ -2817,7 +2861,7 @@
             currentInvoiceContractId = contract.id;
             const tasks = contract.tasks || [];
 
-            document.getElementById('create-invoice-title').textContent = `Create Invoice - ${jobId}`;
+            document.getElementById('create-invoice-title').textContent = `Create Invoice - ${project.project_number || jobId}`;
 
             // Pre-fill emails
             document.getElementById('invoice-pm-email').value = project.pm_email || '';
@@ -2854,7 +2898,7 @@
         });
 
         function _getContractTasks() {
-            const project = allProjects.find(p => p.job_id === currentInvoiceJobId);
+            const project = allProjects.find(p => p.id === currentInvoiceJobId);
             if (!project) return [];
             const contract = (project.contracts || []).find(c => c.id === currentInvoiceContractId);
             return contract ? (contract.tasks || []) : [];
@@ -3044,7 +3088,7 @@
         let deleteInvoiceState = { jobId: null, invoiceNumber: null, sheetUrl: null };
 
         function deleteInvoice(jobId, invoiceNumber) {
-            const project = allProjects.find(p => p.job_id === jobId);
+            const project = allProjects.find(p => p.id === jobId);
             if (!project) return;
 
             const invoice = project.invoices.find(inv => inv.invoice_number === invoiceNumber);
@@ -3065,9 +3109,6 @@
             deleteInvoiceState = { jobId: null, invoiceNumber: null, sheetUrl: null };
         }
 
-        document.getElementById('delete-invoice-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closeDeleteInvoiceModal();
-        });
 
         async function confirmDeleteInvoice() {
             const { jobId, invoiceNumber } = deleteInvoiceState;
@@ -3107,19 +3148,28 @@
 
         function openAddContractModal(jobId) {
             currentContractJobId = jobId;
-            const project = allProjects.find(p => p.job_id === jobId);
+            const project = allProjects.find(p => p.id === jobId);
 
-            document.getElementById('add-contract-title').textContent = `Add Contract - ${jobId}`;
+            document.getElementById('add-contract-title').textContent = 'Add Contract - ' + (project ? (project.project_number || jobId) : jobId);
             document.getElementById('add-contract-form').reset();
+            // Clear task rows safely
+            const tasksList = document.getElementById('contract-tasks-list');
+            while (tasksList.firstChild) tasksList.removeChild(tasksList.firstChild);
+            document.getElementById('contract-total-display').textContent = '$0';
 
-            // Pre-fill with project total if available
-            if (project) {
-                document.getElementById('contract-amount').value = getProjectTotal(project);
+            // Pre-populate tasks from latest proposal if available
+            if (project && project.proposals && project.proposals.length > 0) {
+                const latestProposal = project.proposals[project.proposals.length - 1];
+                if (latestProposal.tasks && latestProposal.tasks.length > 0) {
+                    latestProposal.tasks.forEach(function(t) { addContractTaskRow(t); });
+                } else {
+                    addContractTaskRow();
+                }
+            } else {
+                addContractTaskRow();
             }
 
-            // Default to today's date
             document.getElementById('contract-signed-date').value = new Date().toISOString().split('T')[0];
-
             document.getElementById('add-contract-modal').classList.add('active');
         }
 
@@ -3128,24 +3178,74 @@
             currentContractJobId = null;
         }
 
-        document.getElementById('add-contract-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closeAddContractModal();
-        });
+        function addContractTaskRow(defaults) {
+            var tasksList = document.getElementById('contract-tasks-list');
+            var row = document.createElement('div');
+            row.className = 'contract-task-row';
+            row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
+
+            var nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.placeholder = 'Task name';
+            nameInput.className = 'contract-task-name';
+            nameInput.style.cssText = 'flex:1;';
+            nameInput.value = defaults ? (defaults.name || '') : '';
+
+            var amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.placeholder = 'Fee $';
+            amountInput.className = 'contract-task-amount';
+            amountInput.style.cssText = 'width:120px;text-align:right;padding-left:8px;border-left:1px solid #444;';
+            amountInput.step = '0.01';
+            amountInput.min = '0';
+            amountInput.value = defaults ? (defaults.amount || '') : '';
+            amountInput.addEventListener('input', updateContractTotal);
+
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.textContent = '\u00d7';
+            removeBtn.style.cssText = 'width:28px;height:28px;background:transparent;color:#f87171;border:1px solid #444;border-radius:4px;cursor:pointer;font-size:1.1rem;line-height:1;';
+            removeBtn.onclick = function() { row.remove(); updateContractTotal(); };
+
+            row.appendChild(nameInput);
+            row.appendChild(amountInput);
+            row.appendChild(removeBtn);
+            tasksList.appendChild(row);
+            updateContractTotal();
+        }
+
+        function updateContractTotal() {
+            var amounts = document.querySelectorAll('#contract-tasks-list .contract-task-amount');
+            var total = 0;
+            amounts.forEach(function(input) { total += parseFloat(input.value) || 0; });
+            document.getElementById('contract-total-display').textContent = '$' + total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2});
+        }
 
         async function saveContract(event) {
             event.preventDefault();
 
             if (!currentContractJobId) return;
 
-            const contract = {
+            var taskRows = document.querySelectorAll('#contract-tasks-list .contract-task-row');
+            var tasks = [];
+            taskRows.forEach(function(row) {
+                var name = row.querySelector('.contract-task-name').value.trim();
+                var amount = parseFloat(row.querySelector('.contract-task-amount').value) || 0;
+                if (name) {
+                    tasks.push({ name: name, amount: amount });
+                }
+            });
+
+            var contract = {
                 project_id: currentContractJobId,
-                total_amount: parseFloat(document.getElementById('contract-amount').value) || 0,
+                total_amount: tasks.reduce(function(sum, t) { return sum + t.amount; }, 0),
                 signed_at: document.getElementById('contract-signed-date').value || null,
-                file_path: document.getElementById('contract-file-path').value.trim() || null
+                file_path: document.getElementById('contract-file-path').value.trim() || null,
+                tasks: tasks.length > 0 ? tasks : null,
             };
 
             try {
-                const response = await fetch('/api/contracts', {
+                var response = await fetch('/api/contracts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(contract)
@@ -3181,6 +3281,7 @@
         // --- Proposal functions ---
         const PROPOSALS_API = '/api/proposals';
         let currentProposalJobId = null;
+        let editingProposalId = null;
         let proposalDefaults = {};
         let promoteState = { jobId: null, proposalId: null };
 
@@ -3197,15 +3298,9 @@
                     const tasks = prop.tasks || [];
                     return `
                     <div class="detail-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div class="detail-item-info" style="display:flex;align-items:center;gap:8px;">
-                                <span class="proposal-status proposal-status-${prop.status || 'draft'}">${prop.status || 'draft'}</span>
-                                ${prop.data_path && prop.data_path.includes('google.com') ? `<a href="${escapeHtml(prop.data_path)}" target="_blank" rel="noopener" style="color:#818cf8;font-size:0.8rem;" onclick="event.stopPropagation()">Open Doc</a>` : ''}
-                            </div>
-                            <div class="detail-item-actions">
-                                ${(prop.status === 'draft' || prop.status === 'sent') ? `<button class="action-btn action-promote" onclick="event.stopPropagation(); openPromoteModal('${project.job_id}', '${prop.id}')">Promote</button>` : ''}
-                                ${prop.status === 'draft' ? `<button class="action-btn action-delete" onclick="event.stopPropagation(); deleteProposal('${prop.id}')">Delete</button>` : ''}
-                            </div>
+                        <div class="detail-item-info" style="display:flex;align-items:center;gap:8px;">
+                            <span class="proposal-status proposal-status-${prop.status || 'draft'}">${prop.status || 'draft'}</span>
+                            ${prop.data_path && prop.data_path.includes('google.com') ? `<a href="${escapeHtml(prop.data_path)}" target="_blank" rel="noopener" style="color:#818cf8;font-size:0.8rem;" onclick="event.stopPropagation()">Open Doc</a>` : ''}
                         </div>
                         ${tasks.length > 0 ? `
                         <div style="font-size: 0.8rem;">
@@ -3221,6 +3316,11 @@
                             </div>
                         </div>
                         ` : `<div style="color: #666; font-size: 0.8rem;">No tasks — $${Number(prop.total_fee || 0).toLocaleString()}</div>`}
+                        <div style="display:flex;gap:8px;padding-top:4px;">
+                            <button class="action-btn" onclick="event.stopPropagation(); openEditProposalModal('${prop.id}', '${project.id}')" style="color:#818cf8;font-size:0.75rem;">Edit</button>
+                            ${(prop.status === 'draft' || prop.status === 'sent') ? `<button class="action-btn action-promote" onclick="event.stopPropagation(); openPromoteModal('${project.id}', '${prop.id}')" style="font-size:0.75rem;">Promote</button>` : ''}
+                            ${prop.status === 'draft' ? `<button class="action-btn action-delete" onclick="event.stopPropagation(); deleteProposal('${prop.id}')" style="font-size:0.75rem;">Delete</button>` : ''}
+                        </div>
                     </div>
                 `}).join('')}
             </div>`;
@@ -3253,7 +3353,7 @@
 
             // If opened from a project, prefill client and project name
             if (jobId) {
-                const project = allProjects.find(p => p.job_id === jobId);
+                const project = allProjects.find(p => p.id === jobId);
                 if (project) {
                     const matchedClient = allClients.find(c =>
                         c.name === project.client_name || c.company === project.client_company
@@ -3299,17 +3399,100 @@
         function closeAddProposalModal() {
             document.getElementById('add-proposal-modal').classList.remove('active');
             currentProposalJobId = null;
+            editingProposalId = null;
+            // Reset title and button text
+            document.getElementById('add-proposal-title').textContent = 'New Proposal';
+            document.getElementById('proposal-create-btn').textContent = 'Create Proposal';
         }
 
-        document.getElementById('add-proposal-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closeAddProposalModal();
-        });
+        async function openEditProposalModal(proposalId, jobId) {
+            editingProposalId = proposalId;
+            currentProposalJobId = jobId;
+            document.getElementById('add-proposal-form').reset();
+            const tasksList = document.getElementById('proposal-tasks-list');
+            while (tasksList.firstChild) tasksList.removeChild(tasksList.firstChild);
+
+            // Update modal title and button
+            document.getElementById('add-proposal-title').textContent = 'Edit Proposal';
+            document.getElementById('proposal-create-btn').textContent = 'Save Changes';
+
+            // Fetch the proposal data
+            try {
+                const res = await fetch(PROPOSALS_API + '/' + proposalId);
+                if (!res.ok) throw new Error('Failed to load proposal');
+                const proposal = await res.json();
+
+                // Populate client dropdown
+                const select = document.getElementById('proposal-client-select');
+                while (select.firstChild) select.removeChild(select.firstChild);
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = '-- Select client --';
+                select.appendChild(defaultOpt);
+                allClients.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.company ? c.name + ' (' + c.company + ')' : c.name;
+                    select.appendChild(opt);
+                });
+                const newOpt = document.createElement('option');
+                newOpt.value = '__new__';
+                newOpt.textContent = '+ Add New Client';
+                select.appendChild(newOpt);
+
+                // Match client from project
+                const project = allProjects.find(p => p.id === jobId);
+                if (project) {
+                    const matchedClient = allClients.find(c =>
+                        c.name === project.client_name || c.company === project.client_company
+                    );
+                    if (matchedClient) {
+                        select.value = matchedClient.id;
+                        onProposalClientChange();
+                    }
+                    document.getElementById('proposal-project-name').value = project.project_name || '';
+                }
+
+                // Fill in proposal fields
+                if (proposal.proposal_date) {
+                    document.getElementById('proposal-date').value = proposal.proposal_date.split('T')[0];
+                }
+                if (proposal.engineer_key) {
+                    document.getElementById('proposal-engineer').value = proposal.engineer_key;
+                }
+                if (proposal.contact_method) {
+                    document.getElementById('proposal-contact-method').value = proposal.contact_method;
+                }
+                document.getElementById('proposal-client-company').value = proposal.client_company || '';
+                document.getElementById('proposal-client-email').value = proposal.client_contact_email || '';
+
+                // Populate tasks
+                const tasks = proposal.tasks || [];
+                if (tasks.length > 0) {
+                    tasks.forEach(t => addProposalTaskRow(t));
+                } else {
+                    addProposalTaskRow();
+                }
+                updateProposalTotal();
+
+                // Uncheck generate doc for edits
+                document.getElementById('proposal-generate-doc').checked = false;
+
+                document.getElementById('add-proposal-modal').classList.add('active');
+            } catch (err) {
+                console.error('Failed to load proposal for editing:', err);
+                alert('Failed to load proposal data.');
+            }
+        }
+
 
         function onProposalClientChange() {
             const val = document.getElementById('proposal-client-select').value;
             const newFields = document.getElementById('new-client-fields');
+            const existingNameRow = document.getElementById('existing-client-name-row');
             if (val === '__new__') {
                 newFields.style.display = '';
+                existingNameRow.style.display = 'none';
                 document.getElementById('proposal-client-email').value = '';
                 document.getElementById('proposal-client-company').value = '';
                 document.getElementById('proposal-new-client-name').required = true;
@@ -3319,10 +3502,13 @@
                 if (val) {
                     const client = allClients.find(c => c.id === val);
                     if (client) {
+                        document.getElementById('proposal-existing-client-name').value = client.name || '';
+                        existingNameRow.style.display = '';
                         document.getElementById('proposal-client-email').value = client.email || '';
                         document.getElementById('proposal-client-company').value = client.company || '';
                     }
                 } else {
+                    existingNameRow.style.display = 'none';
                     document.getElementById('proposal-client-email').value = '';
                     document.getElementById('proposal-client-company').value = '';
                 }
@@ -3354,12 +3540,12 @@
 
             const amountInput = document.createElement('input');
             amountInput.type = 'number';
-            amountInput.placeholder = 'Amount';
+            amountInput.placeholder = 'Fee $';
             amountInput.className = 'ptask-amount';
             amountInput.min = '0';
             amountInput.step = '0.01';
             amountInput.required = !isChanges;
-            amountInput.style.width = '120px';
+            amountInput.style.cssText = 'width:120px;text-align:right;padding-left:8px;border-left:1px solid #444;';
             amountInput.value = (defaults && defaults.amount) || '';
             amountInput.oninput = function() {
                 updateProposalTotal();
@@ -3433,7 +3619,7 @@
                 if (client) {
                     clientName = client.name;
                 }
-            } else {
+            } else if (!editingProposalId) {
                 alert('Please select a client.');
                 return;
             }
@@ -3475,40 +3661,91 @@
             const createBtn = document.getElementById('proposal-create-btn');
             const cancelBtn = document.getElementById('proposal-cancel-btn');
             const spinner = document.getElementById('proposal-spinner');
+            const isEditing = !!editingProposalId;
             createBtn.disabled = true;
-            createBtn.textContent = 'Creating...';
+            createBtn.textContent = isEditing ? 'Saving...' : 'Creating...';
             cancelBtn.disabled = true;
             spinner.classList.remove('hidden');
             document.body.style.cursor = 'wait';
 
             try {
-                const response = await fetch(PROPOSALS_API + '/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
+                if (isEditing) {
+                    // --- EDIT MODE: update proposal + replace tasks ---
+                    const proposalId = editingProposalId;
 
-                const data = await response.json();
-                if (response.ok) {
-                    const reopenJobId = data.project_id;
+                    // 1. Update proposal metadata
+                    await fetch(PROPOSALS_API + '/' + proposalId, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            client_company: clientCompany || null,
+                            client_contact_email: clientEmail,
+                            engineer_key: document.getElementById('proposal-engineer').value,
+                            contact_method: document.getElementById('proposal-contact-method').value.trim() || null,
+                            proposal_date: document.getElementById('proposal-date').value || null,
+                            total_fee: tasks.reduce((sum, t) => sum + (t.amount || 0), 0),
+                        }),
+                    });
+
+                    // 2. Delete all existing tasks
+                    const existing = await fetch(PROPOSALS_API + '/' + proposalId).then(r => r.json());
+                    for (const t of (existing.tasks || [])) {
+                        await fetch(PROPOSALS_API + '/' + proposalId + '/tasks/' + t.id, { method: 'DELETE' });
+                    }
+
+                    // 3. Add new tasks
+                    for (const t of tasks) {
+                        await fetch(PROPOSALS_API + '/' + proposalId + '/tasks', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(t),
+                        });
+                    }
+
+                    // 4. Optionally regenerate doc
+                    if (document.getElementById('proposal-generate-doc').checked) {
+                        const docRes = await fetch(PROPOSALS_API + '/' + proposalId + '/generate-doc', { method: 'POST' });
+                        if (docRes.ok) {
+                            const docData = await docRes.json();
+                            if (docData.data_path && docData.data_path.includes('google.com')) {
+                                window.open(docData.data_path, '_blank');
+                            }
+                        }
+                    }
+
+                    const reopenJobId = currentProposalJobId;
                     closeAddProposalModal();
-                    if (data._warning) {
-                        alert(data._warning);
-                    }
-                    // Open the Google Doc if one was created
-                    if (data.data_path && data.data_path.includes('google.com')) {
-                        window.open(data.data_path, '_blank');
-                    }
                     await refreshAndReopen(reopenJobId);
+
                 } else {
-                    alert('Failed to create proposal: ' + (data.detail || 'Unknown error'));
+                    // --- CREATE MODE: use /generate endpoint ---
+                    const response = await fetch(PROPOSALS_API + '/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                    });
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        const reopenJobId = data.project_id;
+                        closeAddProposalModal();
+                        if (data._warning) {
+                            alert(data._warning);
+                        }
+                        if (data.data_path && data.data_path.includes('google.com')) {
+                            window.open(data.data_path, '_blank');
+                        }
+                        await refreshAndReopen(reopenJobId);
+                    } else {
+                        alert('Failed to create proposal: ' + (data.detail || 'Unknown error'));
+                    }
                 }
             } catch (error) {
-                console.error('Error creating proposal:', error);
-                alert('Failed to create proposal. Please try again.');
+                console.error('Error saving proposal:', error);
+                alert('Failed to save proposal. Please try again.');
             } finally {
                 createBtn.disabled = false;
-                createBtn.textContent = 'Create Proposal';
+                createBtn.textContent = isEditing ? 'Save Changes' : 'Create Proposal';
                 cancelBtn.disabled = false;
                 spinner.classList.add('hidden');
                 document.body.style.cursor = '';
@@ -3536,7 +3773,7 @@
 
         function openPromoteModal(jobId, proposalId) {
             promoteState = { jobId, proposalId };
-            const project = allProjects.find(p => p.job_id === jobId);
+            const project = allProjects.find(p => p.id === jobId);
             const proposal = (project?.proposals || []).find(p => p.id === proposalId);
 
             if (!proposal) {
@@ -3544,7 +3781,7 @@
                 return;
             }
 
-            document.getElementById('promote-modal-title').textContent = `Promote to Contract - ${jobId}`;
+            document.getElementById('promote-modal-title').textContent = `Promote to Contract - ${project ? (project.project_number || jobId) : jobId}`;
 
             // Show task summary
             const tasks = proposal.tasks || [];
@@ -3580,9 +3817,6 @@
             promoteState = { jobId: null, proposalId: null };
         }
 
-        document.getElementById('promote-proposal-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closePromoteModal();
-        });
 
         async function confirmPromote() {
             const { proposalId } = promoteState;

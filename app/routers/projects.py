@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
 from ..models.project import ProjectCreate, ProjectDetail, ProjectSummary, ProjectUpdate
-from ..utils import generate_id, next_invoice_number
+from ..utils import generate_id, next_invoice_number, next_project_number
 
 router = APIRouter()
 
@@ -76,7 +76,9 @@ def list_projects(db=Depends(get_db)):
         proposals = _get_proposals_for_project(db, project_id)
 
         projects.append(ProjectSummary(
-            job_id=project_id,
+            id=project_id,
+            project_number=p.get("project_number"),
+            job_code=p.get("job_code"),
             project_name=p["name"],
             status=p["status"],
             client_id=p.get("client_id"),
@@ -86,6 +88,7 @@ def list_projects(db=Depends(get_db)):
             pm_name=p.get("pm_name"),
             pm_email=p.get("pm_email"),
             client_project_number=p.get("client_project_number"),
+            location=p.get("location"),
             total_contracted=p.get("total_contracted", 0),
             total_invoiced=p.get("total_invoiced", 0),
             total_paid=p.get("total_paid", 0),
@@ -129,7 +132,9 @@ def get_project(project_id: str, db=Depends(get_db)):
     proposals = _get_proposals_for_project(db, project_id)
 
     return ProjectDetail(
-        job_id=project_id,
+        id=project_id,
+        project_number=p.get("project_number"),
+        job_code=p.get("job_code"),
         project_name=p["name"],
         status=p["status"],
         client_id=p.get("client_id"),
@@ -140,6 +145,7 @@ def get_project(project_id: str, db=Depends(get_db)):
         pm_name=p.get("pm_name"),
         pm_email=p.get("pm_email"),
         client_project_number=p.get("client_project_number"),
+        location=p.get("location"),
         data_path=p.get("data_path"),
         notes=p.get("notes"),
         current_invoice_id=p.get("current_invoice_id"),
@@ -158,6 +164,8 @@ def get_project(project_id: str, db=Depends(get_db)):
 @router.post("", response_model=ProjectDetail, status_code=201)
 def create_project(data: ProjectCreate, db=Depends(get_db)):
     now = datetime.now().isoformat()
+    project_id = generate_id("proj-")
+    project_number = next_project_number(db)
 
     # Auto-create client if info provided but no client_id
     client_id = data.client_id
@@ -175,9 +183,9 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
             )
 
     db.execute(
-        "INSERT INTO projects (id, name, client_id, status, data_path, notes, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (data.job_id, data.project_name, client_id, data.status, data.data_path, data.notes, now, now),
+        "INSERT INTO projects (id, name, client_id, location, project_number, job_code, status, data_path, notes, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (project_id, data.project_name, client_id, data.location, project_number, data.job_code, data.status, data.data_path, data.notes, now, now),
     )
 
     # Create contract + tasks if provided
@@ -190,7 +198,7 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
         db.execute(
             "INSERT INTO contracts (id, project_id, total_amount, signed_at, file_path, created_at, updated_at) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (contract_id, data.job_id, total, signed_at, file_path, now, now),
+            (contract_id, project_id, total, signed_at, file_path, now, now),
         )
 
         for i, task in enumerate(data.tasks or []):
@@ -202,7 +210,7 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
             )
 
     db.commit()
-    return get_project(data.job_id, db)
+    return get_project(project_id, db)
 
 
 @router.patch("/{project_id}", response_model=ProjectDetail)

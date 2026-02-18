@@ -463,7 +463,6 @@
                 // Map API response to frontend field names
                 project = {
                     ...data,
-                    job_id: data.job_id,
                     project_name: data.project_name,
                     client_name: data.client_name || '',
                     client_email: data.client_email || '',
@@ -500,7 +499,10 @@
             statusSpan.textContent = formatStatus(project.status);
             titleEl.appendChild(statusSpan);
 
-            document.getElementById('project-meta').textContent = 'Job ID: ' + project.job_id;
+            var metaText = project.project_number || '';
+            if (project.job_code) metaText += (metaText ? '  •  ' : '') + project.job_code;
+            if (project.location) metaText += (metaText ? '  •  ' : '') + project.location;
+            document.getElementById('project-meta').textContent = metaText;
             document.title = project.project_name + ' - Conductor';
 
             // Header actions
@@ -705,11 +707,17 @@
 
             const datesDiv = document.createElement('div');
             datesDiv.className = 'current-invoice-dates';
-            var dateText = currentInvoice.sent_at ? 'Sent: ' + formatDate(currentInvoice.sent_at) : 'Not sent yet';
+            var sentText = currentInvoice.sent_at ? 'Sent: ' + formatDate(currentInvoice.sent_at) : 'Not sent yet';
+            datesDiv.appendChild(document.createTextNode(sentText));
             if (currentInvoice.paid_at) {
-                dateText += ' | Paid: ' + formatDate(currentInvoice.paid_at);
+                datesDiv.appendChild(document.createTextNode(' | Paid: '));
+                var paidDateLink = document.createElement('span');
+                paidDateLink.textContent = formatDate(currentInvoice.paid_at);
+                paidDateLink.style.cssText = 'cursor: pointer; text-decoration: underline; text-decoration-style: dotted;';
+                paidDateLink.title = 'Click to change paid date';
+                paidDateLink.onclick = function() { editPaidDate(currentInvoice.id, currentInvoice.paid_at); };
+                datesDiv.appendChild(paidDateLink);
             }
-            datesDiv.textContent = dateText;
             amountDiv.appendChild(datesDiv);
 
             wrapper.appendChild(amountDiv);
@@ -1066,7 +1074,11 @@
 
                 const dateDiv = document.createElement('div');
                 dateDiv.className = 'invoice-date';
-                dateDiv.textContent = 'Created: ' + formatDate(inv.created_at);
+                var dateStr = 'Created: ' + formatDate(inv.created_at);
+                if (inv.paid_at) {
+                    dateStr += ' | Paid: ' + formatDate(inv.paid_at);
+                }
+                dateDiv.textContent = dateStr;
                 left.appendChild(dateDiv);
 
                 item.appendChild(left);
@@ -1213,14 +1225,7 @@
             document.getElementById('add-contract-modal').classList.add('active');
         }
 
-        // Close modals on backdrop click
-        document.querySelectorAll('.modal').forEach(function(modal) {
-            modal.addEventListener('click', function(e) {
-                if (e.target.classList.contains('modal')) {
-                    modal.classList.remove('active');
-                }
-            });
-        });
+        // Modals only close via explicit OK/Cancel buttons
 
         async function saveProposal(event) {
             event.preventDefault();
@@ -1683,6 +1688,29 @@
             } catch (error) {
                 console.error('Failed to mark as paid:', error);
                 alert('Failed to mark as paid');
+            }
+        }
+
+        async function editPaidDate(invoiceId, currentPaidAt) {
+            var currentDate = currentPaidAt ? new Date(currentPaidAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+            var newDate = prompt('Paid date (YYYY-MM-DD):', currentDate);
+            if (!newDate || newDate === currentDate) return;
+
+            try {
+                var response = await fetch(API_BASE + '/invoices/' + invoiceId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paid_at: newDate + 'T00:00:00Z' })
+                });
+                if (!response.ok) {
+                    var data = await response.json();
+                    alert('Error: ' + (data.detail || 'Failed to update paid date'));
+                    return;
+                }
+                loadProject();
+            } catch (error) {
+                console.error('Failed to update paid date:', error);
+                alert('Failed to update paid date');
             }
         }
 

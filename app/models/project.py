@@ -4,11 +4,12 @@ from pydantic import BaseModel, Field
 
 
 class ProjectCreate(BaseModel):
-    job_id: str = Field(..., description="User-defined job ID, e.g. 'JBHL21'")
     project_name: str
+    job_code: str | None = None
     client_name: str | None = None
     client_email: str | None = None
     client_id: str | None = None
+    location: str | None = None
     status: str = "proposal"
     data_path: str | None = None
     notes: str | None = None
@@ -19,6 +20,9 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: str | None = None
     client_id: str | None = None
+    location: str | None = None
+    project_number: str | None = None
+    job_code: str | None = None
     status: str | None = None
     data_path: str | None = None
     notes: str | None = None
@@ -28,7 +32,9 @@ class ProjectUpdate(BaseModel):
 
 
 class ProjectSummary(BaseModel):
-    job_id: str
+    id: str
+    project_number: str | None = None
+    job_code: str | None = None
     project_name: str | None = None
     status: str
     client_id: str | None = None
@@ -38,6 +44,7 @@ class ProjectSummary(BaseModel):
     pm_name: str | None = None
     pm_email: str | None = None
     client_project_number: str | None = None
+    location: str | None = None
     total_contracted: float = 0
     total_invoiced: float = 0
     total_paid: float = 0

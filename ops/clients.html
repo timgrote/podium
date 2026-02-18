@@ -280,9 +280,7 @@
             document.getElementById('client-modal').classList.remove('active');
         }
 
-        document.getElementById('client-modal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) closeModal();
-        });
+        // Modals only close via explicit OK/Cancel buttons
 
         async function saveClient(event) {
             event.preventDefault();
