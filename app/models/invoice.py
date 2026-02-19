@@ -24,3 +24,4 @@ class InvoiceFromContract(BaseModel):
     tasks: list[dict]
     """Each dict: {"task_id": str, "percent_this_invoice": float}"""
     pm_email: str | None = None
+    invoice_number: str | None = None

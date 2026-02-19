@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -228,8 +229,8 @@ def create_invoice_from_contract(
     now = datetime.now().isoformat()
     inv_id = generate_id("inv-")
 
-    # Determine invoice number
-    invoice_number = next_invoice_number(db, project_id)
+    # Determine invoice number (use override if provided)
+    invoice_number = data.invoice_number or next_invoice_number(db, project_id)
 
     # Find previous invoice in chain
     prev_invoice = db.execute(
@@ -240,7 +241,7 @@ def create_invoice_from_contract(
     previous_invoice_id = prev_invoice["id"] if prev_invoice else None
 
     # Calculate line items from tasks
-    total_due = 0.0
+    total_due = Decimal(0)
     line_items = []
 
     for task_spec in data.tasks:

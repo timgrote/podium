@@ -972,7 +972,7 @@
                 <table id="projects-table" style="display: none;">
                     <thead>
                         <tr>
-                            <th class="sortable-header" data-sort="project_number" onclick="sortProjects('project_number')">Project # <span class="sort-indicator"></span></th>
+                            <th class="sortable-header" data-sort="job_code" onclick="sortProjects('job_code')">Job Code <span class="sort-indicator"></span></th>
                             <th class="sortable-header" data-sort="client_name" onclick="sortProjects('client_name')">Client <span class="sort-indicator"></span></th>
                             <th class="sortable-header" data-sort="project_name" onclick="sortProjects('project_name')">Project <span class="sort-indicator"></span></th>
                             <th class="sortable-header" data-sort="total" onclick="sortProjects('total')">Total <span class="sort-indicator"></span></th>
@@ -1015,6 +1015,10 @@
                 <button class="modal-close" onclick="closeCreateInvoiceModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 12px; max-width: 280px;">
+                    <label for="invoice-number-input">Invoice Number</label>
+                    <input type="text" id="invoice-number-input" placeholder="Auto-generated">
+                </div>
                 <p class="invoice-instructions">Select tasks to invoice and set the percentage for each:</p>
                 <div id="invoice-tasks-list"></div>
                 <div class="invoice-total-row">
@@ -1164,35 +1168,34 @@
                             <label for="edit-job-code">Job Code</label>
                             <input type="text" id="edit-job-code" placeholder="e.g., rvi-absal">
                         </div>
-                    </div>
-                    <div class="form-row">
                         <div class="form-group">
-                            <label for="edit-client-name">Client Name</label>
-                            <input type="text" id="edit-client-name">
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-client-email">Client Email</label>
-                            <input type="email" id="edit-client-email">
+                            <label for="edit-location">Location</label>
+                            <input type="text" id="edit-location" placeholder="e.g., Austin, TX">
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="edit-pm-name">Project Manager Name</label>
-                            <input type="text" id="edit-pm-name" placeholder="e.g., Jane Smith">
+                    <fieldset style="border:1px solid #e2e8f0; border-radius:6px; padding:12px 14px 8px; margin:8px 0 12px;">
+                        <legend style="font-size:0.8rem; font-weight:600; color:#64748b; padding:0 6px;">Client</legend>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit-client-name">Company</label>
+                                <input type="text" id="edit-client-name">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-client-project-number">Project Number</label>
+                                <input type="text" id="edit-client-project-number" placeholder="e.g., PO-2026-001">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="edit-pm-email">Project Manager Email</label>
-                            <input type="email" id="edit-pm-email" placeholder="pm@example.com">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit-pm-name">PM Name</label>
+                                <input type="text" id="edit-pm-name" placeholder="e.g., Jane Smith">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-pm-email">PM Email</label>
+                                <input type="email" id="edit-pm-email" placeholder="pm@example.com">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-client-project-number">Client Project Number</label>
-                        <input type="text" id="edit-client-project-number" placeholder="e.g., PO-2026-001">
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-location">Location</label>
-                        <input type="text" id="edit-location" placeholder="e.g., Austin, TX">
-                    </div>
+                    </fieldset>
                     <div class="form-group">
                         <label for="edit-status">Status</label>
                         <select id="edit-status">
@@ -1649,7 +1652,7 @@
                 openAddContractModal(jobId);
             });
 
-            var financialAccordion = createAccordion('Financial', false, [addContractBtn]);
+            var financialAccordion = createAccordion('Financial', true, [addContractBtn]);
 
             // Contracts subsection
             var contractsSub = document.createElement('div');
@@ -2578,10 +2581,9 @@
                             ${inv.pdf_path ? `<a href="${inv.pdf_path}" target="_blank" class="action-btn action-view">PDF</a>` : ''}
                             <button class="action-btn" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation(); openEditInvoiceModal('${project.id}', '${inv.id}')">Edit</button>
                             ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${inv.id}', '${project.id}')">Export PDF</button>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceViaGoogle('${inv.id}', '${project.id}')">Send</button>` : ''}
                             ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.id}', '${inv.invoice_number}')">Mark Sent</button>` : ''}
                             ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
-                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="createNextInvoice('${project.id}', '${inv.invoice_number}')">Next Invoice</button>` : ''}
+                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="createNextInvoice('${project.id}', '${inv.id}')">Next Invoice</button>` : ''}
                             ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.id}', '${inv.invoice_number}')">Delete</button>` : ''}
                         </div>
                     </div>
@@ -2659,7 +2661,7 @@
                     };
                     // Note: All user data sanitized via escapeHtml()
                     row.innerHTML = `
-                        <td><span class="expand-icon">▶</span> <strong>${escapeHtml(project.project_number || jobId)}</strong>${project.job_code ? '<br><span class="date">' + escapeHtml(project.job_code) + '</span>' : ''}</td>
+                        <td><span class="expand-icon">▶</span> <strong>${escapeHtml(project.job_code || jobId)}</strong>${project.project_number ? '<br><span class="date">' + escapeHtml(project.project_number) + '</span>' : ''}</td>
                         <td>${escapeHtml(project.client_name)}<br><span class="date">${escapeHtml(project.client_email)}</span></td>
                         <td>${escapeHtml(project.project_name || '-')}${project.location ? '<br><span class="date">' + escapeHtml(project.location) + '</span>' : ''}</td>
                         <td class="amount">$${total.toLocaleString()}</td>
@@ -2817,9 +2819,12 @@
 
         function updateStats(projects) {
             const total = projects.length;
-            const pending = projects.filter(p => p.status === 'invoiced').length;
-            const paidProjects = projects.filter(p => ['paid', 'complete'].includes(p.status));
-            const revenue = paidProjects.reduce((sum, p) => sum + getProjectPaid(p), 0);
+
+            // Awaiting payment = projects that have outstanding invoices (invoiced - paid > 0)
+            const awaitingPayment = projects.filter(p => (p.total_outstanding || 0) > 0).length;
+
+            // Revenue = total paid across ALL projects (not just status=paid)
+            const revenue = projects.reduce((sum, p) => sum + Number(p.total_paid || 0), 0);
 
             // Pipeline = contracted amounts for non-paid/complete projects
             const pipeline = projects.filter(p => !['paid', 'complete'].includes(p.status))
@@ -2836,7 +2841,7 @@
                 }, 0);
 
             document.getElementById('stat-total').textContent = total;
-            document.getElementById('stat-pending').textContent = pending;
+            document.getElementById('stat-pending').textContent = awaitingPayment;
             document.getElementById('stat-revenue').textContent = '$' + revenue.toLocaleString();
             document.getElementById('stat-proposals').textContent = '$' + proposalValue.toLocaleString();
             document.getElementById('stat-pipeline').textContent = '$' + Math.round(pipeline).toLocaleString();
@@ -3149,7 +3154,6 @@
             document.getElementById('edit-project-number').value = project.project_number || '';
             document.getElementById('edit-job-code').value = project.job_code || '';
             document.getElementById('edit-client-name').value = project.client_name || '';
-            document.getElementById('edit-client-email').value = project.client_email || '';
             document.getElementById('edit-pm-name').value = project.pm_name || '';
             document.getElementById('edit-pm-email').value = project.pm_email || '';
             document.getElementById('edit-client-project-number').value = project.client_project_number || '';
@@ -3361,7 +3365,20 @@
             currentInvoiceContractId = contract.id;
             const tasks = contract.tasks || [];
 
-            document.getElementById('create-invoice-title').textContent = `Create Invoice - ${project.project_number || jobId}`;
+            document.getElementById('create-invoice-title').textContent = `Create Invoice - ${project.job_code || project.project_number || jobId}`;
+
+            // Pre-fill invoice number: {job_code} A-{N}
+            const existingInvoices = (project.invoices || []).filter(i => !i.deleted_at);
+            const prefix = project.job_code || project.project_number || jobId;
+            let nextNum = 1;
+            if (existingInvoices.length > 0) {
+                const nums = existingInvoices.map(inv => {
+                    const parts = (inv.invoice_number || '').match(/A-(\d+)$/);
+                    return parts ? parseInt(parts[1]) : 0;
+                });
+                nextNum = Math.max(...nums) + 1;
+            }
+            document.getElementById('invoice-number-input').value = prefix + ' A-' + nextNum;
 
             // Pre-fill emails
             document.getElementById('invoice-pm-email').value = project.pm_email || '';
@@ -3370,7 +3387,7 @@
             // Build task selection list from contract tasks
             const tasksList = document.getElementById('invoice-tasks-list');
             tasksList.innerHTML = tasks.map((task, idx) => {
-                const remaining = 100 - (task.billed_percent || 0);
+                const remaining = 100 - Number(task.billed_percent || 0);
                 return `
                     <div class="invoice-task-row">
                         <span class="invoice-task-name" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</span>
@@ -3380,7 +3397,7 @@
                         </div>
                         <span>%</span>
                         <span class="invoice-task-computed" id="inv-computed-${idx}">$0</span>
-                        <span class="invoice-task-billed">${(task.billed_percent || 0).toFixed(0)}% billed</span>
+                        <span class="invoice-task-billed">${Number(task.billed_percent || 0).toFixed(0)}% billed</span>
                     </div>
                 `;
             }).join('');
@@ -3457,7 +3474,7 @@
                 const response = await fetch(INVOICE_CREATE_API + '/' + currentInvoiceContractId + '/invoices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tasks: invoiceTasks, pm_email: document.getElementById('invoice-pm-email').value || null }),
+                    body: JSON.stringify({ tasks: invoiceTasks, pm_email: document.getElementById('invoice-pm-email').value || null, invoice_number: document.getElementById('invoice-number-input').value || null }),
                     signal: controller.signal
                 });
                 clearTimeout(timeout);
@@ -3896,13 +3913,26 @@
             openCreateInvoiceModal(jobId, contractId);
         }
 
-        // Create Next Invoice (stub - creates invoice in chain)
-        function createNextInvoice(jobId, previousInvoiceNumber) {
-            alert(`Creating next invoice after ${previousInvoiceNumber}...\n\nThis will create a new invoice with:\n- Previous Billing = Previous + Current from last invoice\n- Current = remaining billable amount\n\nThis feature is coming soon.`);
-
-            // Future implementation:
-            // POST to API with action=create_next_invoice
-            // API calculates previous_billing from invoice chain
+        // Create Next Invoice — calls API to chain from previous invoice
+        async function createNextInvoice(jobId, invoiceId) {
+            document.body.style.cursor = 'wait';
+            try {
+                var response = await fetch('/api/invoices/' + invoiceId + '/create-next', { method: 'POST' });
+                var result = await response.json();
+                if (response.ok) {
+                    if (result.data_path && result.data_path.includes('google.com')) {
+                        window.open(result.data_path, '_blank');
+                    }
+                    await refreshAndReopen(jobId);
+                } else {
+                    alert('Failed to create next invoice: ' + (result.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating next invoice:', error);
+                alert('Failed to create next invoice. Please try again.');
+            } finally {
+                document.body.style.cursor = '';
+            }
         }
 
         // --- Proposal functions ---
