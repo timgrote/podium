@@ -75,6 +75,42 @@ def get_gmail_service():
     return build("gmail", "v1", credentials=_get_credentials(), cache_discovery=False)
 
 
+def _find_or_create_folder(drive, name: str, parent_id: str) -> str:
+    """Find a subfolder by name under parent_id, or create it. Returns folder ID."""
+    query = (
+        f"name = '{name}' and mimeType = 'application/vnd.google-apps.folder' "
+        f"and '{parent_id}' in parents and trashed = false"
+    )
+    results = drive.files().list(
+        q=query, fields="files(id)", supportsAllDrives=True, includeItemsFromAllDrives=True,
+    ).execute()
+    files = results.get("files", [])
+    if files:
+        return files[0]["id"]
+
+    metadata = {
+        "name": name,
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": [parent_id],
+    }
+    folder = drive.files().create(body=metadata, fields="id", supportsAllDrives=True).execute()
+    logger.info("Created Drive folder '%s' under %s -> %s", name, parent_id, folder["id"])
+    return folder["id"]
+
+
+def resolve_project_folder(drive, root_folder_id: str, data_path: str) -> str:
+    """Walk a slash-separated data_path (e.g. 'DR Horton/Silver Peaks') creating folders as needed.
+    Returns the final folder ID."""
+    if not data_path or not root_folder_id:
+        return root_folder_id
+    current = root_folder_id
+    for part in data_path.strip("/").split("/"):
+        part = part.strip()
+        if part:
+            current = _find_or_create_folder(drive, part, current)
+    return current
+
+
 def create_invoice_sheet(
     invoice_number: str,
     project_name: str,
@@ -89,6 +125,7 @@ def create_invoice_sheet(
     client_company: str = "",
     client_address: str = "",
     client_project_number: str = "",
+    project_data_path: str = "",
 ) -> str:
     """Copy the invoice template and populate it with invoice data.
 
@@ -101,6 +138,11 @@ def create_invoice_sheet(
     # 1. Copy the template
     src_template = template_id or settings.invoice_template_id
     dest_folder = folder_id or settings.invoice_drive_folder_id
+
+    # Resolve project subfolder if data_path is set (e.g. "DR Horton/Silver Peaks")
+    if project_data_path and dest_folder:
+        dest_folder = resolve_project_folder(drive, dest_folder, project_data_path)
+
     copy_metadata = {"name": f"Invoice {invoice_number}"}
     if dest_folder:
         copy_metadata["parents"] = [dest_folder]

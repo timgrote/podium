@@ -301,28 +301,13 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
         new_line_items.append({
             "name": li["name"],
             "description": li.get("description"),
-            "unit_price": li.get("unit_price", 0),
+            "unit_price": float(li.get("unit_price", 0)),
             "quantity": 0,
             "amount": 0,
-            "previous_billing": new_previous_billing,
+            "previous_billing": float(new_previous_billing),
         })
 
-    # Update contract_tasks billing totals based on the finalized invoice amounts
-    if contract_id:
-        for li in line_items:
-            li = dict(li)
-            # Find matching contract task by name
-            task = db.execute(
-                "SELECT * FROM contract_tasks WHERE contract_id = %s AND name = %s",
-                (contract_id, li["name"]),
-            ).fetchone()
-            if task:
-                new_billed = (li.get("previous_billing") or 0) + (li.get("amount") or 0)
-                new_percent = (new_billed / task["amount"] * 100) if task["amount"] > 0 else 0
-                db.execute(
-                    "UPDATE contract_tasks SET billed_amount = %s, billed_percent = %s, updated_at = %s WHERE id = %s",
-                    (new_billed, new_percent, now, task["id"]),
-                )
+    # Billing is computed from active invoices — no stored update needed.
 
     # Create new invoice record
     db.execute(
@@ -351,6 +336,7 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
 
     # Try to create Google Sheet for new invoice
     sheet_url = None
+    sheet_error = None
     try:
         from ..google_sheets import create_invoice_sheet
 
@@ -392,6 +378,7 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
             tasks=new_line_items,
             folder_id=drive_folder_id,
             template_id=template_id,
+            project_data_path=dict(project_row).get("data_path") or "",
         )
         db.execute(
             "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
@@ -400,15 +387,17 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
         db.commit()
     except FileNotFoundError:
         logger.info("Google Sheet creation skipped: no credentials configured")
+        sheet_error = "Google credentials not configured"
     except Exception as e:
-        logger.error("Google Sheet creation failed: %s", e)
+        logger.error("Google Sheet creation failed: %s", e, exc_info=True)
         sheet_url = None
+        sheet_error = str(e)
 
     new_invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (new_inv_id,)).fetchone()
     logger.info("Created next invoice %s (chain from %s)", new_invoice_number, invoice["invoice_number"])
     result = dict(new_invoice)
-    if not result.get("data_path"):
-        result["_warning"] = "Invoice created but Google Sheet could not be generated"
+    if not result.get("data_path") and sheet_error:
+        result["_warning"] = f"Invoice created but Google Sheet failed: {sheet_error}"
     return result
 
 
@@ -424,24 +413,56 @@ def update_invoice(
     if not existing:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    updates = {k: v for k, v in data.model_dump().items() if v is not None}
-    if not updates:
-        return dict(existing)
+    # Extract line_items before building SQL updates
+    new_line_items = data.line_items
+    updates = {k: v for k, v in data.model_dump(exclude={"line_items"}).items() if v is not None}
 
     now = datetime.now().isoformat()
+
+    # Update line items if provided
+    if new_line_items is not None:
+        old_items = db.execute(
+            "SELECT * FROM invoice_line_items WHERE invoice_id = %s ORDER BY sort_order",
+            (invoice_id,),
+        ).fetchall()
+
+        total = 0
+        for i, old_li in enumerate(old_items):
+            old_li = dict(old_li)
+            if i < len(new_line_items):
+                new_li = new_line_items[i]
+                quantity = new_li.get("quantity", old_li["quantity"])
+                unit_price = new_li.get("unit_price", old_li["unit_price"])
+                amount = unit_price * quantity / 100
+                previous_billing = new_li.get("previous_billing", old_li.get("previous_billing", 0))
+                db.execute(
+                    "UPDATE invoice_line_items SET quantity = %s, unit_price = %s, amount = %s, "
+                    "previous_billing = %s WHERE id = %s",
+                    (quantity, unit_price, amount, previous_billing, old_li["id"]),
+                )
+                total += amount
+
+        # Auto-update total_due from line items unless explicitly provided
+        if "total_due" not in updates:
+            updates["total_due"] = total
+
+    if not updates and new_line_items is None:
+        return dict(existing)
+
     updates["updated_at"] = now
 
     # Auto-set timestamps based on status changes
     if "sent_status" in updates and updates["sent_status"] == "sent":
         updates["sent_at"] = now
     if "paid_status" in updates and updates["paid_status"] == "paid":
-        # Only auto-set paid_at if not explicitly provided
         if "paid_at" not in updates:
             updates["paid_at"] = now
 
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    values = list(updates.values()) + [invoice_id]
-    db.execute(f"UPDATE invoices SET {set_clause} WHERE id = %s", values)
+    if updates:
+        set_clause = ", ".join(f"{k} = %s" for k in updates)
+        values = list(updates.values()) + [invoice_id]
+        db.execute(f"UPDATE invoices SET {set_clause} WHERE id = %s", values)
+
     db.commit()
 
     row = db.execute("SELECT * FROM invoices WHERE id = %s", (invoice_id,)).fetchone()
@@ -459,29 +480,7 @@ def delete_invoice(invoice_id: str, db=Depends(get_db)):
     inv = dict(existing)
     now = datetime.now().isoformat()
 
-    # Reverse billing on contract tasks for this invoice's line items
-    line_items = db.execute(
-        "SELECT * FROM invoice_line_items WHERE invoice_id = %s", (invoice_id,)
-    ).fetchall()
-    for li in line_items:
-        li = dict(li)
-        if not li.get("name"):
-            continue
-        # Find matching contract task and subtract this invoice's billing
-        if inv.get("contract_id"):
-            tasks = db.execute(
-                "SELECT * FROM contract_tasks WHERE contract_id = %s AND name = %s",
-                (inv["contract_id"], li["name"]),
-            ).fetchall()
-            for task in tasks:
-                task = dict(task)
-                new_billed = max(0, (task["billed_amount"] or 0) - (li.get("amount") or 0))
-                new_percent = (new_billed / task["amount"] * 100) if task["amount"] > 0 else 0
-                db.execute(
-                    "UPDATE contract_tasks SET billed_amount = %s, billed_percent = %s, updated_at = %s WHERE id = %s",
-                    (new_billed, new_percent, now, task["id"]),
-                )
-
+    # Billing is computed from active invoices — no reversal needed on delete.
     # Soft-delete the invoice
     db.execute("UPDATE invoices SET deleted_at = %s WHERE id = %s", (now, invoice_id))
 

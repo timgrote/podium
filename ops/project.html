@@ -137,6 +137,7 @@
                 <a href="dashboard.html" class="text-primary text-sm no-underline hover:underline">&larr; Back to Dashboard</a>
                 <h1 id="project-title" class="text-3xl text-white mb-2">Loading...</h1>
                 <div class="text-gray-500 text-sm" id="project-meta"></div>
+                <div class="mt-1" id="project-data-path"></div>
             </div>
             <div id="header-actions"></div>
         </header>
@@ -293,7 +294,7 @@
                 </div>
                 <div class="mb-4">
                     <label class="block text-gray-400 mb-1.5 text-sm">File Path (optional)</label>
-                    <input type="text" id="contract-file-path" placeholder="/dropbox/path/to/contract.pdf" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
+                    <input type="text" id="contract-file-path" placeholder="/path/to/contract.pdf" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
                 </div>
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('add-contract-modal')">Cancel</button>
@@ -352,7 +353,8 @@
             </div>
             <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-[#333]">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('create-contract-invoice-modal')">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitContractInvoice()">Create Invoice</button>
+                <button type="button" class="btn btn-secondary" onclick="submitContractInvoice(true)">Save to DB Only</button>
+                <button type="button" class="btn btn-primary" onclick="submitContractInvoice(false)">Create Invoice + Sheet</button>
             </div>
         </div>
     </div>
@@ -361,11 +363,15 @@
     <div id="edit-invoice-links-modal" class="modal fixed inset-0 bg-black/70 z-[1000] items-center justify-center">
         <div class="bg-dark-card rounded-xl p-8 max-w-[500px] w-[90%] max-h-[80vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-white text-xl">Edit Invoice Links</h3>
+                <h3 class="text-white text-xl">Edit Invoice</h3>
                 <button class="bg-transparent border-none text-gray-500 text-2xl cursor-pointer" onclick="closeModal('edit-invoice-links-modal')">&times;</button>
             </div>
             <form id="edit-invoice-links-form" onsubmit="saveInvoiceLinks(event)">
                 <input type="hidden" id="edit-links-invoice-id">
+                <div class="mb-4">
+                    <label class="block text-gray-400 mb-1.5 text-sm">Invoice Number</label>
+                    <input type="text" id="edit-links-invoice-number" placeholder="e.g. DRH-Silver Peaks A-1" class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
+                </div>
                 <div class="mb-4">
                     <label class="block text-gray-400 mb-1.5 text-sm">Data Path (Sheet URL)</label>
                     <input type="text" id="edit-links-data-path" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full p-2.5 bg-dark-bg border border-dark-border rounded-md text-white text-sm focus:outline-none focus:border-primary placeholder:text-gray-600">
@@ -452,17 +458,6 @@
                 return;
             }
 
-            // Load Dropbox base path from company settings
-            try {
-                var settingsResp = await fetch(API_BASE + '/company');
-                if (settingsResp.ok) {
-                    var settings = await settingsResp.json();
-                    if (settings.dropbox_base_path) {
-                        window._dropboxBasePath = settings.dropbox_base_path;
-                    }
-                }
-            } catch (e) { /* non-critical */ }
-
             try {
                 const response = await fetch(API_BASE + '/projects/' + encodeURIComponent(jobId));
                 if (!response.ok) {
@@ -516,22 +511,35 @@
             document.getElementById('project-meta').textContent = metaText;
             document.title = project.project_name + ' - Conductor';
 
+            // Data path (editable inline)
+            var dataPathContainer = document.getElementById('project-data-path');
+            dataPathContainer.textContent = '';
+            var dpLabel = document.createElement('span');
+            dpLabel.className = 'text-gray-500 text-sm mr-2';
+            dpLabel.textContent = 'Folder Path:';
+            dataPathContainer.appendChild(dpLabel);
+            var dpInput = document.createElement('input');
+            dpInput.type = 'text';
+            dpInput.value = project.data_path || '';
+            dpInput.placeholder = 'e.g. DR Horton/Silver Peaks';
+            dpInput.className = 'bg-transparent border-b border-dark-border text-gray-300 text-sm px-1 py-0.5 focus:outline-none focus:border-primary';
+            dpInput.style.width = '300px';
+            dpInput.onblur = function() {
+                if (dpInput.value !== (project.data_path || '')) {
+                    fetch(API_BASE + '/projects/' + project.id, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data_path: dpInput.value || null })
+                    }).then(function(r) {
+                        if (r.ok) { project.data_path = dpInput.value; }
+                    });
+                }
+            };
+            dataPathContainer.appendChild(dpInput);
+
             // Header actions
             const headerActions = document.getElementById('header-actions');
             headerActions.textContent = '';
-            // Open in Dropbox button (when project has a dropbox_path)
-            if (project.dropbox_path) {
-                var dropboxBtn = document.createElement('a');
-                var basePath = window._dropboxBasePath || 'TIE';
-                var encodedPath = encodeURI(basePath + '/' + project.dropbox_path);
-                dropboxBtn.href = 'https://www.dropbox.com/home/' + encodedPath;
-                dropboxBtn.target = '_blank';
-                dropboxBtn.rel = 'noopener';
-                dropboxBtn.className = 'btn btn-secondary';
-                dropboxBtn.textContent = 'Open in Dropbox';
-                headerActions.appendChild(dropboxBtn);
-            }
-
             const refreshBtn = document.createElement('button');
             refreshBtn.className = 'btn btn-secondary';
             refreshBtn.textContent = 'Refresh';
@@ -1588,7 +1596,7 @@
             document.getElementById('contract-invoice-total').textContent = '$' + total.toLocaleString();
         }
 
-        async function submitContractInvoice() {
+        async function submitContractInvoice(skipSheet) {
             if (!currentContractForInvoice) return;
 
             // Send ALL tasks so they all appear on the invoice
@@ -1608,10 +1616,12 @@
             }
 
             try {
+                var body = { tasks: tasks };
+                if (skipSheet) body.skip_sheet = true;
                 const response = await fetch(API_BASE + '/contracts/' + currentContractForInvoice.id + '/invoices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tasks: tasks })
+                    body: JSON.stringify(body)
                 });
                 const data = await response.json();
                 if (!response.ok) {
@@ -1621,6 +1631,11 @@
 
                 closeModal('create-contract-invoice-modal');
                 currentContractForInvoice = null;
+
+                // Show warning if sheet creation failed
+                if (data._warning) {
+                    alert(data._warning);
+                }
 
                 // If we got a sheet URL, open it
                 if (data.data_path) {
@@ -1766,6 +1781,7 @@
             if (!inv) return;
 
             document.getElementById('edit-links-invoice-id').value = invoiceId;
+            document.getElementById('edit-links-invoice-number').value = inv.invoice_number || '';
             document.getElementById('edit-links-data-path').value = inv.data_path || '';
             document.getElementById('edit-links-pdf-path').value = inv.pdf_path || '';
             openModal('edit-invoice-links-modal');
@@ -1774,14 +1790,17 @@
         async function saveInvoiceLinks(event) {
             event.preventDefault();
             const invoiceId = document.getElementById('edit-links-invoice-id').value;
+            const invoiceNumber = document.getElementById('edit-links-invoice-number').value;
             const dataPath = document.getElementById('edit-links-data-path').value;
             const pdfPath = document.getElementById('edit-links-pdf-path').value;
 
             try {
+                var body = { data_path: dataPath || null, pdf_path: pdfPath || null };
+                if (invoiceNumber) body.invoice_number = invoiceNumber;
                 const response = await fetch(API_BASE + '/invoices/' + invoiceId, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data_path: dataPath || null, pdf_path: pdfPath || null })
+                    body: JSON.stringify(body)
                 });
                 const data = await response.json();
                 if (!response.ok) {

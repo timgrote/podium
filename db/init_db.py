@@ -94,7 +94,7 @@ def seed_data(conn):
     ]
     for p in projects:
         cur.execute('''
-            INSERT INTO projects (id, name, client_id, client_pm_id, status, dropbox_path, notes, created_at, updated_at, deleted_at)
+            INSERT INTO projects (id, name, client_id, client_pm_id, status, data_path, notes, created_at, updated_at, deleted_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', p)
     print(f"Added {len(projects)} projects")
@@ -244,7 +244,6 @@ def seed_data(conn):
         ('company_address', '456 Design Blvd\nAustin, TX 78701'),
         ('tagline', 'Professional Irrigation Design'),
         ('primary_color', '#6c63ff'),
-        ('dropbox_base_path', 'TIE'),
     ]
     for key, value in company_settings:
         cur.execute(

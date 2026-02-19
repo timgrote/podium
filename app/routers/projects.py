@@ -10,6 +10,8 @@ router = APIRouter()
 
 
 def _get_contracts_for_project(db, project_id: str) -> list[dict]:
+    from .contracts import _compute_task_billing
+
     contracts = []
     rows = db.execute(
         "SELECT * FROM contracts WHERE project_id = %s AND deleted_at IS NULL ORDER BY created_at",
@@ -21,7 +23,7 @@ def _get_contracts_for_project(db, project_id: str) -> list[dict]:
             "SELECT * FROM contract_tasks WHERE contract_id = %s ORDER BY sort_order",
             (c["id"],),
         ).fetchall()
-        contract["tasks"] = [dict(t) for t in tasks]
+        contract["tasks"] = _compute_task_billing(db, c["id"], [dict(t) for t in tasks])
         contracts.append(contract)
     return contracts
 
@@ -219,7 +221,7 @@ def get_project(project_id: str, db=Depends(get_db)):
         pm_email=p.get("pm_email"),
         client_project_number=p.get("client_project_number"),
         location=p.get("location"),
-        dropbox_path=p.get("dropbox_path"),
+        data_path=p.get("data_path"),
         notes=p.get("notes"),
         current_invoice_id=p.get("current_invoice_id"),
         total_contracted=summary["total_contracted"] if summary else 0,
@@ -256,9 +258,9 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
             )
 
     db.execute(
-        "INSERT INTO projects (id, name, client_id, location, project_number, job_code, status, dropbox_path, notes, created_at, updated_at) "
+        "INSERT INTO projects (id, name, client_id, location, project_number, job_code, status, data_path, notes, created_at, updated_at) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (project_id, data.project_name, client_id, data.location, project_number, data.job_code, data.status, data.dropbox_path, data.notes, now, now),
+        (project_id, data.project_name, client_id, data.location, project_number, data.job_code, data.status, data.data_path, data.notes, now, now),
     )
 
     # Create contract + tasks if provided

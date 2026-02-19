@@ -1,0 +1,1 @@
+Kill any running uvicorn dev server and start a fresh one on port 3000 with auto-reload. Use `pkill -f "uvicorn app.main:app"` to kill, wait 1 second, then start `source .venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload` in the background. Verify it's up by curling `http://localhost:3000/api/clients` and report the HTTP status code.

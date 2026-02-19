@@ -11,6 +11,7 @@ class InvoiceCreate(BaseModel):
 
 
 class InvoiceUpdate(BaseModel):
+    invoice_number: str | None = None
     sent_status: str | None = None
     paid_status: str | None = None
     paid_at: str | None = None
@@ -18,6 +19,7 @@ class InvoiceUpdate(BaseModel):
     description: str | None = None
     data_path: str | None = None
     pdf_path: str | None = None
+    line_items: list[dict] | None = None
 
 
 class InvoiceFromContract(BaseModel):
@@ -25,3 +27,4 @@ class InvoiceFromContract(BaseModel):
     """Each dict: {"task_id": str, "percent_this_invoice": float}"""
     pm_email: str | None = None
     invoice_number: str | None = None
+    skip_sheet: bool = False

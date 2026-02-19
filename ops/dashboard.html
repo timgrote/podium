@@ -1037,8 +1037,9 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="invoice-cancel-btn" class="btn btn-secondary" onclick="closeCreateInvoiceModal()">Cancel</button>
-                    <button type="button" id="invoice-create-btn" class="btn btn-primary" onclick="createInvoice()" title="Create Google Sheet and add invoice">&#x1F4CA; Create Invoice Sheet</button>
-                    <span id="invoice-spinner" class="hidden" style="color: #888; font-size: 0.85rem; margin-left: 8px;">Creating sheet...</span>
+                    <button type="button" id="invoice-db-btn" class="btn btn-secondary" onclick="createInvoice(true)" title="Save invoice to database only (no Google Sheet)">Save to DB Only</button>
+                    <button type="button" id="invoice-create-btn" class="btn btn-primary" onclick="createInvoice(false)" title="Create Google Sheet and add invoice">&#x1F4CA; Create Invoice Sheet</button>
+                    <span id="invoice-spinner" class="hidden" style="color: #888; font-size: 0.85rem; margin-left: 8px;">Creating...</span>
                 </div>
             </div>
         </div>
@@ -1083,7 +1084,7 @@
                         </div>
                         <div class="form-group">
                             <label for="new-job-code">Job Code</label>
-                            <input type="text" id="new-job-code" placeholder="e.g., rvi-absal (optional)">
+                            <input type="text" id="new-job-code" placeholder="e.g., rvi-absal (optional)" autocomplete="off">
                         </div>
                     </div>
                     <div class="form-row">
@@ -1166,7 +1167,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="edit-job-code">Job Code</label>
-                            <input type="text" id="edit-job-code" placeholder="e.g., rvi-absal">
+                            <input type="text" id="edit-job-code" placeholder="e.g., rvi-absal" autocomplete="off">
                         </div>
                         <div class="form-group">
                             <label for="edit-location">Location</label>
@@ -1196,6 +1197,10 @@
                             </div>
                         </div>
                     </fieldset>
+                    <div class="form-group">
+                        <label for="edit-data-path">Folder Path</label>
+                        <input type="text" id="edit-data-path" placeholder="e.g., DR Horton/Silver Peaks">
+                    </div>
                     <div class="form-group">
                         <label for="edit-status">Status</label>
                         <select id="edit-status">
@@ -1441,7 +1446,19 @@
                     <input type="hidden" id="edit-inv-id">
                     <input type="hidden" id="edit-inv-project-id">
                     <div class="form-group">
-                        <label for="edit-inv-total">Total Due ($)</label>
+                        <label for="edit-inv-number">Invoice Number</label>
+                        <input type="text" id="edit-inv-number" autocomplete="off">
+                    </div>
+                    <div id="edit-inv-tasks-section" class="hidden">
+                        <p class="invoice-instructions">Adjust task percentages for this invoice:</p>
+                        <div id="edit-inv-tasks-list"></div>
+                        <div class="invoice-total-row">
+                            <span>Invoice Total:</span>
+                            <span id="edit-inv-total-computed" class="amount">$0</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-inv-total">Total Due ($) <span id="edit-inv-total-hint" style="font-weight:normal;color:#888;font-size:0.8rem;"></span></label>
                         <input type="number" id="edit-inv-total" step="0.01" min="0">
                     </div>
                     <div class="form-group">
@@ -2567,7 +2584,7 @@
                     else if (sentStatus === 'sent' || paidStatus === 'sent') displayStatus = 'sent';
                     else if (sentStatus === 'unsent' || paidStatus === 'draft') displayStatus = 'draft';
 
-                    const canCreateNext = idx === 0 && displayStatus !== 'paid';
+                    const canCreateNext = idx === 0 && (displayStatus === 'sent' || displayStatus === 'paid');
 
                     return `
                     <div class="detail-item">
@@ -3158,6 +3175,7 @@
             document.getElementById('edit-pm-email').value = project.pm_email || '';
             document.getElementById('edit-client-project-number').value = project.client_project_number || '';
             document.getElementById('edit-location').value = project.location || '';
+            document.getElementById('edit-data-path').value = project.data_path || '';
             document.getElementById('edit-status').value = project.status || 'proposal';
             document.getElementById('edit-project-modal').classList.add('active');
         }
@@ -3179,6 +3197,7 @@
                 location: document.getElementById('edit-location').value || null,
                 project_number: document.getElementById('edit-project-number').value.trim() || null,
                 job_code: document.getElementById('edit-job-code').value.trim() || null,
+                data_path: document.getElementById('edit-data-path').value.trim() || null,
             };
 
             try {
@@ -3367,18 +3386,18 @@
 
             document.getElementById('create-invoice-title').textContent = `Create Invoice - ${project.job_code || project.project_number || jobId}`;
 
-            // Pre-fill invoice number: {job_code} A-{N}
+            // Pre-fill invoice number: {project_number}-{N}
             const existingInvoices = (project.invoices || []).filter(i => !i.deleted_at);
             const prefix = project.job_code || project.project_number || jobId;
             let nextNum = 1;
             if (existingInvoices.length > 0) {
                 const nums = existingInvoices.map(inv => {
-                    const parts = (inv.invoice_number || '').match(/A-(\d+)$/);
+                    const parts = (inv.invoice_number || '').match(/-(\d+)$/);
                     return parts ? parseInt(parts[1]) : 0;
                 });
                 nextNum = Math.max(...nums) + 1;
             }
-            document.getElementById('invoice-number-input').value = prefix + ' A-' + nextNum;
+            document.getElementById('invoice-number-input').value = prefix + '-' + nextNum;
 
             // Pre-fill emails
             document.getElementById('invoice-pm-email').value = project.pm_email || '';
@@ -3440,7 +3459,7 @@
             document.getElementById('invoice-total-amount').textContent = `$${total.toLocaleString()}`;
         }
 
-        async function createInvoice() {
+        async function createInvoice(skipSheet) {
             const tasks = _getContractTasks();
             if (tasks.length === 0) return;
 
@@ -3459,29 +3478,45 @@
 
             // Show loading state
             const createBtn = document.getElementById('invoice-create-btn');
+            const dbBtn = document.getElementById('invoice-db-btn');
             const cancelBtn = document.getElementById('invoice-cancel-btn');
             const spinner = document.getElementById('invoice-spinner');
             createBtn.disabled = true;
-            createBtn.textContent = 'Creating...';
+            dbBtn.disabled = true;
             cancelBtn.disabled = true;
             spinner.classList.remove('hidden');
             document.body.style.cursor = 'wait';
 
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 30000);
+            const timeout = setTimeout(() => controller.abort(), 60000);
 
             try {
                 const response = await fetch(INVOICE_CREATE_API + '/' + currentInvoiceContractId + '/invoices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tasks: invoiceTasks, pm_email: document.getElementById('invoice-pm-email').value || null, invoice_number: document.getElementById('invoice-number-input').value || null }),
+                    body: JSON.stringify({
+                        tasks: invoiceTasks,
+                        pm_email: document.getElementById('invoice-pm-email').value || null,
+                        invoice_number: document.getElementById('invoice-number-input').value || null,
+                        skip_sheet: !!skipSheet
+                    }),
                     signal: controller.signal
                 });
                 clearTimeout(timeout);
 
-                const result = await response.json();
+                let result;
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    const text = await response.text();
+                    result = { detail: text || `Server returned ${response.status}` };
+                }
 
                 if (response.ok) {
+                    if (result._warning) {
+                        alert('Invoice created, but with a warning:\n\n' + result._warning);
+                    }
                     const reopenJobId = currentInvoiceJobId;
                     closeCreateInvoiceModal();
                     // Open the Google Sheet if one was created
@@ -3491,19 +3526,20 @@
                     // Refresh data then reopen the project that was expanded
                     await refreshAndReopen(reopenJobId);
                 } else {
-                    alert('Failed to create invoice: ' + (result.detail || 'Unknown error'));
+                    const detail = result.detail || JSON.stringify(result);
+                    alert('Failed to create invoice (HTTP ' + response.status + '):\n\n' + detail);
                 }
             } catch (error) {
                 clearTimeout(timeout);
                 if (error.name === 'AbortError') {
-                    alert('Invoice creation timed out after 30 seconds. The invoice may have been created — check the project detail.');
+                    alert('Invoice creation timed out after 60 seconds. The invoice may have been created — check the project detail.');
                 } else {
                     console.error('Error creating invoice:', error);
-                    alert('Failed to create invoice. Please try again.');
+                    alert('Failed to create invoice:\n\n' + error.message);
                 }
             } finally {
                 createBtn.disabled = false;
-                createBtn.textContent = 'Create Invoice Sheet';
+                dbBtn.disabled = false;
                 cancelBtn.disabled = false;
                 spinner.classList.add('hidden');
                 document.body.style.cursor = '';
@@ -3517,7 +3553,7 @@
         }
 
         async function sendInvoiceEmail(jobId, invoiceNumber) {
-            if (!confirm(`Mark invoice ${invoiceNumber} as sent?`)) return;
+            // No confirmation needed — just mark as sent
 
             try {
                 // Look up invoice by number to get its ID
@@ -3615,6 +3651,7 @@
                 var inv = await res.json();
 
                 document.getElementById('edit-invoice-title').textContent = 'Edit Invoice - ' + (inv.invoice_number || invoiceId);
+                document.getElementById('edit-inv-number').value = inv.invoice_number || '';
                 document.getElementById('edit-inv-total').value = inv.total_due || '';
                 document.getElementById('edit-inv-description').value = inv.description || '';
                 document.getElementById('edit-inv-sent-status').value = inv.sent_status || '';
@@ -3623,10 +3660,82 @@
                 document.getElementById('edit-inv-data-path').value = inv.data_path || '';
                 document.getElementById('edit-inv-pdf-path').value = inv.pdf_path || '';
 
+                // Show line items as editable tasks if this is a task-based invoice
+                var tasksSection = document.getElementById('edit-inv-tasks-section');
+                var tasksList = document.getElementById('edit-inv-tasks-list');
+                var lineItems = inv.line_items || [];
+                if (lineItems.length > 0 && inv.contract_id) {
+                    tasksList.textContent = '';
+                    lineItems.forEach(function(li, idx) {
+                        var row = document.createElement('div');
+                        row.className = 'invoice-task-row';
+                        var nameSpan = document.createElement('span');
+                        nameSpan.className = 'invoice-task-name';
+                        nameSpan.title = li.name || '';
+                        nameSpan.textContent = li.name || '';
+                        row.appendChild(nameSpan);
+                        var amtSpan = document.createElement('span');
+                        amtSpan.className = 'invoice-task-amount';
+                        amtSpan.textContent = '$' + Number(li.unit_price || 0).toLocaleString();
+                        row.appendChild(amtSpan);
+                        var pctDiv = document.createElement('div');
+                        pctDiv.className = 'invoice-task-percent';
+                        var pctInput = document.createElement('input');
+                        pctInput.type = 'number';
+                        pctInput.id = 'edit-inv-percent-' + idx;
+                        pctInput.setAttribute('data-unit-price', li.unit_price || 0);
+                        pctInput.setAttribute('data-previous-billing', li.previous_billing || 0);
+                        pctInput.value = li.quantity || 0;
+                        pctInput.min = '0';
+                        pctInput.max = '100';
+                        pctInput.step = '5';
+                        pctInput.addEventListener('input', updateEditInvoiceTotal);
+                        pctDiv.appendChild(pctInput);
+                        row.appendChild(pctDiv);
+                        var pctLabel = document.createElement('span');
+                        pctLabel.textContent = '%';
+                        row.appendChild(pctLabel);
+                        var computedSpan = document.createElement('span');
+                        computedSpan.className = 'invoice-task-computed';
+                        computedSpan.id = 'edit-inv-computed-' + idx;
+                        computedSpan.textContent = '$' + Number(li.amount || 0).toLocaleString();
+                        row.appendChild(computedSpan);
+                        var billedSpan = document.createElement('span');
+                        billedSpan.className = 'invoice-task-billed';
+                        billedSpan.textContent = '$' + Number(li.previous_billing || 0).toLocaleString() + ' prev';
+                        row.appendChild(billedSpan);
+                        tasksList.appendChild(row);
+                    });
+                    tasksSection.classList.remove('hidden');
+                    window._editInvLineItemCount = lineItems.length;
+                    updateEditInvoiceTotal();
+                } else {
+                    tasksSection.classList.add('hidden');
+                    window._editInvLineItemCount = 0;
+                }
+
                 document.getElementById('edit-invoice-modal').classList.add('active');
             } catch (e) {
-                alert('Failed to load invoice details');
+                alert('Failed to load invoice details: ' + e.message);
             }
+        }
+
+        function updateEditInvoiceTotal() {
+            var count = window._editInvLineItemCount || 0;
+            var total = 0;
+            for (var i = 0; i < count; i++) {
+                var input = document.getElementById('edit-inv-percent-' + i);
+                var computed = document.getElementById('edit-inv-computed-' + i);
+                if (!input || !computed) continue;
+                var pct = parseFloat(input.value) || 0;
+                var unitPrice = parseFloat(input.getAttribute('data-unit-price')) || 0;
+                var amt = (unitPrice * pct) / 100;
+                computed.textContent = '$' + amt.toLocaleString();
+                total += amt;
+            }
+            document.getElementById('edit-inv-total-computed').textContent = '$' + total.toLocaleString();
+            document.getElementById('edit-inv-total').value = total.toFixed(2);
+            document.getElementById('edit-inv-total-hint').textContent = '(auto-calculated from tasks)';
         }
 
         function closeEditInvoiceModal() {
@@ -3639,6 +3748,8 @@
             var jobId = document.getElementById('edit-inv-project-id').value;
 
             var updates = {};
+            var invNumber = document.getElementById('edit-inv-number').value.trim();
+            if (invNumber) updates.invoice_number = invNumber;
             var total = document.getElementById('edit-inv-total').value;
             if (total !== '') updates.total_due = parseFloat(total);
             var desc = document.getElementById('edit-inv-description').value.trim();
@@ -3654,21 +3765,40 @@
             var pdfPath = document.getElementById('edit-inv-pdf-path').value.trim();
             if (pdfPath) updates.pdf_path = pdfPath;
 
+            // Collect updated line items if task section is visible
+            var count = window._editInvLineItemCount || 0;
+            if (count > 0) {
+                var lineItems = [];
+                for (var i = 0; i < count; i++) {
+                    var input = document.getElementById('edit-inv-percent-' + i);
+                    if (!input) continue;
+                    lineItems.push({
+                        quantity: parseFloat(input.value) || 0,
+                        unit_price: parseFloat(input.getAttribute('data-unit-price')) || 0,
+                        previous_billing: parseFloat(input.getAttribute('data-previous-billing')) || 0,
+                    });
+                }
+                updates.line_items = lineItems;
+            }
+
             try {
                 var res = await fetch('/api/invoices/' + invoiceId, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updates)
                 });
+                var resText = await res.text();
                 if (res.ok) {
                     closeEditInvoiceModal();
                     projectDetailCache.delete(jobId);
                     refreshData();
                 } else {
-                    alert('Failed to save invoice changes');
+                    var detail = resText;
+                    try { var parsed = JSON.parse(resText); detail = parsed.detail || resText; } catch(_) {}
+                    alert('Failed to save invoice (HTTP ' + res.status + '):\n\n' + detail);
                 }
             } catch (e) {
-                alert('Failed to save invoice changes');
+                alert('Failed to save invoice:\n\n' + e.message);
             }
         }
 

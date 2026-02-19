@@ -24,20 +24,21 @@ def next_project_number(db) -> str:
 
 
 def next_invoice_number(db, project_id: str) -> str:
-    """Generate the next invoice number for a project using project_number (e.g., 26-001-1)."""
-    # Look up the project_number for this project
+    """Generate the next invoice number for a project using job_code (e.g., DRH-SilverPeaks-1)."""
     proj = db.execute(
-        "SELECT project_number FROM projects WHERE id = %s", (project_id,)
+        "SELECT job_code, project_number FROM projects WHERE id = %s", (project_id,)
     ).fetchone()
-    prefix = proj["project_number"] if proj and proj["project_number"] else project_id
+    prefix = (proj["job_code"] or proj["project_number"]) if proj else project_id
 
-    last = db.execute(
-        "SELECT invoice_number FROM invoices WHERE project_id = %s ORDER BY created_at DESC LIMIT 1",
+    # Check ALL invoices (including deleted) to avoid unique constraint collisions
+    rows = db.execute(
+        "SELECT invoice_number FROM invoices WHERE project_id = %s",
         (project_id,),
-    ).fetchone()
-    if last and last["invoice_number"]:
-        parts = last["invoice_number"].rsplit("-", 1)
-        next_num = int(parts[-1]) + 1 if len(parts) > 1 and parts[-1].isdigit() else 1
-    else:
-        next_num = 1
-    return f"{prefix}-{next_num}"
+    ).fetchall()
+    max_num = 0
+    for row in rows:
+        inv_num = row["invoice_number"] or ""
+        parts = inv_num.rsplit("-", 1)
+        if len(parts) > 1 and parts[-1].isdigit():
+            max_num = max(max_num, int(parts[-1]))
+    return f"{prefix}-{max_num + 1}"

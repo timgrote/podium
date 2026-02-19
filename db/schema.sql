@@ -63,8 +63,7 @@ CREATE TABLE projects (
     project_number TEXT,                    -- user-facing identifier, e.g., '26-001' (auto-incremented)
     job_code TEXT,                          -- editable shorthand, e.g., 'rvi-absal'
     status TEXT DEFAULT 'proposal',         -- proposal, contract, invoiced, paid, complete
-    dropbox_path TEXT,                      -- relative Dropbox folder path, e.g., 'TBG/HeronLakes'
-    drive_folder_id TEXT,                   -- Google Drive folder ID (future use)
+    data_path TEXT,                         -- relative folder path, e.g., 'TBG/HeronLakes'
     notes TEXT,                             -- markdown
     current_invoice_id TEXT,                -- active/working invoice (FK added after invoices table)
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -94,7 +93,6 @@ CREATE TABLE contracts (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects(id),
     file_path TEXT,                         -- path to signed PDF
-    dropbox_url TEXT,                       -- Dropbox shared link to signed contract
     total_amount NUMERIC(12,2) DEFAULT 0,   -- contracted amount
     signed_at TIMESTAMPTZ,                  -- when contract was signed
     notes TEXT,
@@ -193,7 +191,7 @@ CREATE TABLE invoices (
     deleted_at TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX idx_invoices_number ON invoices(invoice_number);
+CREATE UNIQUE INDEX idx_invoices_number ON invoices(invoice_number) WHERE deleted_at IS NULL;
 CREATE INDEX idx_invoices_project ON invoices(project_id);
 CREATE INDEX idx_invoices_status ON invoices(sent_status, paid_status);
 CREATE INDEX idx_invoices_previous ON invoices(previous_invoice_id);
