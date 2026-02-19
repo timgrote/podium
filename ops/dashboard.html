@@ -1068,6 +1068,23 @@
         </div>
     </div>
 
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3 id="error-modal-title">Error</h3>
+                <button class="modal-close" onclick="document.getElementById('error-modal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="error-modal-message" style="white-space: pre-wrap; word-break: break-word; margin: 0;"></p>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button type="button" class="btn btn-secondary" id="error-copy-btn" style="font-size: 0.8rem;">Copy Error</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('error-modal').classList.remove('active')">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Project Modal -->
     <div id="add-project-modal" class="modal">
         <div class="modal-content modal-wide">
@@ -1496,9 +1513,12 @@
                         <input type="text" id="edit-inv-pdf-path" placeholder="/uploads/invoices/...">
                     </div>
                     <div id="edit-inv-sheet-actions" class="form-group hidden"></div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeEditInvoiceModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                    <div class="modal-footer" style="justify-content: space-between;">
+                        <button type="button" class="btn btn-danger" onclick="deleteInvoiceFromEdit()">Delete Invoice</button>
+                        <div>
+                            <button type="button" class="btn btn-secondary" onclick="closeEditInvoiceModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -1518,6 +1538,22 @@
     </div>
 
     <script>
+        function showError(message, title) {
+            var modal = document.getElementById('error-modal');
+            var msgEl = document.getElementById('error-modal-message');
+            var titleEl = document.getElementById('error-modal-title');
+            var copyBtn = document.getElementById('error-copy-btn');
+            titleEl.textContent = title || 'Error';
+            msgEl.textContent = message;
+            copyBtn.onclick = function() {
+                navigator.clipboard.writeText(message).then(function() {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Error'; }, 1500);
+                });
+            };
+            modal.classList.add('active');
+        }
+
         const PROJECTS_API = '/api/projects';
         const COMPANY_API = '/api/company';
         const CLIENTS_API = '/api/clients';
@@ -1660,17 +1696,7 @@
             sections.appendChild(tasksAccordion.wrapper);
 
             // --- 3. Financial Accordion (Contracts + Proposals + Invoices) ---
-            var addContractBtn = document.createElement('button');
-            addContractBtn.className = 'icon-btn';
-            addContractBtn.style.cssText = 'width:28px;height:28px;font-size:1.2rem;';
-            addContractBtn.title = 'Add Contract';
-            addContractBtn.textContent = '+';
-            addContractBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                openAddContractModal(jobId);
-            });
-
-            var financialAccordion = createAccordion('Financial', true, [addContractBtn]);
+            var financialAccordion = createAccordion('Financial', true, []);
 
             // Contracts subsection
             var contractsSub = document.createElement('div');
@@ -1680,7 +1706,17 @@
             contractsSubHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
             var contractsLabel = document.createElement('span');
             contractsLabel.textContent = 'Contracts';
+            var addContractBtn = document.createElement('button');
+            addContractBtn.className = 'icon-btn';
+            addContractBtn.style.cssText = 'width:22px;height:22px;font-size:1rem;';
+            addContractBtn.title = 'Add Contract';
+            addContractBtn.textContent = '+';
+            addContractBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openAddContractModal(jobId);
+            });
             contractsSubHeader.appendChild(contractsLabel);
+            contractsSubHeader.appendChild(addContractBtn);
             contractsSub.appendChild(contractsSubHeader);
             var contractsContent = document.createElement('div');
             contractsContent.insertAdjacentHTML('beforeend', renderContractsSection(project));
@@ -2047,7 +2083,7 @@
                         if (!res.ok) throw new Error('Delete failed');
                         closeTaskDetailModal();
                         loadDashboardTasks(jobId);
-                    } catch (e) { alert('Failed to delete task'); }
+                    } catch (e) { showError('Failed to delete task:\n\n' + e.message); }
                 });
                 kebabMenu.appendChild(deleteOption);
                 kebabBtn.addEventListener('click', function(e) {
@@ -2091,7 +2127,7 @@
                         });
                         if (!res.ok) throw new Error('Update failed');
                         loadDashboardTasks(jobId);
-                    } catch (e) { alert('Failed to update status'); }
+                    } catch (e) { showError('Failed to update status:\n\n' + e.message); }
                 });
                 statusItem.appendChild(statusLabel);
                 statusItem.appendChild(statusSelect);
@@ -2116,7 +2152,7 @@
                         });
                         if (!res.ok) throw new Error('Update failed');
                         loadDashboardTasks(jobId);
-                    } catch (e) { alert('Failed to update start date'); }
+                    } catch (e) { showError('Failed to update start date:\n\n' + e.message); }
                 });
                 startItem.appendChild(startLabel);
                 startItem.appendChild(startInput);
@@ -2141,7 +2177,7 @@
                         });
                         if (!res.ok) throw new Error('Update failed');
                         loadDashboardTasks(jobId);
-                    } catch (e) { alert('Failed to update due date'); }
+                    } catch (e) { showError('Failed to update due date:\n\n' + e.message); }
                 });
                 dueItem.appendChild(dueLabel);
                 dueItem.appendChild(dueInput);
@@ -2182,7 +2218,7 @@
                             if (!res.ok) throw new Error('Update failed');
                             loadDashboardTasks(jobId);
                             openTaskDetailModal(taskId, jobId); // refresh modal
-                        } catch (e) { alert('Failed to update assignees'); }
+                        } catch (e) { showError('Failed to update assignees:\n\n' + e.message); }
                     });
                     assignDiv.appendChild(chip);
                 });
@@ -2233,7 +2269,7 @@
                                 if (!res.ok) throw new Error('Update failed');
                                 loadDashboardTasks(jobId);
                                 openTaskDetailModal(taskId, jobId);
-                            } catch (e) { alert('Failed to update subtask'); }
+                            } catch (e) { showError('Failed to update subtask:\n\n' + e.message); }
                         });
                         const subTitle = document.createElement('span');
                         subTitle.className = 'task-subtask-title';
@@ -2328,7 +2364,7 @@
                             const res = await fetch('/api/tasks/notes/' + note.id, { method: 'DELETE' });
                             if (!res.ok) throw new Error('Delete failed');
                             openTaskDetailModal(taskId, jobId);
-                        } catch (e) { alert('Failed to delete note'); }
+                        } catch (e) { showError('Failed to delete note:\n\n' + e.message); }
                     });
                     noteRight.appendChild(noteDate);
                     noteRight.appendChild(noteDelete);
@@ -2526,7 +2562,7 @@
                             <div class="detail-item-info">
                                 <span class="detail-item-secondary">Signed ${formatDate(signedDate)}</span>
                             </div>
-                            ${canEdit ? `<button class="action-btn" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation(); openEditContractModal('${project.id}', '${contract.id}')">Edit</button>` : ''}
+                            ${canEdit ? `<button class="action-btn" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation(); openEditContractModal('${escapeAttr(project.id)}', '${escapeAttr(contract.id)}')">Edit</button>` : ''}
                         </div>
                         ${tasks.length > 0 ? `
                         <div style="font-size: 0.8rem;">
@@ -2546,7 +2582,7 @@
                                 <span style="color: #4ade80;">$${Number(amount).toLocaleString()}</span>
                             </div>
                             <div style="text-align: right; margin-top: 8px;">
-                                <button class="action-btn action-invoice" onclick="event.stopPropagation(); createInvoiceFromContract('${project.id}', '${contract.id || 'legacy'}')">Create Invoice</button>
+                                <button class="action-btn action-invoice" onclick="event.stopPropagation(); createInvoiceFromContract('${escapeAttr(project.id)}', '${escapeAttr(contract.id || 'legacy')}')">Create Invoice</button>
                             </div>
                         </div>
                         ` : `<div style="color: #666; font-size: 0.8rem;">$${Number(amount).toLocaleString()}</div>`}
@@ -2597,12 +2633,11 @@
                         <div class="detail-item-actions">
                             ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">Sheet</a>` : ''}
                             ${inv.pdf_path ? `<a href="${inv.pdf_path}" target="_blank" class="action-btn action-view">PDF</a>` : ''}
-                            <button class="action-btn" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation(); openEditInvoiceModal('${project.id}', '${inv.id}')">Edit</button>
-                            ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${inv.id}', '${project.id}')">Export PDF</button>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.id}', '${inv.invoice_number}')">Mark Sent</button>` : ''}
-                            ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
-                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="openCreateInvoiceModal('${project.id}', '${inv.contract_id}')">Next Invoice</button>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.id}', '${inv.invoice_number}')">Delete</button>` : ''}
+                            <button class="action-btn action-view" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation(); openEditInvoiceModal('${escapeAttr(project.id)}', '${escapeAttr(inv.id)}')">Edit</button>
+                            ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${escapeAttr(inv.id)}', '${escapeAttr(project.id)}')">Export PDF</button>` : ''}
+                            ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${escapeAttr(project.id)}', '${escapeAttr(inv.invoice_number)}')">Mark Sent</button>` : ''}
+                            ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${escapeAttr(project.id)}', '${escapeAttr(inv.invoice_number)}')">Mark Paid</button>` : ''}
+                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="openCreateInvoiceModal('${escapeAttr(project.id)}', '${escapeAttr(inv.contract_id)}')">Next Invoice</button>` : ''}
                         </div>
                     </div>
                 `}).join('')}
@@ -2663,9 +2698,6 @@
                 tbody.innerHTML = '';
 
                 allProjects.forEach(project => {
-                    const total = getProjectTotal(project);
-                    const invoiced = getProjectInvoiced(project);
-                    const paid = getProjectPaid(project);
                     const jobId = project.id;
 
                     // Project row (clickable to expand)
@@ -2677,19 +2709,7 @@
                         if (e.target.closest('.actions-cell')) return;
                         toggleProjectDetail(jobId);
                     };
-                    // Note: All user data sanitized via escapeHtml()
-                    row.innerHTML = `
-                        <td><span class="expand-icon">▶</span> <strong>${escapeHtml(project.job_code || jobId)}</strong>${project.project_number ? '<br><span class="date">' + escapeHtml(project.project_number) + '</span>' : ''}</td>
-                        <td>${escapeHtml(project.client_name)}<br><span class="date">${escapeHtml(project.client_email)}</span></td>
-                        <td>${escapeHtml(project.project_name || '-')}${project.location ? '<br><span class="date">' + escapeHtml(project.location) + '</span>' : ''}</td>
-                        <td class="amount">$${total.toLocaleString()}</td>
-                        <td class="amount">$${invoiced.toLocaleString()}</td>
-                        <td class="amount">$${paid.toLocaleString()}</td>
-                        <td><span class="status status-${project.status}">${formatStatus(project.status)}</span></td>
-                        <td class="actions-cell">
-                            ${getActionButtons(project)}
-                        </td>
-                    `;
+                    renderProjectRow(row, project);
                     tbody.appendChild(row);
 
                     // Detail row (hidden by default)
@@ -2924,8 +2944,8 @@
             return `
                 <button class="hamburger-btn" onclick="event.stopPropagation(); toggleHamburger(this)" title="Actions">&#8942;</button>
                 <div class="hamburger-menu">
-                    <button onclick="event.stopPropagation(); openEditProjectModal('${project.id}')">Edit</button>
-                    <button class="danger" onclick="event.stopPropagation(); openDeleteProjectModal('${project.id}')">Delete</button>
+                    <button onclick="event.stopPropagation(); openEditProjectModal('${escapeAttr(project.id)}')">Edit</button>
+                    <button class="danger" onclick="event.stopPropagation(); openDeleteProjectModal('${escapeAttr(project.id)}')">Delete</button>
                 </div>
             `;
         }
@@ -2964,13 +2984,13 @@
                 });
 
                 if (response.ok) {
-                    refreshData();
+                    await refreshProject(jobId);
                 } else {
-                    alert('Failed to update status');
+                    showError('Failed to update status (HTTP ' + response.status + ')');
                 }
             } catch (error) {
                 console.error('Update failed:', error);
-                alert('Failed to update status');
+                showError('Failed to update status:\n\n' + error.message);
             }
         }
 
@@ -3041,7 +3061,7 @@
                 <div class="invoices-section">
                     <div class="invoices-header">
                         <span class="invoices-title">INVOICES</span>
-                        <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${project.id}')">+ Create</button>
+                        <button class="btn btn-primary btn-small" onclick="openCreateInvoiceModal('${escapeAttr(project.id)}')">+ Create</button>
                     </div>
                     ${getInvoicesHtml(project)}
                 </div>
@@ -3148,7 +3168,7 @@
 
                 const data = await response.json();
                 if (data.error) {
-                    alert('Error: ' + data.error);
+                    showError('Error: ' + data.error);
                     return;
                 }
 
@@ -3156,7 +3176,7 @@
                 refreshData();
             } catch (error) {
                 console.error('Delete failed:', error);
-                alert('Failed to delete project');
+                showError('Failed to delete project:\n\n' + error.message);
             }
         }
 
@@ -3209,13 +3229,13 @@
                 });
                 if (response.ok) {
                     closeEditProjectModal();
-                    refreshData();
+                    await refreshProject(originalId);
                 } else {
-                    alert('Failed to save project changes');
+                    showError('Failed to save project changes (HTTP ' + response.status + ')');
                 }
             } catch (error) {
                 console.error('Edit failed:', error);
-                alert('Failed to save project changes');
+                showError('Failed to save project changes:\n\n' + error.message);
             }
         }
 
@@ -3310,12 +3330,30 @@
                     closeAddProjectModal();
                     refreshData();
                 } else {
-                    alert('Failed to create project. Please try again.');
+                    showError('Failed to create project (HTTP ' + response.status + ')');
                 }
             } catch (error) {
                 console.error('Error creating project:', error);
-                alert('Failed to create project. Please try again.');
+                showError('Failed to create project:\n\n' + error.message);
             }
+        }
+
+        function renderProjectRow(row, project) {
+            var total = getProjectTotal(project);
+            var invoiced = getProjectInvoiced(project);
+            var paid = getProjectPaid(project);
+            var jobId = project.id;
+            var wasExpanded = row.classList.contains('expanded');
+            row.innerHTML =
+                '<td><span class="expand-icon">\u25B6</span> <strong>' + escapeHtml(project.job_code || jobId) + '</strong>' + (project.project_number ? '<br><span class="date">' + escapeHtml(project.project_number) + '</span>' : '') + '</td>' +
+                '<td>' + escapeHtml(project.client_name) + '<br><span class="date">' + escapeHtml(project.client_email) + '</span></td>' +
+                '<td>' + escapeHtml(project.project_name || '-') + (project.location ? '<br><span class="date">' + escapeHtml(project.location) + '</span>' : '') + '</td>' +
+                '<td class="amount">$' + total.toLocaleString() + '</td>' +
+                '<td class="amount">$' + invoiced.toLocaleString() + '</td>' +
+                '<td class="amount">$' + paid.toLocaleString() + '</td>' +
+                '<td><span class="status status-' + project.status + '">' + formatStatus(project.status) + '</span></td>' +
+                '<td class="actions-cell">' + getActionButtons(project) + '</td>';
+            if (wasExpanded) row.classList.add('expanded');
         }
 
         function escapeHtml(text) {
@@ -3323,6 +3361,11 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function escapeAttr(text) {
+            if (!text) return '';
+            return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
         // Invoice functions
@@ -3354,7 +3397,6 @@
                         <div class="invoice-item-actions">
                             ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">${sheetUrl.includes('google.com') ? 'Sheet' : 'View'}</a>` : ''}
                             ${inv.pdf_path ? `<a href="${inv.pdf_path}" target="_blank" class="action-btn action-view">PDF</a>` : ''}
-                            ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.id}', '${inv.invoice_number}')">Delete</button>` : ''}
                         </div>
                     </div>`;
                 }).join('')}
@@ -3551,7 +3593,7 @@
                 }
 
                 if (!response.ok) {
-                    alert('Failed to create invoice (HTTP ' + response.status + '):\n\n' + (result.detail || JSON.stringify(result)));
+                    showError('Failed to create invoice (HTTP ' + response.status + '):\n\n' + (result.detail || JSON.stringify(result)));
                     return;
                 }
 
@@ -3567,10 +3609,10 @@
                         if (sheetRes.ok && sheetResult.data_path) {
                             window.open(sheetResult.data_path, '_blank');
                         } else {
-                            alert('Invoice saved, but sheet generation failed: ' + (sheetResult.detail || 'Unknown error'));
+                            showError('Invoice saved, but sheet generation failed: ' + (sheetResult.detail || 'Unknown error'));
                         }
                     } catch (sheetErr) {
-                        alert('Invoice saved, but sheet generation failed: ' + sheetErr.message);
+                        showError('Invoice saved, but sheet generation failed: ' + sheetErr.message);
                     }
                 }
 
@@ -3578,7 +3620,7 @@
                 await refreshAndReopen(reopenJobId);
             } catch (error) {
                 console.error('Error creating invoice:', error);
-                alert('Failed to create invoice:\n\n' + error.message);
+                showError('Failed to create invoice:\n\n' + error.message);
             } finally {
                 createBtn.disabled = false;
                 dbBtn.disabled = false;
@@ -3590,9 +3632,11 @@
         }
 
         async function refreshAndReopen(jobId) {
-            expandedProjects.delete(jobId);
-            await refreshData();
-            if (jobId) toggleProjectDetail(jobId);
+            if (jobId) {
+                await refreshProject(jobId);
+            } else {
+                await refreshData();
+            }
         }
 
         async function sendInvoiceEmail(jobId, invoiceNumber) {
@@ -3612,11 +3656,11 @@
                 if (response.ok) {
                     await refreshAndReopen(jobId);
                 } else {
-                    alert('Failed to update invoice status.');
+                    showError('Failed to update invoice status (HTTP ' + response.status + ')');
                 }
             } catch (error) {
                 console.error('Error sending invoice:', error);
-                alert('Failed to send invoice. Please try again.');
+                showError('Failed to send invoice:\n\n' + error.message);
             }
         }
 
@@ -3629,11 +3673,11 @@
                 if (response.ok) {
                     await refreshAndReopen(jobId);
                 } else {
-                    alert('Failed to export PDF: ' + (result.detail || 'Unknown error'));
+                    showError('Failed to export PDF: ' + (result.detail || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error exporting PDF:', error);
-                alert('Failed to export PDF. Is the Google service account configured?');
+                showError('Failed to export PDF. Is the Google service account configured?');
             }
         }
 
@@ -3647,11 +3691,11 @@
                 if (response.ok) {
                     await refreshAndReopen(jobId);
                 } else {
-                    alert('Failed to send invoice: ' + (result.detail || 'Unknown error'));
+                    showError('Failed to send invoice: ' + (result.detail || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error sending invoice:', error);
-                alert('Failed to send invoice. Is the Google service account configured?');
+                showError('Failed to send invoice. Is the Google service account configured?');
             }
         }
 
@@ -3672,11 +3716,11 @@
                 if (response.ok) {
                     await refreshAndReopen(jobId);
                 } else {
-                    alert('Failed to update invoice status.');
+                    showError('Failed to update invoice status (HTTP ' + response.status + ')');
                 }
             } catch (error) {
                 console.error('Error updating invoice:', error);
-                alert('Failed to update invoice. Please try again.');
+                showError('Failed to update invoice:\n\n' + error.message);
             }
         }
 
@@ -3782,7 +3826,7 @@
 
                 document.getElementById('edit-invoice-modal').classList.add('active');
             } catch (e) {
-                alert('Failed to load invoice details: ' + e.message);
+                showError('Failed to load invoice details: ' + e.message);
             }
         }
 
@@ -3808,6 +3852,18 @@
             document.getElementById('edit-invoice-modal').classList.remove('active');
         }
 
+        function deleteInvoiceFromEdit() {
+            var invoiceId = document.getElementById('edit-inv-id').value;
+            var jobId = document.getElementById('edit-inv-project-id').value;
+            var invoiceNumber = document.getElementById('edit-inv-number').value;
+            closeEditInvoiceModal();
+            deleteInvoiceState = { jobId: jobId, invoiceNumber: invoiceNumber };
+            document.getElementById('delete-invoice-message').textContent =
+                'Are you sure you want to delete invoice ' + invoiceNumber + '?';
+            document.getElementById('delete-sheet-checkbox').checked = true;
+            document.getElementById('delete-invoice-modal').classList.add('active');
+        }
+
         async function generateSheetForInvoice(invoiceId, jobId) {
             var btn = document.getElementById('edit-inv-sheet-actions').querySelector('button');
             if (btn) {
@@ -3831,14 +3887,14 @@
                     sheetActions.appendChild(link);
                     window.open(result.data_path, '_blank');
                 } else {
-                    alert('Failed to generate sheet: ' + (result.detail || 'Unknown error'));
+                    showError('Failed to generate sheet: ' + (result.detail || 'Unknown error'));
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = 'Generate Google Sheet';
                     }
                 }
             } catch (error) {
-                alert('Failed to generate sheet: ' + error.message);
+                showError('Failed to generate sheet: ' + error.message);
                 if (btn) {
                     btn.disabled = false;
                     btn.textContent = 'Generate Google Sheet';
@@ -3894,15 +3950,14 @@
                 var resText = await res.text();
                 if (res.ok) {
                     closeEditInvoiceModal();
-                    projectDetailCache.delete(jobId);
-                    refreshData();
+                    await refreshProject(jobId);
                 } else {
                     var detail = resText;
                     try { var parsed = JSON.parse(resText); detail = parsed.detail || resText; } catch(_) {}
-                    alert('Failed to save invoice (HTTP ' + res.status + '):\n\n' + detail);
+                    showError('Failed to save invoice (HTTP ' + res.status + '):\n\n' + detail);
                 }
             } catch (e) {
-                alert('Failed to save invoice:\n\n' + e.message);
+                showError('Failed to save invoice:\n\n' + e.message);
             }
         }
 
@@ -3945,11 +4000,12 @@
                     closeDeleteInvoiceModal();
                     await refreshAndReopen(jobId);
                 } else {
-                    alert('Failed to delete invoice.');
+                    var errBody = await response.json().catch(function() { return {}; });
+                    showError('Failed to delete invoice (HTTP ' + response.status + '):\n\n' + (errBody.detail || JSON.stringify(errBody)));
                 }
             } catch (error) {
                 console.error('Error deleting invoice:', error);
-                alert('Failed to delete invoice. Please try again.');
+                showError('Failed to delete invoice:\n\n' + error.message);
             }
         }
 
@@ -3960,6 +4016,33 @@
             // Clear cache so expanded projects reload fresh data
             projectDetailCache.clear();
             await loadProjects();
+        }
+
+        async function refreshProject(jobId) {
+            try {
+                var res = await fetch(PROJECTS_API + '/' + jobId);
+                if (!res.ok) return;
+                var fresh = mapProject(await res.json());
+
+                // Update allProjects in place
+                var idx = allProjects.findIndex(function(p) { return p.id === jobId; });
+                if (idx === -1) return;
+                allProjects[idx] = fresh;
+
+                // Re-render the table row
+                var row = document.querySelector('.project-row[data-job-id="' + jobId + '"]');
+                if (row) renderProjectRow(row, fresh);
+
+                // Re-render the detail panel if expanded
+                if (expandedProjects.has(jobId)) {
+                    projectDetailCache.delete(jobId);
+                    loadProjectDetail(jobId);
+                }
+
+                updateStats(allProjects);
+            } catch (e) {
+                console.error('Failed to refresh project:', e);
+            }
         }
 
         // Add/Edit Contract Modal functions
@@ -4131,14 +4214,14 @@
 
                 if (response.ok) {
                     closeAddContractModal();
-                    projectDetailCache.delete(currentContractJobId);
-                    refreshData();
+                    await refreshProject(currentContractJobId);
                 } else {
-                    alert('Failed to save contract. Please try again.');
+                    var errData = await response.json().catch(function() { return {}; });
+                    showError('Failed to save contract (HTTP ' + response.status + '):\n\n' + (errData.detail || JSON.stringify(errData)));
                 }
             } catch (error) {
                 console.error('Error saving contract:', error);
-                alert('Failed to save contract. Please try again.');
+                showError('Failed to save contract:\n\n' + error.message);
             }
         }
 
@@ -4188,9 +4271,9 @@
                         </div>
                         ` : `<div style="color: #666; font-size: 0.8rem;">No tasks — $${Number(prop.total_fee || 0).toLocaleString()}</div>`}
                         <div style="display:flex;gap:8px;padding-top:4px;">
-                            <button class="action-btn" onclick="event.stopPropagation(); openEditProposalModal('${prop.id}', '${project.id}')" style="color:#818cf8;font-size:0.75rem;">Edit</button>
-                            ${(prop.status === 'draft' || prop.status === 'sent') ? `<button class="action-btn action-promote" onclick="event.stopPropagation(); openPromoteModal('${project.id}', '${prop.id}')" style="font-size:0.75rem;">Promote</button>` : ''}
-                            ${prop.status === 'draft' ? `<button class="action-btn action-delete" onclick="event.stopPropagation(); deleteProposal('${prop.id}')" style="font-size:0.75rem;">Delete</button>` : ''}
+                            <button class="action-btn" onclick="event.stopPropagation(); openEditProposalModal('${escapeAttr(prop.id)}', '${escapeAttr(project.id)}')" style="color:#818cf8;font-size:0.75rem;">Edit</button>
+                            ${(prop.status === 'draft' || prop.status === 'sent') ? `<button class="action-btn action-promote" onclick="event.stopPropagation(); openPromoteModal('${escapeAttr(project.id)}', '${escapeAttr(prop.id)}')" style="font-size:0.75rem;">Promote</button>` : ''}
+                            ${prop.status === 'draft' ? `<button class="action-btn action-delete" onclick="event.stopPropagation(); deleteProposal('${escapeAttr(prop.id)}')" style="font-size:0.75rem;">Delete</button>` : ''}
                         </div>
                     </div>
                 `}).join('')}
@@ -4352,7 +4435,7 @@
                 document.getElementById('add-proposal-modal').classList.add('active');
             } catch (err) {
                 console.error('Failed to load proposal for editing:', err);
-                alert('Failed to load proposal data.');
+                showError('Failed to load proposal data:\n\n' + err.message);
             }
         }
 
@@ -4608,12 +4691,12 @@
                         }
                         await refreshAndReopen(reopenJobId);
                     } else {
-                        alert('Failed to create proposal: ' + (data.detail || 'Unknown error'));
+                        showError('Failed to create proposal: ' + (data.detail || 'Unknown error'));
                     }
                 }
             } catch (error) {
                 console.error('Error saving proposal:', error);
-                alert('Failed to save proposal. Please try again.');
+                showError('Failed to save proposal:\n\n' + e.message);
             } finally {
                 createBtn.disabled = false;
                 createBtn.textContent = isEditing ? 'Save Changes' : 'Create Proposal';
@@ -4625,6 +4708,9 @@
 
         async function deleteProposal(proposalId) {
             if (!confirm('Delete this proposal?')) return;
+            var ownerProject = allProjects.find(function(p) {
+                return (p.proposals || []).some(function(pr) { return pr.id === proposalId; });
+            });
 
             try {
                 const response = await fetch(PROPOSALS_API + '/' + proposalId, {
@@ -4632,13 +4718,13 @@
                 });
 
                 if (response.ok) {
-                    refreshData();
+                    if (ownerProject) { await refreshProject(ownerProject.id); } else { refreshData(); }
                 } else {
-                    alert('Failed to delete proposal.');
+                    showError('Failed to delete proposal (HTTP ' + response.status + ')');
                 }
             } catch (error) {
                 console.error('Error deleting proposal:', error);
-                alert('Failed to delete proposal.');
+                showError('Failed to delete proposal:\n\n' + error.message);
             }
         }
 
@@ -4690,7 +4776,7 @@
 
 
         async function confirmPromote() {
-            const { proposalId } = promoteState;
+            const { proposalId, jobId: promoteJobId } = promoteState;
             if (!proposalId) return;
 
             const signedAt = document.getElementById('promote-signed-date').value || null;
@@ -4708,14 +4794,14 @@
                 if (response.ok) {
                     closePromoteModal();
                     alert('Proposal promoted to contract!');
-                    refreshData();
+                    await refreshProject(promoteJobId);
                 } else {
                     const err = await response.json();
-                    alert('Failed to promote: ' + (err.detail || 'Unknown error'));
+                    showError('Failed to promote: ' + (err.detail || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error promoting proposal:', error);
-                alert('Failed to promote proposal.');
+                showError('Failed to promote proposal:\n\n' + e.message);
             }
         }
 
