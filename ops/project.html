@@ -452,6 +452,17 @@
                 return;
             }
 
+            // Load Dropbox base path from company settings
+            try {
+                var settingsResp = await fetch(API_BASE + '/company');
+                if (settingsResp.ok) {
+                    var settings = await settingsResp.json();
+                    if (settings.dropbox_base_path) {
+                        window._dropboxBasePath = settings.dropbox_base_path;
+                    }
+                }
+            } catch (e) { /* non-critical */ }
+
             try {
                 const response = await fetch(API_BASE + '/projects/' + encodeURIComponent(jobId));
                 if (!response.ok) {
@@ -508,6 +519,19 @@
             // Header actions
             const headerActions = document.getElementById('header-actions');
             headerActions.textContent = '';
+            // Open in Dropbox button (when project has a dropbox_path)
+            if (project.dropbox_path) {
+                var dropboxBtn = document.createElement('a');
+                var basePath = window._dropboxBasePath || 'TIE';
+                var encodedPath = encodeURI(basePath + '/' + project.dropbox_path);
+                dropboxBtn.href = 'https://www.dropbox.com/home/' + encodedPath;
+                dropboxBtn.target = '_blank';
+                dropboxBtn.rel = 'noopener';
+                dropboxBtn.className = 'btn btn-secondary';
+                dropboxBtn.textContent = 'Open in Dropbox';
+                headerActions.appendChild(dropboxBtn);
+            }
+
             const refreshBtn = document.createElement('button');
             refreshBtn.className = 'btn btn-secondary';
             refreshBtn.textContent = 'Refresh';

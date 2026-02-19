@@ -63,7 +63,8 @@ CREATE TABLE projects (
     project_number TEXT,                    -- user-facing identifier, e.g., '26-001' (auto-incremented)
     job_code TEXT,                          -- editable shorthand, e.g., 'rvi-absal'
     status TEXT DEFAULT 'proposal',         -- proposal, contract, invoiced, paid, complete
-    data_path TEXT,                         -- dropbox folder path, e.g., 'TBG/HeronLakes'
+    dropbox_path TEXT,                      -- relative Dropbox folder path, e.g., 'TBG/HeronLakes'
+    drive_folder_id TEXT,                   -- Google Drive folder ID (future use)
     notes TEXT,                             -- markdown
     current_invoice_id TEXT,                -- active/working invoice (FK added after invoices table)
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -93,6 +94,7 @@ CREATE TABLE contracts (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects(id),
     file_path TEXT,                         -- path to signed PDF
+    dropbox_url TEXT,                       -- Dropbox shared link to signed contract
     total_amount NUMERIC(12,2) DEFAULT 0,   -- contracted amount
     signed_at TIMESTAMPTZ,                  -- when contract was signed
     notes TEXT,
@@ -311,6 +313,20 @@ CREATE TABLE project_task_notes (
 );
 
 CREATE INDEX idx_task_notes_task ON project_task_notes(task_id);
+
+-- ============================================================================
+-- PROJECT NOTES
+-- Timestamped comments on projects (similar to task notes)
+-- ============================================================================
+CREATE TABLE project_notes (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    author_id TEXT REFERENCES employees(id),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_project_notes_project ON project_notes(project_id);
 
 -- ============================================================================
 -- VIEWS

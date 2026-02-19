@@ -310,7 +310,9 @@ def main():
     all_invoices = []
 
     for proj in projects:
-        data_path = proj.get("data_path")
+        # Reconstruct absolute path from relative dropbox_path
+        dropbox_path = proj.get("dropbox_path")
+        data_path = os.path.join("/mnt/d/Dropbox/TIE", dropbox_path) if dropbox_path else None
         if not data_path or not os.path.isdir(data_path):
             continue
 

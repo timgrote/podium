@@ -616,10 +616,74 @@
             padding: 20px 24px;
         }
         .detail-sections {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
+        .accordion-section {
+            background: #242442;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .accordion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .accordion-header:hover {
+            background: #2a2a52;
+        }
+        .accordion-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .accordion-chevron {
+            color: #888;
+            font-size: 0.7rem;
+            transition: transform 0.2s;
+        }
+        .accordion-chevron.expanded {
+            transform: rotate(90deg);
+        }
+        .accordion-title {
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .accordion-badge {
+            color: #666;
+            font-size: 0.7rem;
+            background: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .accordion-body {
+            padding: 0 16px 16px;
+        }
+        .accordion-body.collapsed {
+            display: none;
+        }
+        .accordion-subsection {
+            margin-top: 16px;
+        }
+        .accordion-subsection:first-child {
+            margin-top: 0;
+        }
+        .accordion-subsection-title {
+            color: #666;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #333;
+        }
+        /* Keep legacy styles for content inside accordion */
         .detail-section {
             background: #242442;
             border-radius: 8px;
@@ -639,6 +703,52 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+        .project-note-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 10px 14px;
+            background: #1a1a2e;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+        .project-note-content {
+            color: #ddd;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .project-note-meta {
+            color: #666;
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+        .project-note-delete {
+            color: #888;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 4px;
+            line-height: 1;
+        }
+        .project-note-delete:hover {
+            color: #ff6b6b;
+        }
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .sortable-header:hover {
+            color: #fff;
+        }
+        .sort-indicator {
+            font-size: 0.65rem;
+            color: #666;
+            margin-left: 4px;
+        }
+        .sort-indicator.asc::after { content: '▲'; color: #6c63ff; }
+        .sort-indicator.desc::after { content: '▼'; color: #6c63ff; }
         .detail-list {
             display: flex;
             flex-direction: column;
@@ -789,7 +899,7 @@
 
         @media (max-width: 768px) {
             table { display: block; overflow-x: auto; }
-            .detail-sections { grid-template-columns: 1fr; }
+            .detail-sections { gap: 8px; }
         }
     </style>
 </head>
@@ -836,18 +946,39 @@
                     <button class="btn btn-secondary" onclick="openAddProposalModal()">+ New Proposal</button>
                 </div>
             </div>
+            <div class="mb-3" style="display:flex;gap:10px;align-items:center;">
+                <input type="text" id="project-search" placeholder="Search projects..." oninput="filterProjects()"
+                    style="flex:1;padding:10px 14px;background:#242442;border:1px solid #444;border-radius:8px;color:#fff;font-size:0.9rem;outline:none;">
+                <select id="project-status-filter" onchange="filterProjects()"
+                    style="padding:10px 14px;background:#242442;border:1px solid #444;border-radius:8px;color:#ccc;font-size:0.85rem;outline:none;">
+                    <option value="">All Statuses</option>
+                    <option value="proposal">Proposal</option>
+                    <option value="contract">Contract</option>
+                    <option value="invoiced">Invoiced</option>
+                    <option value="paid">Paid</option>
+                    <option value="complete">Complete</option>
+                </select>
+                <select id="project-pm-filter" onchange="filterProjects()"
+                    style="padding:10px 14px;background:#242442;border:1px solid #444;border-radius:8px;color:#ccc;font-size:0.85rem;outline:none;">
+                    <option value="">All PMs</option>
+                </select>
+                <select id="project-client-filter" onchange="filterProjects()"
+                    style="padding:10px 14px;background:#242442;border:1px solid #444;border-radius:8px;color:#ccc;font-size:0.85rem;outline:none;">
+                    <option value="">All Clients</option>
+                </select>
+            </div>
             <div class="bg-dark-card rounded-xl overflow-hidden">
                 <div id="projects-loading" class="loading text-center p-10 text-gray-500">Loading projects</div>
                 <table id="projects-table" style="display: none;">
                     <thead>
                         <tr>
-                            <th>Project #</th>
-                            <th>Client</th>
-                            <th>Project</th>
-                            <th>Total</th>
-                            <th>Invoiced</th>
-                            <th>Paid</th>
-                            <th>Status</th>
+                            <th class="sortable-header" data-sort="project_number" onclick="sortProjects('project_number')">Project # <span class="sort-indicator"></span></th>
+                            <th class="sortable-header" data-sort="client_name" onclick="sortProjects('client_name')">Client <span class="sort-indicator"></span></th>
+                            <th class="sortable-header" data-sort="project_name" onclick="sortProjects('project_name')">Project <span class="sort-indicator"></span></th>
+                            <th class="sortable-header" data-sort="total" onclick="sortProjects('total')">Total <span class="sort-indicator"></span></th>
+                            <th class="sortable-header" data-sort="invoiced" onclick="sortProjects('invoiced')">Invoiced <span class="sort-indicator"></span></th>
+                            <th class="sortable-header" data-sort="paid" onclick="sortProjects('paid')">Paid <span class="sort-indicator"></span></th>
+                            <th class="sortable-header" data-sort="status" onclick="sortProjects('status')">Status <span class="sort-indicator"></span></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -1295,6 +1426,64 @@
         </div>
     </div>
 
+    <!-- Edit Invoice Modal -->
+    <div id="edit-invoice-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="edit-invoice-title">Edit Invoice</h3>
+                <button class="modal-close" onclick="closeEditInvoiceModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-invoice-form" onsubmit="saveInvoiceEdit(event)">
+                    <input type="hidden" id="edit-inv-id">
+                    <input type="hidden" id="edit-inv-project-id">
+                    <div class="form-group">
+                        <label for="edit-inv-total">Total Due ($)</label>
+                        <input type="number" id="edit-inv-total" step="0.01" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-inv-description">Description</label>
+                        <input type="text" id="edit-inv-description" placeholder="Invoice description">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-inv-sent-status">Sent Status</label>
+                            <select id="edit-inv-sent-status">
+                                <option value="">—</option>
+                                <option value="unsent">Unsent</option>
+                                <option value="sent">Sent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-inv-paid-status">Paid Status</label>
+                            <select id="edit-inv-paid-status">
+                                <option value="">—</option>
+                                <option value="unpaid">Unpaid</option>
+                                <option value="paid">Paid</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-inv-paid-at">Paid Date</label>
+                        <input type="date" id="edit-inv-paid-at">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-inv-data-path">Sheet URL</label>
+                        <input type="text" id="edit-inv-data-path" placeholder="https://docs.google.com/spreadsheets/d/...">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-inv-pdf-path">PDF Path</label>
+                        <input type="text" id="edit-inv-pdf-path" placeholder="/uploads/invoices/...">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditInvoiceModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Task Detail Modal -->
     <div id="task-detail-modal" class="modal">
         <div class="modal-content modal-wide" style="max-width: 640px;">
@@ -1359,101 +1548,180 @@
 
         // Render the detail content: left column (contracts, proposals, invoices), right column (tasks)
         function renderProjectDetail(jobId, project, contentDiv) {
-            // Build layout using DOM methods to avoid innerHTML on the container
             contentDiv.textContent = '';
 
             const sections = document.createElement('div');
             sections.className = 'detail-sections';
-            sections.style.gridTemplateColumns = '25% 1fr';
 
-            // --- Left column: Contracts + Proposals + Invoices ---
-            const leftCol = document.createElement('div');
-            leftCol.className = 'detail-column';
+            // --- Helper: create an accordion section ---
+            function createAccordion(title, startOpen, headerActions) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'accordion-section';
 
-            // Contracts section
-            const contractsSection = document.createElement('div');
-            contractsSection.className = 'detail-section';
-            contractsSection.insertAdjacentHTML('beforeend',
-                '<div class="detail-section-header">' +
-                    '<span class="detail-section-title">Contracts</span>' +
-                    '<button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openAddContractModal(\'' + jobId + '\')" title="Add Contract">+</button>' +
-                '</div>' + renderContractsSection(project)
-            );
-            leftCol.appendChild(contractsSection);
+                const header = document.createElement('div');
+                header.className = 'accordion-header';
 
-            // Proposals section
-            const proposalsSection = document.createElement('div');
-            proposalsSection.className = 'detail-section';
-            proposalsSection.style.marginTop = '16px';
-            proposalsSection.insertAdjacentHTML('beforeend',
-                '<div class="detail-section-header">' +
-                    '<span class="detail-section-title">Proposals</span>' +
-                    '<button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openAddProposalModal(\'' + jobId + '\')" title="Add Proposal">+</button>' +
-                '</div>' + renderProposalsSection(project)
-            );
-            leftCol.appendChild(proposalsSection);
+                const headerLeft = document.createElement('div');
+                headerLeft.className = 'accordion-header-left';
 
-            // Invoices section
-            const invoicesSection = document.createElement('div');
-            invoicesSection.className = 'detail-section';
-            invoicesSection.style.marginTop = '16px';
-            invoicesSection.insertAdjacentHTML('beforeend',
-                '<div class="detail-section-header">' +
-                    '<span class="detail-section-title">Invoices</span>' +
-                    '<button class="icon-btn" style="width:28px;height:28px;font-size:1.2rem;" onclick="openCreateInvoiceModal(\'' + jobId + '\')" title="Create Invoice">+</button>' +
-                '</div>' + renderInvoicesSection(project)
-            );
-            leftCol.appendChild(invoicesSection);
+                const chevron = document.createElement('span');
+                chevron.className = 'accordion-chevron' + (startOpen ? ' expanded' : '');
+                chevron.textContent = '\u25B8';
 
-            sections.appendChild(leftCol);
+                const titleEl = document.createElement('span');
+                titleEl.className = 'accordion-title';
+                titleEl.textContent = title;
 
-            // --- Right column: Tasks ---
-            const tasksSection = document.createElement('div');
-            tasksSection.className = 'detail-section';
+                headerLeft.appendChild(chevron);
+                headerLeft.appendChild(titleEl);
+                header.appendChild(headerLeft);
 
-            const tasksHeader = document.createElement('div');
-            tasksHeader.className = 'detail-section-header';
-            const tasksTitle = document.createElement('span');
-            tasksTitle.className = 'detail-section-title';
-            tasksTitle.textContent = 'Tasks';
-            tasksHeader.appendChild(tasksTitle);
+                if (headerActions) {
+                    const actionsWrap = document.createElement('div');
+                    actionsWrap.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+                    headerActions.forEach(function(action) {
+                        actionsWrap.appendChild(action);
+                    });
+                    header.appendChild(actionsWrap);
+                }
 
-            const tasksRight = document.createElement('div');
-            tasksRight.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+                const body = document.createElement('div');
+                body.className = 'accordion-body' + (startOpen ? '' : ' collapsed');
 
-            const fullViewLink = document.createElement('a');
+                header.addEventListener('click', function(e) {
+                    if (e.target.closest('.icon-btn, a, button:not(.accordion-header)')) return;
+                    const isOpen = !body.classList.contains('collapsed');
+                    body.classList.toggle('collapsed');
+                    chevron.classList.toggle('expanded');
+                });
+
+                wrapper.appendChild(header);
+                wrapper.appendChild(body);
+
+                return { wrapper: wrapper, body: body, chevron: chevron };
+            }
+
+            // --- 1. Notes Accordion ---
+            var notesAccordion = createAccordion('Notes', true, []);
+            var notesContainer = document.createElement('div');
+            notesContainer.id = 'dash-notes-' + jobId;
+            var notesLoading = document.createElement('div');
+            notesLoading.className = 'detail-empty';
+            notesLoading.textContent = 'Loading notes...';
+            notesContainer.appendChild(notesLoading);
+            notesAccordion.body.appendChild(notesContainer);
+            sections.appendChild(notesAccordion.wrapper);
+
+            // --- 2. Tasks Accordion ---
+            var fullViewLink = document.createElement('a');
             fullViewLink.href = '/ops/project.html?job=' + jobId;
             fullViewLink.style.cssText = 'color: #4a9eff; font-size: 0.75rem; text-decoration: none;';
-            fullViewLink.textContent = 'Full View →';
+            fullViewLink.textContent = 'Full View \u2192';
 
-            const addTaskBtn = document.createElement('button');
+            var addTaskBtn = document.createElement('button');
             addTaskBtn.className = 'icon-btn';
             addTaskBtn.style.cssText = 'width:28px;height:28px;font-size:1.2rem;';
             addTaskBtn.title = 'Add Task';
             addTaskBtn.textContent = '+';
-            addTaskBtn.addEventListener('click', function() {
+            addTaskBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
                 openQuickAddTask(jobId);
             });
 
-            tasksRight.appendChild(fullViewLink);
-            tasksRight.appendChild(addTaskBtn);
-            tasksHeader.appendChild(tasksRight);
-
-            tasksSection.appendChild(tasksHeader);
-
-            const tasksBody = document.createElement('div');
+            var tasksAccordion = createAccordion('Tasks', true, [fullViewLink, addTaskBtn]);
+            var tasksBody = document.createElement('div');
             tasksBody.id = 'dash-tasks-' + jobId;
-            const loadingMsg = document.createElement('div');
-            loadingMsg.className = 'detail-empty';
-            loadingMsg.textContent = 'Loading tasks...';
-            tasksBody.appendChild(loadingMsg);
-            tasksSection.appendChild(tasksBody);
+            var tasksLoading = document.createElement('div');
+            tasksLoading.className = 'detail-empty';
+            tasksLoading.textContent = 'Loading tasks...';
+            tasksBody.appendChild(tasksLoading);
+            tasksAccordion.body.appendChild(tasksBody);
+            sections.appendChild(tasksAccordion.wrapper);
 
-            sections.appendChild(tasksSection);
+            // --- 3. Financial Accordion (Contracts + Proposals + Invoices) ---
+            var addContractBtn = document.createElement('button');
+            addContractBtn.className = 'icon-btn';
+            addContractBtn.style.cssText = 'width:28px;height:28px;font-size:1.2rem;';
+            addContractBtn.title = 'Add Contract';
+            addContractBtn.textContent = '+';
+            addContractBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openAddContractModal(jobId);
+            });
+
+            var financialAccordion = createAccordion('Financial', false, [addContractBtn]);
+
+            // Contracts subsection
+            var contractsSub = document.createElement('div');
+            contractsSub.className = 'accordion-subsection';
+            var contractsSubHeader = document.createElement('div');
+            contractsSubHeader.className = 'accordion-subsection-title';
+            contractsSubHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+            var contractsLabel = document.createElement('span');
+            contractsLabel.textContent = 'Contracts';
+            contractsSubHeader.appendChild(contractsLabel);
+            contractsSub.appendChild(contractsSubHeader);
+            var contractsContent = document.createElement('div');
+            contractsContent.insertAdjacentHTML('beforeend', renderContractsSection(project));
+            contractsSub.appendChild(contractsContent);
+            financialAccordion.body.appendChild(contractsSub);
+
+            // Proposals subsection
+            var proposalsSub = document.createElement('div');
+            proposalsSub.className = 'accordion-subsection';
+            var proposalsSubHeader = document.createElement('div');
+            proposalsSubHeader.className = 'accordion-subsection-title';
+            proposalsSubHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+            var proposalsLabel = document.createElement('span');
+            proposalsLabel.textContent = 'Proposals';
+            var addProposalBtn = document.createElement('button');
+            addProposalBtn.className = 'icon-btn';
+            addProposalBtn.style.cssText = 'width:22px;height:22px;font-size:1rem;';
+            addProposalBtn.title = 'Add Proposal';
+            addProposalBtn.textContent = '+';
+            addProposalBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openAddProposalModal(jobId);
+            });
+            proposalsSubHeader.appendChild(proposalsLabel);
+            proposalsSubHeader.appendChild(addProposalBtn);
+            proposalsSub.appendChild(proposalsSubHeader);
+            var proposalsContent = document.createElement('div');
+            proposalsContent.insertAdjacentHTML('beforeend', renderProposalsSection(project));
+            proposalsSub.appendChild(proposalsContent);
+            financialAccordion.body.appendChild(proposalsSub);
+
+            // Invoices subsection
+            var invoicesSub = document.createElement('div');
+            invoicesSub.className = 'accordion-subsection';
+            var invoicesSubHeader = document.createElement('div');
+            invoicesSubHeader.className = 'accordion-subsection-title';
+            invoicesSubHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+            var invoicesLabel = document.createElement('span');
+            invoicesLabel.textContent = 'Invoices';
+            var addInvoiceBtn = document.createElement('button');
+            addInvoiceBtn.className = 'icon-btn';
+            addInvoiceBtn.style.cssText = 'width:22px;height:22px;font-size:1rem;';
+            addInvoiceBtn.title = 'Create Invoice';
+            addInvoiceBtn.textContent = '+';
+            addInvoiceBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openCreateInvoiceModal(jobId);
+            });
+            invoicesSubHeader.appendChild(invoicesLabel);
+            invoicesSubHeader.appendChild(addInvoiceBtn);
+            invoicesSub.appendChild(invoicesSubHeader);
+            var invoicesContent = document.createElement('div');
+            invoicesContent.insertAdjacentHTML('beforeend', renderInvoicesSection(project));
+            invoicesSub.appendChild(invoicesContent);
+            financialAccordion.body.appendChild(invoicesSub);
+
+            sections.appendChild(financialAccordion.wrapper);
             contentDiv.appendChild(sections);
 
-            // Load tasks asynchronously
+            // Load async data
             loadDashboardTasks(jobId);
+            loadProjectNotes(jobId);
         }
 
         // Load and render tasks for a project in the dashboard detail view
@@ -1530,6 +1798,113 @@
                 errMsg.className = 'detail-empty';
                 errMsg.textContent = 'Failed to load tasks';
                 container.appendChild(errMsg);
+            }
+        }
+
+        // Load and render project notes in the dashboard detail view
+        async function loadProjectNotes(jobId) {
+            const container = document.getElementById('dash-notes-' + jobId);
+            if (!container) return;
+
+            try {
+                const res = await fetch('/api/projects/' + jobId + '/notes');
+                if (!res.ok) throw new Error('Failed to load notes');
+                const notes = await res.json();
+
+                container.textContent = '';
+
+                // Add note input at top
+                const inputRow = document.createElement('div');
+                inputRow.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px;';
+
+                const noteInput = document.createElement('input');
+                noteInput.type = 'text';
+                noteInput.placeholder = 'Add a note...';
+                noteInput.id = 'project-note-input-' + jobId;
+                noteInput.style.cssText = 'flex: 1; padding: 8px 12px; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 0.85rem; outline: none;';
+                noteInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') addProjectNote(jobId);
+                });
+                inputRow.appendChild(noteInput);
+
+                const addBtn = document.createElement('button');
+                addBtn.className = 'icon-btn';
+                addBtn.style.cssText = 'width: 32px; height: 32px; font-size: 1rem;';
+                addBtn.textContent = '+';
+                addBtn.title = 'Add Note';
+                addBtn.addEventListener('click', function() {
+                    addProjectNote(jobId);
+                });
+                inputRow.appendChild(addBtn);
+                container.appendChild(inputRow);
+
+                if (notes.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'detail-empty';
+                    empty.textContent = 'No notes yet';
+                    container.appendChild(empty);
+                    return;
+                }
+
+                notes.forEach(function(note) {
+                    const noteEl = document.createElement('div');
+                    noteEl.className = 'project-note-item';
+
+                    const noteContent = document.createElement('div');
+                    const noteText = document.createElement('div');
+                    noteText.className = 'project-note-content';
+                    noteText.textContent = note.content;
+                    noteContent.appendChild(noteText);
+
+                    const noteMeta = document.createElement('div');
+                    noteMeta.className = 'project-note-meta';
+                    noteMeta.textContent = (note.author_name || 'Unknown') + ' \u00b7 ' + formatDate(note.created_at);
+                    noteContent.appendChild(noteMeta);
+                    noteEl.appendChild(noteContent);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'project-note-delete';
+                    delBtn.textContent = '\u00d7';
+                    delBtn.title = 'Delete note';
+                    delBtn.addEventListener('click', function() {
+                        deleteProjectNote(note.id, jobId);
+                    });
+                    noteEl.appendChild(delBtn);
+
+                    container.appendChild(noteEl);
+                });
+            } catch (err) {
+                container.textContent = '';
+                const errMsg = document.createElement('div');
+                errMsg.className = 'detail-empty';
+                errMsg.textContent = 'Failed to load notes';
+                container.appendChild(errMsg);
+            }
+        }
+
+        async function addProjectNote(jobId) {
+            const input = document.getElementById('project-note-input-' + jobId);
+            if (!input || !input.value.trim()) return;
+
+            try {
+                const res = await fetch('/api/projects/' + jobId + '/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: input.value.trim() })
+                });
+                if (!res.ok) throw new Error('Failed to add note');
+                loadProjectNotes(jobId);
+            } catch (e) {
+                loadProjectNotes(jobId);
+            }
+        }
+
+        async function deleteProjectNote(noteId, jobId) {
+            try {
+                await fetch('/api/projects/notes/' + noteId, { method: 'DELETE' });
+                loadProjectNotes(jobId);
+            } catch (e) {
+                loadProjectNotes(jobId);
             }
         }
 
@@ -2123,12 +2498,14 @@
                     const amount = contract.total_amount || contract.amount || 0;
                     const signedDate = contract.signed_at || contract.signed_date;
                     const tasks = contract.tasks || [];
+                    const canEdit = contract.id && contract.id !== 'legacy';
                     return `
                     <div class="detail-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div class="detail-item-info">
                                 <span class="detail-item-secondary">Signed ${formatDate(signedDate)}</span>
                             </div>
+                            ${canEdit ? `<button class="action-btn" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation(); openEditContractModal('${project.id}', '${contract.id}')">Edit</button>` : ''}
                         </div>
                         ${tasks.length > 0 ? `
                         <div style="font-size: 0.8rem;">
@@ -2199,6 +2576,7 @@
                         <div class="detail-item-actions">
                             ${sheetUrl ? `<a href="${sheetUrl}" target="_blank" class="action-btn action-view">Sheet</a>` : ''}
                             ${inv.pdf_path ? `<a href="${inv.pdf_path}" target="_blank" class="action-btn action-view">PDF</a>` : ''}
+                            <button class="action-btn" style="font-size:0.75rem;padding:3px 10px;" onclick="event.stopPropagation(); openEditInvoiceModal('${project.id}', '${inv.id}')">Edit</button>
                             ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${inv.id}', '${project.id}')">Export PDF</button>` : ''}
                             ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceViaGoogle('${inv.id}', '${project.id}')">Send</button>` : ''}
                             ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.id}', '${inv.invoice_number}')">Mark Sent</button>` : ''}
@@ -2260,6 +2638,7 @@
                 }
 
                 allProjects = projects.map(mapProject);
+                populateFilterDropdowns(allProjects);
                 table.style.display = 'table';
                 tbody.innerHTML = '';
 
@@ -2313,6 +2692,127 @@
                 console.error('Failed to load projects:', error);
                 loading.innerHTML = 'Failed to load projects. <button onclick="loadProjects()" class="btn btn-secondary">Retry</button>';
             }
+        }
+
+        // --- Search & Sort ---
+        let currentSort = { field: null, dir: 'asc' };
+
+        function populateFilterDropdowns(projects) {
+            var clients = [];
+            projects.forEach(function(p) {
+                if (p.client_name && clients.indexOf(p.client_name) === -1) clients.push(p.client_name);
+            });
+            clients.sort();
+
+            // PM filter: populate from employees (our team)
+            var pmSelect = document.getElementById('project-pm-filter');
+            var pmVal = pmSelect.value;
+            fetch('/api/employees')
+                .then(function(r) { return r.json(); })
+                .then(function(employees) {
+                    pmSelect.innerHTML = '<option value="">All PMs</option>';
+                    employees.forEach(function(emp) {
+                        var name = emp.first_name + ' ' + emp.last_name;
+                        var opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = name;
+                        pmSelect.appendChild(opt);
+                    });
+                    pmSelect.value = pmVal;
+                });
+
+            var clientSelect = document.getElementById('project-client-filter');
+            var clientVal = clientSelect.value;
+            clientSelect.innerHTML = '<option value="">All Clients</option>';
+            clients.forEach(function(name) {
+                var opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                clientSelect.appendChild(opt);
+            });
+            clientSelect.value = clientVal;
+        }
+
+        function filterProjects() {
+            var query = (document.getElementById('project-search').value || '').toLowerCase();
+            var statusFilter = document.getElementById('project-status-filter').value;
+            var pmFilter = document.getElementById('project-pm-filter').value;
+            var clientFilter = document.getElementById('project-client-filter').value;
+
+            var rows = document.querySelectorAll('#projects-body tr.project-row');
+            rows.forEach(function(row) {
+                var jobId = row.dataset.jobId;
+                var project = allProjects.find(function(p) { return p.id === jobId; });
+                if (!project) return;
+
+                var text = [
+                    project.project_number, project.job_code, project.client_name,
+                    project.client_email, project.project_name, project.location
+                ].filter(Boolean).join(' ').toLowerCase();
+
+                var matchesSearch = !query || text.indexOf(query) !== -1;
+                var matchesStatus = !statusFilter || project.status === statusFilter;
+                var matchesPm = !pmFilter || (project.pm_name || '') === pmFilter;
+                var matchesClient = !clientFilter || (project.client_name || '') === clientFilter;
+                var visible = matchesSearch && matchesStatus && matchesPm && matchesClient;
+
+                row.style.display = visible ? '' : 'none';
+                // Also hide the detail row
+                var detailRow = row.nextElementSibling;
+                if (detailRow && detailRow.classList.contains('detail-row')) {
+                    if (!visible) detailRow.style.display = 'none';
+                }
+            });
+        }
+
+        function sortProjects(field) {
+            if (currentSort.field === field) {
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.dir = 'asc';
+            }
+
+            // Update indicators
+            document.querySelectorAll('.sort-indicator').forEach(function(el) {
+                el.className = 'sort-indicator';
+            });
+            var activeHeader = document.querySelector('[data-sort="' + field + '"] .sort-indicator');
+            if (activeHeader) activeHeader.className = 'sort-indicator ' + currentSort.dir;
+
+            // Sort allProjects array
+            var dir = currentSort.dir === 'asc' ? 1 : -1;
+            allProjects.sort(function(a, b) {
+                var va, vb;
+                switch (field) {
+                    case 'total':
+                        va = getProjectTotal(a); vb = getProjectTotal(b);
+                        return (va - vb) * dir;
+                    case 'invoiced':
+                        va = getProjectInvoiced(a); vb = getProjectInvoiced(b);
+                        return (va - vb) * dir;
+                    case 'paid':
+                        va = getProjectPaid(a); vb = getProjectPaid(b);
+                        return (va - vb) * dir;
+                    default:
+                        va = (a[field] || '').toString().toLowerCase();
+                        vb = (b[field] || '').toString().toLowerCase();
+                        if (va < vb) return -1 * dir;
+                        if (va > vb) return 1 * dir;
+                        return 0;
+                }
+            });
+
+            // Re-render by reordering DOM rows to match sorted allProjects
+            var tbody = document.getElementById('projects-body');
+            allProjects.forEach(function(project) {
+                var projectRow = tbody.querySelector('tr.project-row[data-job-id="' + project.id + '"]');
+                var detailRow = tbody.querySelector('tr.detail-row[data-job-id="' + project.id + '"]');
+                if (projectRow) tbody.appendChild(projectRow);
+                if (detailRow) tbody.appendChild(detailRow);
+            });
+
+            filterProjects();
         }
 
         function updateStats(projects) {
@@ -3087,6 +3587,74 @@
         // Delete invoice modal state
         let deleteInvoiceState = { jobId: null, invoiceNumber: null, sheetUrl: null };
 
+        async function openEditInvoiceModal(jobId, invoiceId) {
+            document.getElementById('edit-inv-id').value = invoiceId;
+            document.getElementById('edit-inv-project-id').value = jobId;
+
+            // Fetch current invoice data
+            try {
+                var res = await fetch('/api/invoices/' + invoiceId);
+                if (!res.ok) throw new Error('Failed to load invoice');
+                var inv = await res.json();
+
+                document.getElementById('edit-invoice-title').textContent = 'Edit Invoice - ' + (inv.invoice_number || invoiceId);
+                document.getElementById('edit-inv-total').value = inv.total_due || '';
+                document.getElementById('edit-inv-description').value = inv.description || '';
+                document.getElementById('edit-inv-sent-status').value = inv.sent_status || '';
+                document.getElementById('edit-inv-paid-status').value = inv.paid_status || '';
+                document.getElementById('edit-inv-paid-at').value = inv.paid_at ? inv.paid_at.split('T')[0] : '';
+                document.getElementById('edit-inv-data-path').value = inv.data_path || '';
+                document.getElementById('edit-inv-pdf-path').value = inv.pdf_path || '';
+
+                document.getElementById('edit-invoice-modal').classList.add('active');
+            } catch (e) {
+                alert('Failed to load invoice details');
+            }
+        }
+
+        function closeEditInvoiceModal() {
+            document.getElementById('edit-invoice-modal').classList.remove('active');
+        }
+
+        async function saveInvoiceEdit(event) {
+            event.preventDefault();
+            var invoiceId = document.getElementById('edit-inv-id').value;
+            var jobId = document.getElementById('edit-inv-project-id').value;
+
+            var updates = {};
+            var total = document.getElementById('edit-inv-total').value;
+            if (total !== '') updates.total_due = parseFloat(total);
+            var desc = document.getElementById('edit-inv-description').value.trim();
+            if (desc) updates.description = desc;
+            var sentStatus = document.getElementById('edit-inv-sent-status').value;
+            if (sentStatus) updates.sent_status = sentStatus;
+            var paidStatus = document.getElementById('edit-inv-paid-status').value;
+            if (paidStatus) updates.paid_status = paidStatus;
+            var paidAt = document.getElementById('edit-inv-paid-at').value;
+            if (paidAt) updates.paid_at = paidAt;
+            var dataPath = document.getElementById('edit-inv-data-path').value.trim();
+            if (dataPath) updates.data_path = dataPath;
+            var pdfPath = document.getElementById('edit-inv-pdf-path').value.trim();
+            if (pdfPath) updates.pdf_path = pdfPath;
+
+            try {
+                var res = await fetch('/api/invoices/' + invoiceId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+                if (res.ok) {
+                    closeEditInvoiceModal();
+                    projectDetailCache.delete(jobId);
+                    refreshData();
+                } else {
+                    alert('Failed to save invoice changes');
+                }
+            } catch (e) {
+                alert('Failed to save invoice changes');
+            }
+        }
+
         function deleteInvoice(jobId, invoiceNumber) {
             const project = allProjects.find(p => p.id === jobId);
             if (!project) return;
@@ -3143,10 +3711,12 @@
             await loadProjects();
         }
 
-        // Add Contract Modal functions
+        // Add/Edit Contract Modal functions
         let currentContractJobId = null;
+        let editingContractId = null;
 
         function openAddContractModal(jobId) {
+            editingContractId = null;
             currentContractJobId = jobId;
             const project = allProjects.find(p => p.id === jobId);
 
@@ -3176,6 +3746,47 @@
         function closeAddContractModal() {
             document.getElementById('add-contract-modal').classList.remove('active');
             currentContractJobId = null;
+            editingContractId = null;
+        }
+
+        function openEditContractModal(jobId, contractId) {
+            currentContractJobId = jobId;
+            editingContractId = contractId;
+            const project = allProjects.find(p => p.id === jobId);
+            const contract = project ? (project.contracts || []).find(c => c.id === contractId) : null;
+
+            if (!contract) {
+                alert('Contract not found');
+                return;
+            }
+
+            document.getElementById('add-contract-title').textContent = 'Edit Contract - ' + (project ? (project.project_number || jobId) : jobId);
+            document.getElementById('add-contract-form').reset();
+
+            // Clear task rows safely
+            var tasksList = document.getElementById('contract-tasks-list');
+            while (tasksList.firstChild) tasksList.removeChild(tasksList.firstChild);
+
+            // Populate fields from existing contract
+            if (contract.signed_at) {
+                var signedDate = contract.signed_at.split('T')[0];
+                document.getElementById('contract-signed-date').value = signedDate;
+            }
+            if (contract.file_path) {
+                document.getElementById('contract-file-path').value = contract.file_path;
+            }
+
+            // Populate existing tasks
+            var tasks = contract.tasks || [];
+            if (tasks.length > 0) {
+                tasks.forEach(function(t) {
+                    addContractTaskRow({ name: t.name, amount: t.amount, billed_amount: t.billed_amount, billed_percent: t.billed_percent });
+                });
+            } else {
+                addContractTaskRow();
+            }
+
+            document.getElementById('add-contract-modal').classList.add('active');
         }
 
         function addContractTaskRow(defaults) {
@@ -3236,19 +3847,35 @@
                 }
             });
 
-            var contract = {
-                project_id: currentContractJobId,
-                total_amount: tasks.reduce(function(sum, t) { return sum + t.amount; }, 0),
-                signed_at: document.getElementById('contract-signed-date').value || null,
-                file_path: document.getElementById('contract-file-path').value.trim() || null,
-                tasks: tasks.length > 0 ? tasks : null,
-            };
+            var url, method, body;
+
+            if (editingContractId) {
+                // Edit mode — PATCH existing contract
+                url = '/api/contracts/' + editingContractId;
+                method = 'PATCH';
+                body = {
+                    signed_at: document.getElementById('contract-signed-date').value || null,
+                    file_path: document.getElementById('contract-file-path').value.trim() || null,
+                    tasks: tasks,
+                };
+            } else {
+                // Create mode — POST new contract
+                url = '/api/contracts';
+                method = 'POST';
+                body = {
+                    project_id: currentContractJobId,
+                    total_amount: tasks.reduce(function(sum, t) { return sum + t.amount; }, 0),
+                    signed_at: document.getElementById('contract-signed-date').value || null,
+                    file_path: document.getElementById('contract-file-path').value.trim() || null,
+                    tasks: tasks.length > 0 ? tasks : null,
+                };
+            }
 
             try {
-                var response = await fetch('/api/contracts', {
-                    method: 'POST',
+                var response = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(contract)
+                    body: JSON.stringify(body)
                 });
 
                 if (response.ok) {

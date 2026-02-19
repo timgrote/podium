@@ -1,39 +1,74 @@
 #!/usr/bin/env python3
 """Import TIE irrigation projects into local Podium database via API.
 
-Phase A: Import project structure (clients + projects with notes).
+Phase A: Import project structure (clients + contacts + projects with notes).
 Targets localhost:3000 ONLY. TIE folder is read-only.
+
+Clients = companies (RVi Planning, DR Horton, TBG, etc.)
+Contacts = people at those companies (John Beggs, Jenn Simmons, etc.)
 """
 
 import json
 import os
 import sys
+import uuid
 import requests
+import psycopg2
+import psycopg2.extras
 
 API_BASE = "http://localhost:3000/api"
 TIE_BASE = "/mnt/d/Dropbox/TIE"
+DB_URL = os.environ.get(
+    "CONDUCTOR_DATABASE_URL",
+    "postgresql://conductor:conductor@localhost:5432/conductor",
+)
 
-# Existing RVi client ID (John Beggs)
-RVI_CLIENT_ID = "c-276ed920"
 
-# ── Client definitions ──────────────────────────────────────────────
+def generate_id(prefix):
+    """Generate an 8-char UUID with prefix, matching app/utils.py."""
+    return prefix + uuid.uuid4().hex[:8]
+
+
+# ── Client definitions (companies) ───────────────────────────────────
 CLIENTS = [
-    "Birdsall",
-    "Bonfire",
-    "Cheyenne",
-    "DR Horton",
-    "Kelly",
-    "Landmark",
-    "Legacy Park",
-    "Mosaic",
-    "Pacific Rim",
-    # RVi Planning — already exists as c-276ed920
-    "Scotchboy",
-    "TBG",
+    {"name": "Birdsall"},
+    {"name": "Bonfire"},
+    {"name": "Cheyenne"},
+    {"name": "DR Horton"},
+    {"name": "Kelly"},
+    {"name": "Landmark"},
+    {"name": "Legacy Park"},
+    {"name": "Mosaic"},
+    {"name": "Pacific Rim"},
+    {"name": "RVi Planning"},
+    {"name": "Scotchboy"},
+    {"name": "TBG"},
 ]
 
-# ── Project definitions ─────────────────────────────────────────────
-# (client_name, project_name, data_path_relative, status, md_file_relative_or_None)
+# ── Contact definitions (people at companies) ────────────────────────
+CONTACTS = [
+    {"name": "John Beggs", "email": "jbeggs@rviplanning.com", "client": "RVi Planning", "role": "Project Manager"},
+    {"name": "Melanie Carpenter", "client": "RVi Planning", "role": "Project Manager"},
+    {"name": "Shelley LaMastra", "client": "RVi Planning", "role": "Project Manager"},
+    {"name": "Jenn Simmons", "client": "DR Horton", "role": "Project Manager"},
+    {"name": "Kelly Hyzy", "client": "Kelly", "role": "Project Manager"},
+]
+
+# ── Default PM per client (used when project MD doesn't specify) ─────
+DEFAULT_PM = {
+    "RVi Planning": "John Beggs",
+    "DR Horton": "Jenn Simmons",
+    "Kelly": "Kelly Hyzy",
+}
+
+# ── Per-project PM overrides (from markdown frontmatter) ─────────────
+PROJECT_PM_OVERRIDES = {
+    "Evans PD": "Melanie Carpenter",
+    "The Mark": "John Beggs",
+}
+
+# ── Project definitions ──────────────────────────────────────────────
+# (client_name, project_name, dropbox_path_relative, status, md_file_relative_or_None)
 PROJECTS = [
     ("Birdsall", "Gateway at Prospect", "Birdsall/Gateway at Prospect", "invoiced", "Birdsall/Gateway at Prospect/Gateway at Prospect.md"),
     ("Birdsall", "HL 21", "Birdsall/HL 21", "invoiced", "Birdsall/HL 21/HL 21.md"),
@@ -53,7 +88,7 @@ PROJECTS = [
     ("Mosaic", "Willox Lane", "Mosaic/Willox Lane", "invoiced", None),
     ("Pacific Rim", "GUAM", "Pacific Rim/GUAM", "proposal", None),
     ("RVi Planning", "Aurora Animal Shelter", "RVi Planning/Aurora Animal Shelter", "invoiced", "RVi Planning/Aurora Animal Shelter/Aurora Animal Shelter.md"),
-    # Ave South SKIPPED — already exists
+    ("RVi Planning", "Ave South", "RVi Planning/Ave South", "invoiced", None),
     ("RVi Planning", "Buxton Hotel", "RVi Planning/Buxton Hotel", "invoiced", "RVi Planning/Buxton Hotel/Buxton Hotel.md"),
     ("RVi Planning", "CPMP", "RVi Planning/CPMP", "invoiced", "RVi Planning/CPMP/CPMP.md"),
     ("RVi Planning", "CPW", "RVi Planning/CPW", "invoiced", "RVi Planning/CPW/CPW.md"),
@@ -88,7 +123,6 @@ def read_md_notes(relative_path):
     try:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
-        # Truncate very long notes to 10KB
         if len(content) > 10000:
             content = content[:10000] + "\n\n... (truncated)"
         return content
@@ -97,54 +131,89 @@ def read_md_notes(relative_path):
         return None
 
 
-def create_clients():
-    """Create clients via API, return name->id mapping."""
-    client_map = {"RVi Planning": RVI_CLIENT_ID}
-
-    for name in CLIENTS:
-        resp = requests.post(f"{API_BASE}/clients", json={"name": name})
-        if resp.status_code == 201:
-            cid = resp.json()["id"]
-            client_map[name] = cid
-            print(f"  + Client: {name} -> {cid}")
-        else:
-            print(f"  ! Client {name} failed: {resp.status_code} {resp.text}")
-            sys.exit(1)
-
+def create_clients_direct(conn, db):
+    """Create client companies directly in DB, return name->id mapping."""
+    client_map = {}
+    for client in CLIENTS:
+        cid = generate_id("c-")
+        db.execute(
+            "INSERT INTO clients (id, name, created_at, updated_at) VALUES (%s, %s, NOW(), NOW())",
+            (cid, client["name"]),
+        )
+        client_map[client["name"]] = cid
+        print(f"  + Client (company): {client['name']} -> {cid}")
+    conn.commit()
     return client_map
 
 
-def create_projects(client_map):
-    """Create projects via API with client links and notes."""
+def create_contacts_direct(conn, db, client_map):
+    """Create contact people directly in DB, return name->id mapping."""
+    contact_map = {}
+    for contact in CONTACTS:
+        client_id = client_map.get(contact["client"])
+        if not client_id:
+            print(f"  ! No client for contact {contact['name']}, skipping")
+            continue
+        cid = generate_id("ct-")
+        db.execute(
+            "INSERT INTO contacts (id, name, email, role, client_id, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, NOW(), NOW())",
+            (cid, contact["name"], contact.get("email"), contact["role"], client_id),
+        )
+        contact_map[contact["name"]] = {"id": cid, "email": contact.get("email")}
+        print(f"  + Contact: {contact['name']} ({contact['role']}) -> {cid} [client: {contact['client']}]")
+    conn.commit()
+    return contact_map
+
+
+def create_projects_via_api(conn, db, client_map, contact_map):
+    """Create projects via API, then set client_pm_id directly in DB."""
     created = 0
+    project_ids = {}
+
     for client_name, project_name, data_rel, status, md_rel in PROJECTS:
         client_id = client_map.get(client_name)
         if not client_id:
             print(f"  ! No client_id for {client_name}, skipping {project_name}")
             continue
 
-        data_path = os.path.join(TIE_BASE, data_rel)
         notes = read_md_notes(md_rel)
 
         payload = {
             "project_name": project_name,
             "client_id": client_id,
             "status": status,
-            "data_path": data_path,
+            "dropbox_path": data_rel,
         }
         if notes:
             payload["notes"] = notes
 
         resp = requests.post(f"{API_BASE}/projects", json=payload)
-        if resp.status_code == 200 or resp.status_code == 201:
+        if resp.status_code in (200, 201):
             pid = resp.json()["id"]
             has_notes = "with notes" if notes else "no notes"
-            print(f"  + Project: {project_name} -> {pid} ({status}, {has_notes})")
+            project_ids[project_name] = pid
+
+            # Set client PM via client_pm_id (not pm_name — that's for our TIE lead)
+            client_pm_name = PROJECT_PM_OVERRIDES.get(project_name) or DEFAULT_PM.get(client_name)
+            pm_suffix = ""
+            if client_pm_name:
+                pm_contact = contact_map.get(client_pm_name, {})
+                contact_id = pm_contact.get("id")
+                if contact_id:
+                    db.execute(
+                        "UPDATE projects SET client_pm_id = %s WHERE id = %s",
+                        (contact_id, pid),
+                    )
+                    pm_suffix = f", client PM: {client_pm_name}"
+
+            print(f"  + Project: {project_name} -> {pid} ({status}, {has_notes}{pm_suffix})")
             created += 1
         else:
             print(f"  ! Project {project_name} failed: {resp.status_code} {resp.text}")
 
-    return created
+    conn.commit()
+    return created, project_ids
 
 
 def main():
@@ -156,17 +225,28 @@ def main():
         print(f"Server not reachable at {API_BASE}: {e}")
         sys.exit(1)
 
+    # Connect directly for client/contact creation (no API for contacts yet)
+    conn = psycopg2.connect(DB_URL)
+    conn.autocommit = False
+    db = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
     print(f"\n{'='*60}")
-    print("TIE -> Podium Import (Phase A: Structure + Notes)")
+    print("TIE -> Podium Import (Phase A: Structure + Contacts + Notes)")
     print(f"{'='*60}\n")
 
-    print("Creating 11 clients...")
-    client_map = create_clients()
-    print(f"\n  Total clients mapped: {len(client_map)}\n")
+    print(f"Creating {len(CLIENTS)} client companies...")
+    client_map = create_clients_direct(conn, db)
+    print(f"\n  Total clients: {len(client_map)}\n")
+
+    print(f"Creating {len(CONTACTS)} contacts...")
+    contact_map = create_contacts_direct(conn, db, client_map)
+    print(f"\n  Total contacts: {len(contact_map)}\n")
 
     print(f"Creating {len(PROJECTS)} projects...")
-    count = create_projects(client_map)
+    count, project_ids = create_projects_via_api(conn, db, client_map, contact_map)
     print(f"\n  Total projects created: {count}")
+
+    conn.close()
 
     # Verify
     print(f"\n{'='*60}")
@@ -177,6 +257,10 @@ def main():
     projects = requests.get(f"{API_BASE}/projects").json()
     print(f"  Clients in DB: {len(clients)}")
     print(f"  Projects in DB: {len(projects)}")
+
+    # Show PM coverage
+    with_pm = sum(1 for p in projects if p.get("pm_name"))
+    print(f"  Projects with PM: {with_pm}/{len(projects)}")
     print("\nDone!")
 
 
