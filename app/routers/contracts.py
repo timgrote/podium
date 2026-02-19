@@ -318,80 +318,8 @@ def create_invoice_from_contract(
 
     db.commit()
 
-    # Try to create Google Sheet for this invoice (unless skipped)
-    sheet_url = None
-    sheet_error = None
-    if not data.skip_sheet:
-        try:
-            from ..google_sheets import create_invoice_sheet
-
-            project = db.execute(
-                "SELECT p.*, c.name as client_name, c.company as client_company, "
-                "c.address as client_address "
-                "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
-                "WHERE p.id = %s",
-                (project_id,),
-            ).fetchone()
-
-            company_email = ""
-            drive_folder_id = ""
-            template_id = ""
-            for key in ("company_email", "invoice_drive_folder_id", "invoice_template_id"):
-                row = db.execute(
-                    "SELECT value FROM company_settings WHERE key = %s", (key,)
-                ).fetchone()
-                if row and row["value"]:
-                    if key == "company_email":
-                        company_email = row["value"]
-                    elif key == "invoice_drive_folder_id":
-                        drive_folder_id = row["value"]
-                    elif key == "invoice_template_id":
-                        template_id = row["value"]
-
-            # Use PM email from request or project, fall back to company email
-            pm_email = data.pm_email or dict(project).get("pm_email") or company_email
-
-            client_display = (
-                dict(project).get("client_company")
-                or dict(project).get("client_name")
-                or ""
-            )
-
-            p_dict = dict(project)
-            sheet_url = create_invoice_sheet(
-                invoice_number=invoice_number,
-                project_name=project["name"],
-                project_id=project_id,
-                invoice_date=now[:10],
-                company_email=pm_email,
-                client_name=client_display,
-                tasks=line_items,
-                folder_id=drive_folder_id,
-                template_id=template_id,
-                client_contact=p_dict.get("client_name") or "",
-                client_company=p_dict.get("client_company") or "",
-                client_address=p_dict.get("client_address") or "",
-                client_project_number=p_dict.get("client_project_number") or "",
-                project_data_path=p_dict.get("data_path") or "",
-            )
-            db.execute(
-                "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
-                (sheet_url, datetime.now().isoformat(), inv_id),
-            )
-            db.commit()
-        except FileNotFoundError:
-            logger.info("Google Sheet creation skipped: no credentials configured")
-            sheet_error = "Google credentials not configured"
-        except Exception as e:
-            logger.error("Google Sheet creation failed: %s", e, exc_info=True)
-            sheet_url = None
-            sheet_error = str(e)
-
     invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (inv_id,)).fetchone()
-    result = dict(invoice)
-    if not result.get("data_path") and sheet_error:
-        result["_warning"] = f"Invoice created but Google Sheet failed: {sheet_error}"
-    return result
+    return dict(invoice)
 
 
 def _update_contract_total(db, contract_id: str):

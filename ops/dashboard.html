@@ -1037,8 +1037,8 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" id="invoice-cancel-btn" class="btn btn-secondary" onclick="closeCreateInvoiceModal()">Cancel</button>
-                    <button type="button" id="invoice-db-btn" class="btn btn-secondary" onclick="createInvoice(true)" title="Save invoice to database only (no Google Sheet)">Save to DB Only</button>
-                    <button type="button" id="invoice-create-btn" class="btn btn-primary" onclick="createInvoice(false)" title="Create Google Sheet and add invoice">&#x1F4CA; Create Invoice Sheet</button>
+                    <button type="button" id="invoice-db-btn" class="btn btn-secondary" onclick="createInvoice(false)" title="Save invoice to database only (no Google Sheet)">Save to DB Only</button>
+                    <button type="button" id="invoice-create-btn" class="btn btn-primary" onclick="createInvoice(true)" title="Save to DB then create Google Sheet">&#x1F4CA; Create Invoice Sheet</button>
                     <span id="invoice-spinner" class="hidden" style="color: #888; font-size: 0.85rem; margin-left: 8px;">Creating...</span>
                 </div>
             </div>
@@ -1495,6 +1495,7 @@
                         <label for="edit-inv-pdf-path">PDF Path</label>
                         <input type="text" id="edit-inv-pdf-path" placeholder="/uploads/invoices/...">
                     </div>
+                    <div id="edit-inv-sheet-actions" class="form-group hidden"></div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="closeEditInvoiceModal()">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save</button>
@@ -2600,7 +2601,7 @@
                             ${sheetUrl ? `<button class="action-btn action-secondary" onclick="exportInvoicePdf('${inv.id}', '${project.id}')">Export PDF</button>` : ''}
                             ${displayStatus === 'draft' ? `<button class="action-btn action-invoice" onclick="sendInvoiceEmail('${project.id}', '${inv.invoice_number}')">Mark Sent</button>` : ''}
                             ${displayStatus === 'sent' ? `<button class="action-btn action-paid" onclick="markInvoicePaid('${project.id}', '${inv.invoice_number}')">Mark Paid</button>` : ''}
-                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="createNextInvoice('${project.id}', '${inv.id}')">Next Invoice</button>` : ''}
+                            ${canCreateNext ? `<button class="action-btn action-contract" onclick="openCreateInvoiceModal('${project.id}', '${inv.contract_id}')">Next Invoice</button>` : ''}
                             ${displayStatus === 'draft' ? `<button class="action-btn action-delete" onclick="deleteInvoice('${project.id}', '${inv.invoice_number}')">Delete</button>` : ''}
                         </div>
                     </div>
@@ -3405,21 +3406,57 @@
 
             // Build task selection list from contract tasks
             const tasksList = document.getElementById('invoice-tasks-list');
-            tasksList.innerHTML = tasks.map((task, idx) => {
-                const remaining = 100 - Number(task.billed_percent || 0);
-                return `
-                    <div class="invoice-task-row">
-                        <span class="invoice-task-name" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</span>
-                        <span class="invoice-task-amount">$${Number(task.amount).toLocaleString()}</span>
-                        <div class="invoice-task-percent">
-                            <input type="number" id="inv-percent-${idx}" data-task-id="${task.id}" data-amount="${task.amount}" value="0" min="0" max="${remaining}" step="5" oninput="updateInvoiceTotal()">
-                        </div>
-                        <span>%</span>
-                        <span class="invoice-task-computed" id="inv-computed-${idx}">$0</span>
-                        <span class="invoice-task-billed">${Number(task.billed_percent || 0).toFixed(0)}% billed</span>
-                    </div>
-                `;
-            }).join('');
+            // Build task rows using DOM methods
+            tasksList.textContent = '';
+            tasks.forEach((task, idx) => {
+                const billedPct = Number(task.billed_percent || 0);
+                const row = document.createElement('div');
+                row.className = 'invoice-task-row';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'invoice-task-name';
+                nameSpan.title = task.name;
+                nameSpan.textContent = task.name;
+                row.appendChild(nameSpan);
+
+                const amtSpan = document.createElement('span');
+                amtSpan.className = 'invoice-task-amount';
+                amtSpan.textContent = '$' + Number(task.amount).toLocaleString();
+                row.appendChild(amtSpan);
+
+                const pctDiv = document.createElement('div');
+                pctDiv.className = 'invoice-task-percent';
+                const pctInput = document.createElement('input');
+                pctInput.type = 'number';
+                pctInput.id = 'inv-percent-' + idx;
+                pctInput.dataset.taskId = task.id;
+                pctInput.dataset.amount = task.amount;
+                pctInput.dataset.billed = billedPct;
+                pctInput.value = billedPct;
+                pctInput.min = billedPct;
+                pctInput.max = 100;
+                pctInput.step = 5;
+                pctInput.addEventListener('input', updateInvoiceTotal);
+                pctDiv.appendChild(pctInput);
+                row.appendChild(pctDiv);
+
+                const pctLabel = document.createElement('span');
+                pctLabel.textContent = '%';
+                row.appendChild(pctLabel);
+
+                const computedSpan = document.createElement('span');
+                computedSpan.className = 'invoice-task-computed';
+                computedSpan.id = 'inv-computed-' + idx;
+                computedSpan.textContent = '$0';
+                row.appendChild(computedSpan);
+
+                const billedSpan = document.createElement('span');
+                billedSpan.className = 'invoice-task-billed';
+                billedSpan.textContent = billedPct.toFixed(0) + '% prev billed';
+                row.appendChild(billedSpan);
+
+                tasksList.appendChild(row);
+            });
 
             updateInvoiceTotal();
             document.getElementById('create-invoice-modal').classList.add('active');
@@ -3451,7 +3488,9 @@
                 if (!percentInput || !computedSpan) return;
 
                 const percent = parseFloat(percentInput.value) || 0;
-                const amount = (task.amount * percent) / 100;
+                const billed = parseFloat(percentInput.dataset.billed) || 0;
+                const deltaPercent = percent - billed;
+                const amount = (task.amount * deltaPercent) / 100;
                 computedSpan.textContent = `$${amount.toLocaleString()}`;
                 total += amount;
             });
@@ -3459,20 +3498,22 @@
             document.getElementById('invoice-total-amount').textContent = `$${total.toLocaleString()}`;
         }
 
-        async function createInvoice(skipSheet) {
+        async function createInvoice(wantSheet) {
             const tasks = _getContractTasks();
             if (tasks.length === 0) return;
 
-            // Send ALL tasks — even ones at 0% so they appear on the invoice
+            // Send ALL tasks — compute delta (entered % minus previously billed %)
             const invoiceTasks = [];
             tasks.forEach((task, idx) => {
-                const percentInput = document.getElementById(`inv-percent-${idx}`);
+                const percentInput = document.getElementById('inv-percent-' + idx);
                 const percent = parseFloat(percentInput ? percentInput.value : 0) || 0;
-                invoiceTasks.push({ task_id: task.id, percent_this_invoice: percent });
+                const billed = parseFloat(percentInput ? percentInput.dataset.billed : 0) || 0;
+                const deltaPercent = percent - billed;
+                invoiceTasks.push({ task_id: task.id, percent_this_invoice: deltaPercent });
             });
 
-            if (invoiceTasks.every(t => t.percent_this_invoice === 0)) {
-                alert('Enter a percentage for at least one task.');
+            if (invoiceTasks.every(t => t.percent_this_invoice <= 0)) {
+                alert('Increase the percentage on at least one task above its previously billed amount.');
                 return;
             }
 
@@ -3487,10 +3528,8 @@
             spinner.classList.remove('hidden');
             document.body.style.cursor = 'wait';
 
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 60000);
-
             try {
+                // Step 1: Always save to DB first (skip_sheet=true)
                 const response = await fetch(INVOICE_CREATE_API + '/' + currentInvoiceContractId + '/invoices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -3498,11 +3537,9 @@
                         tasks: invoiceTasks,
                         pm_email: document.getElementById('invoice-pm-email').value || null,
                         invoice_number: document.getElementById('invoice-number-input').value || null,
-                        skip_sheet: !!skipSheet
-                    }),
-                    signal: controller.signal
+                        skip_sheet: true
+                    })
                 });
-                clearTimeout(timeout);
 
                 let result;
                 const contentType = response.headers.get('content-type') || '';
@@ -3510,37 +3547,43 @@
                     result = await response.json();
                 } else {
                     const text = await response.text();
-                    result = { detail: text || `Server returned ${response.status}` };
+                    result = { detail: text || 'Server returned ' + response.status };
                 }
 
-                if (response.ok) {
-                    if (result._warning) {
-                        alert('Invoice created, but with a warning:\n\n' + result._warning);
-                    }
-                    const reopenJobId = currentInvoiceJobId;
-                    closeCreateInvoiceModal();
-                    // Open the Google Sheet if one was created
-                    if (result.data_path && result.data_path.includes('google.com')) {
-                        window.open(result.data_path, '_blank');
-                    }
-                    // Refresh data then reopen the project that was expanded
-                    await refreshAndReopen(reopenJobId);
-                } else {
-                    const detail = result.detail || JSON.stringify(result);
-                    alert('Failed to create invoice (HTTP ' + response.status + '):\n\n' + detail);
+                if (!response.ok) {
+                    alert('Failed to create invoice (HTTP ' + response.status + '):\n\n' + (result.detail || JSON.stringify(result)));
+                    return;
                 }
+
+                const newInvoiceId = result.id;
+                const reopenJobId = currentInvoiceJobId;
+
+                // Step 2: Generate sheet if requested (keep modal open as blocker)
+                if (wantSheet && newInvoiceId) {
+                    spinner.textContent = 'Creating sheet...';
+                    try {
+                        var sheetRes = await fetch('/api/invoices/' + newInvoiceId + '/generate-sheet', { method: 'POST' });
+                        var sheetResult = await sheetRes.json();
+                        if (sheetRes.ok && sheetResult.data_path) {
+                            window.open(sheetResult.data_path, '_blank');
+                        } else {
+                            alert('Invoice saved, but sheet generation failed: ' + (sheetResult.detail || 'Unknown error'));
+                        }
+                    } catch (sheetErr) {
+                        alert('Invoice saved, but sheet generation failed: ' + sheetErr.message);
+                    }
+                }
+
+                closeCreateInvoiceModal();
+                await refreshAndReopen(reopenJobId);
             } catch (error) {
-                clearTimeout(timeout);
-                if (error.name === 'AbortError') {
-                    alert('Invoice creation timed out after 60 seconds. The invoice may have been created — check the project detail.');
-                } else {
-                    console.error('Error creating invoice:', error);
-                    alert('Failed to create invoice:\n\n' + error.message);
-                }
+                console.error('Error creating invoice:', error);
+                alert('Failed to create invoice:\n\n' + error.message);
             } finally {
                 createBtn.disabled = false;
                 dbBtn.disabled = false;
                 cancelBtn.disabled = false;
+                spinner.textContent = 'Creating...';
                 spinner.classList.add('hidden');
                 document.body.style.cursor = '';
             }
@@ -3714,6 +3757,29 @@
                     window._editInvLineItemCount = 0;
                 }
 
+                // Sheet actions: show link if sheet exists, or generate button if not
+                var sheetActions = document.getElementById('edit-inv-sheet-actions');
+                sheetActions.textContent = '';
+                var sheetUrl = inv.data_path || '';
+                if (sheetUrl && sheetUrl.includes('google.com')) {
+                    var link = document.createElement('a');
+                    link.href = sheetUrl;
+                    link.target = '_blank';
+                    link.className = 'btn btn-secondary';
+                    link.textContent = 'Open Google Sheet';
+                    link.style.display = 'inline-block';
+                    sheetActions.appendChild(link);
+                    sheetActions.classList.remove('hidden');
+                } else {
+                    var genBtn = document.createElement('button');
+                    genBtn.type = 'button';
+                    genBtn.className = 'btn btn-primary';
+                    genBtn.textContent = 'Generate Google Sheet';
+                    genBtn.addEventListener('click', function() { generateSheetForInvoice(invoiceId, jobId); });
+                    sheetActions.appendChild(genBtn);
+                    sheetActions.classList.remove('hidden');
+                }
+
                 document.getElementById('edit-invoice-modal').classList.add('active');
             } catch (e) {
                 alert('Failed to load invoice details: ' + e.message);
@@ -3740,6 +3806,44 @@
 
         function closeEditInvoiceModal() {
             document.getElementById('edit-invoice-modal').classList.remove('active');
+        }
+
+        async function generateSheetForInvoice(invoiceId, jobId) {
+            var btn = document.getElementById('edit-inv-sheet-actions').querySelector('button');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Generating...';
+            }
+            try {
+                var res = await fetch('/api/invoices/' + invoiceId + '/generate-sheet', { method: 'POST' });
+                var result = await res.json();
+                if (res.ok && result.data_path) {
+                    document.getElementById('edit-inv-data-path').value = result.data_path;
+                    // Replace button with link
+                    var sheetActions = document.getElementById('edit-inv-sheet-actions');
+                    sheetActions.textContent = '';
+                    var link = document.createElement('a');
+                    link.href = result.data_path;
+                    link.target = '_blank';
+                    link.className = 'btn btn-secondary';
+                    link.textContent = 'Open Google Sheet';
+                    link.style.display = 'inline-block';
+                    sheetActions.appendChild(link);
+                    window.open(result.data_path, '_blank');
+                } else {
+                    alert('Failed to generate sheet: ' + (result.detail || 'Unknown error'));
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Generate Google Sheet';
+                    }
+                }
+            } catch (error) {
+                alert('Failed to generate sheet: ' + error.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Generate Google Sheet';
+                }
+            }
         }
 
         async function saveInvoiceEdit(event) {
@@ -4043,27 +4147,7 @@
             openCreateInvoiceModal(jobId, contractId);
         }
 
-        // Create Next Invoice — calls API to chain from previous invoice
-        async function createNextInvoice(jobId, invoiceId) {
-            document.body.style.cursor = 'wait';
-            try {
-                var response = await fetch('/api/invoices/' + invoiceId + '/create-next', { method: 'POST' });
-                var result = await response.json();
-                if (response.ok) {
-                    if (result.data_path && result.data_path.includes('google.com')) {
-                        window.open(result.data_path, '_blank');
-                    }
-                    await refreshAndReopen(jobId);
-                } else {
-                    alert('Failed to create next invoice: ' + (result.detail || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Error creating next invoice:', error);
-                alert('Failed to create next invoice. Please try again.');
-            } finally {
-                document.body.style.cursor = '';
-            }
-        }
+        // Next Invoice — reuses the create invoice modal so user can adjust percentages
 
         // --- Proposal functions ---
         const PROPOSALS_API = '/api/proposals';

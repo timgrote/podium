@@ -27,4 +27,3 @@ class InvoiceFromContract(BaseModel):
     """Each dict: {"task_id": str, "percent_this_invoice": float}"""
     pm_email: str | None = None
     invoice_number: str | None = None
-    skip_sheet: bool = False

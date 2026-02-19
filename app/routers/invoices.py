@@ -263,6 +263,109 @@ def send_invoice(invoice_id: str, db=Depends(get_db)):
 
     return {"success": True, "sent_to": to_emails, "pdf_path": drive_url}
 
+
+@router.post("/{invoice_id}/generate-sheet")
+def generate_sheet_for_invoice(invoice_id: str, db=Depends(get_db)):
+    """Generate a Google Sheet for an existing invoice that doesn't have one."""
+    invoice = db.execute(
+        "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
+    ).fetchone()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    invoice = dict(invoice)
+
+    if invoice.get("data_path"):
+        raise HTTPException(status_code=400, detail="Invoice already has a sheet")
+
+    project_id = invoice["project_id"]
+    contract_id = invoice.get("contract_id")
+
+    # Get line items
+    line_items = db.execute(
+        "SELECT * FROM invoice_line_items WHERE invoice_id = %s ORDER BY sort_order",
+        (invoice_id,),
+    ).fetchall()
+    tasks = [dict(li) for li in line_items] if line_items else []
+
+    # Get project + client info
+    project = db.execute(
+        "SELECT p.*, c.name as client_name, c.company as client_company, "
+        "c.address as client_address "
+        "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
+        "WHERE p.id = %s",
+        (project_id,),
+    ).fetchone()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    p_dict = dict(project)
+
+    # Get company settings
+    company_email = ""
+    drive_folder_id = ""
+    template_id = ""
+    for key in ("company_email", "invoice_drive_folder_id", "invoice_template_id"):
+        row = db.execute(
+            "SELECT value FROM company_settings WHERE key = %s", (key,)
+        ).fetchone()
+        if row and row["value"]:
+            if key == "company_email":
+                company_email = row["value"]
+            elif key == "invoice_drive_folder_id":
+                drive_folder_id = row["value"]
+            elif key == "invoice_template_id":
+                template_id = row["value"]
+
+    pm_email = p_dict.get("pm_email") or company_email
+    client_display = p_dict.get("client_company") or p_dict.get("client_name") or ""
+
+    # Build task list in the format create_invoice_sheet expects
+    # quantity = cumulative percent complete (previous + this invoice)
+    sheet_tasks = []
+    for li in tasks:
+        unit_price = float(li.get("unit_price", 0))
+        prev_billing = float(li.get("previous_billing", 0))
+        this_amount = float(li.get("amount", 0))
+        cumulative_pct = ((prev_billing + this_amount) / unit_price * 100) if unit_price else 0
+        sheet_tasks.append({
+            "name": li.get("name", ""),
+            "unit_price": unit_price,
+            "quantity": cumulative_pct,
+            "previous_billing": prev_billing,
+        })
+
+    try:
+        from ..google_sheets import create_invoice_sheet
+
+        sheet_url = create_invoice_sheet(
+            invoice_number=invoice["invoice_number"],
+            project_name=project["name"],
+            project_id=project_id,
+            invoice_date=str(invoice.get("created_at") or "")[:10],
+            company_email=pm_email,
+            client_name=client_display,
+            tasks=sheet_tasks,
+            folder_id=drive_folder_id,
+            template_id=template_id,
+            client_contact=p_dict.get("client_name") or "",
+            client_company=p_dict.get("client_company") or "",
+            client_address=p_dict.get("client_address") or "",
+            client_project_number=p_dict.get("client_project_number") or "",
+            project_data_path=p_dict.get("data_path") or "",
+        )
+        now = datetime.now().isoformat()
+        db.execute(
+            "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
+            (sheet_url, now, invoice_id),
+        )
+        db.commit()
+        return {"success": True, "data_path": sheet_url}
+    except FileNotFoundError:
+        raise HTTPException(status_code=400, detail="Google credentials not configured")
+    except Exception as e:
+        logger.error("Google Sheet creation failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Sheet creation failed: {e}")
+
+
 @router.post("/{invoice_id}/create-next")
 def create_next_invoice(invoice_id: str, db=Depends(get_db)):
     """Create the next invoice in the chain, carrying forward previous billing."""
@@ -334,71 +437,9 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
     )
     db.commit()
 
-    # Try to create Google Sheet for new invoice
-    sheet_url = None
-    sheet_error = None
-    try:
-        from ..google_sheets import create_invoice_sheet
-
-        project_row = db.execute(
-            "SELECT p.*, c.name as client_name, c.company as client_company "
-            "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
-            "WHERE p.id = %s",
-            (project_id,),
-        ).fetchone()
-
-        company_email = ""
-        drive_folder_id = ""
-        template_id = ""
-        for key in ("company_email", "invoice_drive_folder_id", "invoice_template_id"):
-            row = db.execute(
-                "SELECT value FROM company_settings WHERE key = %s", (key,)
-            ).fetchone()
-            if row and row["value"]:
-                if key == "company_email":
-                    company_email = row["value"]
-                elif key == "invoice_drive_folder_id":
-                    drive_folder_id = row["value"]
-                elif key == "invoice_template_id":
-                    template_id = row["value"]
-
-        client_display = (
-            dict(project_row).get("client_company")
-            or dict(project_row).get("client_name")
-            or ""
-        )
-
-        sheet_url = create_invoice_sheet(
-            invoice_number=new_invoice_number,
-            project_name=project_row["name"],
-            project_id=project_id,
-            invoice_date=now[:10],
-            company_email=company_email,
-            client_name=client_display,
-            tasks=new_line_items,
-            folder_id=drive_folder_id,
-            template_id=template_id,
-            project_data_path=dict(project_row).get("data_path") or "",
-        )
-        db.execute(
-            "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
-            (sheet_url, datetime.now().isoformat(), new_inv_id),
-        )
-        db.commit()
-    except FileNotFoundError:
-        logger.info("Google Sheet creation skipped: no credentials configured")
-        sheet_error = "Google credentials not configured"
-    except Exception as e:
-        logger.error("Google Sheet creation failed: %s", e, exc_info=True)
-        sheet_url = None
-        sheet_error = str(e)
-
     new_invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (new_inv_id,)).fetchone()
     logger.info("Created next invoice %s (chain from %s)", new_invoice_number, invoice["invoice_number"])
-    result = dict(new_invoice)
-    if not result.get("data_path") and sheet_error:
-        result["_warning"] = f"Invoice created but Google Sheet failed: {sheet_error}"
-    return result
+    return dict(new_invoice)
 
 
 @router.patch("/{invoice_id}")
