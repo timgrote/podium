@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
-from ..models.project import ProjectCreate, ProjectDetail, ProjectSummary, ProjectUpdate
+from ..models.project import ProjectCreate, ProjectDetail, ProjectNoteCreate, ProjectNoteResponse, ProjectSummary, ProjectUpdate
 from ..utils import generate_id, next_invoice_number, next_project_number
 
 router = APIRouter()
@@ -100,6 +100,79 @@ def list_projects(db=Depends(get_db)):
     return projects
 
 
+# --- Project Notes (before /{project_id} to avoid route shadowing) ---
+
+
+@router.get("/notes/{note_id}", response_model=ProjectNoteResponse)
+def get_project_note(note_id: str, db=Depends(get_db)):
+    row = db.execute(
+        "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
+        "e.first_name || ' ' || e.last_name AS author_name "
+        "FROM project_notes n "
+        "LEFT JOIN employees e ON n.author_id = e.id "
+        "WHERE n.id = %s",
+        (note_id,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return dict(row)
+
+
+@router.delete("/notes/{note_id}")
+def delete_project_note(note_id: str, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT id FROM project_notes WHERE id = %s", (note_id,)
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    db.execute("DELETE FROM project_notes WHERE id = %s", (note_id,))
+    db.commit()
+    return {"success": True}
+
+
+@router.get("/{project_id}/notes", response_model=list[ProjectNoteResponse])
+def list_project_notes(project_id: str, db=Depends(get_db)):
+    rows = db.execute(
+        "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
+        "e.first_name || ' ' || e.last_name AS author_name "
+        "FROM project_notes n "
+        "LEFT JOIN employees e ON n.author_id = e.id "
+        "WHERE n.project_id = %s "
+        "ORDER BY n.created_at DESC",
+        (project_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@router.post("/{project_id}/notes", response_model=ProjectNoteResponse, status_code=201)
+def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    note_id = generate_id("pnote-")
+    now = datetime.now().isoformat()
+    db.execute(
+        "INSERT INTO project_notes (id, project_id, author_id, content, created_at) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (note_id, project_id, data.author_id, data.content, now),
+    )
+    db.commit()
+
+    row = db.execute(
+        "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
+        "e.first_name || ' ' || e.last_name AS author_name "
+        "FROM project_notes n "
+        "LEFT JOIN employees e ON n.author_id = e.id "
+        "WHERE n.id = %s",
+        (note_id,),
+    ).fetchone()
+    return dict(row)
+
+
 @router.get("/{project_id}", response_model=ProjectDetail)
 def get_project(project_id: str, db=Depends(get_db)):
     row = db.execute(
@@ -146,7 +219,7 @@ def get_project(project_id: str, db=Depends(get_db)):
         pm_email=p.get("pm_email"),
         client_project_number=p.get("client_project_number"),
         location=p.get("location"),
-        data_path=p.get("data_path"),
+        dropbox_path=p.get("dropbox_path"),
         notes=p.get("notes"),
         current_invoice_id=p.get("current_invoice_id"),
         total_contracted=summary["total_contracted"] if summary else 0,
@@ -183,9 +256,9 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
             )
 
     db.execute(
-        "INSERT INTO projects (id, name, client_id, location, project_number, job_code, status, data_path, notes, created_at, updated_at) "
+        "INSERT INTO projects (id, name, client_id, location, project_number, job_code, status, dropbox_path, notes, created_at, updated_at) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (project_id, data.project_name, client_id, data.location, project_number, data.job_code, data.status, data.data_path, data.notes, now, now),
+        (project_id, data.project_name, client_id, data.location, project_number, data.job_code, data.status, data.dropbox_path, data.notes, now, now),
     )
 
     # Create contract + tasks if provided

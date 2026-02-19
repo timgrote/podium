@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
-from ..models.contract import ContractCreate, ContractTaskCreate, ContractTaskUpdate
+from ..models.contract import ContractCreate, ContractTaskCreate, ContractTaskUpdate, ContractUpdate
 from ..models.invoice import InvoiceFromContract
 from ..utils import generate_id, next_invoice_number
 
@@ -48,9 +48,9 @@ def create_contract(data: ContractCreate, db=Depends(get_db)):
         total = sum(t.get("amount", 0) for t in data.tasks)
 
     db.execute(
-        "INSERT INTO contracts (id, project_id, total_amount, signed_at, file_path, notes, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (contract_id, data.project_id, total, data.signed_at, data.file_path, data.notes, now, now),
+        "INSERT INTO contracts (id, project_id, total_amount, signed_at, file_path, dropbox_url, notes, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (contract_id, data.project_id, total, data.signed_at, data.file_path, data.dropbox_url, data.notes, now, now),
     )
 
     # Create inline tasks if provided
@@ -62,6 +62,52 @@ def create_contract(data: ContractCreate, db=Depends(get_db)):
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                 (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0), now, now),
             )
+
+    db.commit()
+    return get_contract(contract_id, db)
+
+
+@router.patch("/{contract_id}")
+def update_contract(contract_id: str, data: ContractUpdate, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT * FROM contracts WHERE id = %s AND deleted_at IS NULL", (contract_id,)
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    now = datetime.now().isoformat()
+
+    # Update contract-level fields
+    field_updates = {}
+    if data.signed_at is not None:
+        field_updates["signed_at"] = data.signed_at
+    if data.file_path is not None:
+        field_updates["file_path"] = data.file_path
+    if data.dropbox_url is not None:
+        field_updates["dropbox_url"] = data.dropbox_url
+    if data.notes is not None:
+        field_updates["notes"] = data.notes
+
+    if field_updates:
+        field_updates["updated_at"] = now
+        set_clause = ", ".join(f"{k} = %s" for k in field_updates)
+        values = list(field_updates.values()) + [contract_id]
+        db.execute(f"UPDATE contracts SET {set_clause} WHERE id = %s", values)
+
+    # Replace tasks if provided — delete existing and re-create
+    if data.tasks is not None:
+        db.execute("DELETE FROM contract_tasks WHERE contract_id = %s", (contract_id,))
+        for i, task in enumerate(data.tasks):
+            task_id = generate_id("ctask-")
+            db.execute(
+                "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, "
+                "billed_amount, billed_percent, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (task_id, contract_id, i + 1, task["name"], task.get("description"),
+                 task.get("amount", 0), task.get("billed_amount", 0), task.get("billed_percent", 0),
+                 now, now),
+            )
+        _update_contract_total(db, contract_id)
 
     db.commit()
     return get_contract(contract_id, db)

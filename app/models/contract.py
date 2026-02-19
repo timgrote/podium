@@ -6,8 +6,17 @@ class ContractCreate(BaseModel):
     total_amount: float = 0
     signed_at: str | None = None
     file_path: str | None = None
+    dropbox_url: str | None = None
     notes: str | None = None
     tasks: list[dict] | None = None
+
+
+class ContractUpdate(BaseModel):
+    signed_at: str | None = None
+    file_path: str | None = None
+    dropbox_url: str | None = None
+    notes: str | None = None
+    tasks: list[dict] | None = None  # Full replacement of tasks when provided
 
 
 class ContractTaskCreate(BaseModel):

@@ -219,7 +219,9 @@ def main():
             already_has_contract.append(project_name)
             continue
 
-        data_path = detail.get("data_path")
+        # Reconstruct absolute path from relative dropbox_path
+        dropbox_path = detail.get("dropbox_path")
+        data_path = os.path.join("/mnt/d/Dropbox/TIE", dropbox_path) if dropbox_path else None
 
         # Phase 1: Try professional invoice extraction
         contract = extract_contract_from_invoices(data_path)
