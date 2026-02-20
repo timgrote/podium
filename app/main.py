@@ -1,12 +1,43 @@
+import logging
+import time
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .routers import auth, clients, company, contracts, employees, flows, invoices, projects, proposals, tasks
 
+_log_file = Path(__file__).resolve().parent.parent / "conductor.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+    handlers=[logging.StreamHandler(), logging.FileHandler(_log_file)],
+)
+logger = logging.getLogger("conductor")
+
 app = FastAPI(title="Conductor API", version="1.0.0")
+
+
+@app.middleware("http")
+async def log_api_requests(request: Request, call_next):
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+
+    body = b""
+    if request.method in ("POST", "PATCH", "PUT"):
+        body = await request.body()
+
+    start = time.time()
+    response = await call_next(request)
+    ms = (time.time() - start) * 1000
+
+    msg = f"{request.method} {request.url.path} -> {response.status_code} ({ms:.0f}ms)"
+    if body:
+        msg += f" body={body[:500].decode(errors='replace')}"
+    logger.info(msg)
+    return response
 
 
 @app.get("/")

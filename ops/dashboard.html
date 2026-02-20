@@ -1309,9 +1309,12 @@
                         <span class="total-amount" id="contract-total-display">$0</span>
                     </div>
 
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeAddContractModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Contract</button>
+                    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+                        <button type="button" id="delete-contract-btn" class="btn btn-secondary" style="display:none;color:#f87171;border-color:#f87171;" onclick="deleteContract()">Delete Contract</button>
+                        <div style="display:flex;gap:8px;margin-left:auto;">
+                            <button type="button" class="btn btn-secondary" onclick="closeAddContractModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Contract</button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -4079,6 +4082,7 @@
             }
 
             document.getElementById('contract-signed-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('delete-contract-btn').style.display = 'none';
             document.getElementById('add-contract-modal').classList.add('active');
         }
 
@@ -4125,7 +4129,35 @@
                 addContractTaskRow();
             }
 
+            document.getElementById('delete-contract-btn').style.display = '';
             document.getElementById('add-contract-modal').classList.add('active');
+        }
+
+        async function deleteContract() {
+            if (!editingContractId || !currentContractJobId) return;
+
+            var project = allProjects.find(function(p) { return p.id === currentContractJobId; });
+            var linkedInvoices = (project && project.invoices || []).filter(function(inv) { return inv.contract_id === editingContractId; });
+
+            var msg = 'Are you sure you want to delete this contract?';
+            if (linkedInvoices.length > 0) {
+                msg += '\n\nWarning: ' + linkedInvoices.length + ' invoice(s) are linked to this contract. They will be kept but unlinked.';
+            }
+            if (!confirm(msg)) return;
+
+            try {
+                var response = await fetch('/api/contracts/' + editingContractId, { method: 'DELETE' });
+                if (response.ok) {
+                    var jobId = currentContractJobId;
+                    closeAddContractModal();
+                    await refreshProject(jobId);
+                } else {
+                    var errData = await response.json().catch(function() { return {}; });
+                    showError('Failed to delete contract: ' + (errData.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                showError('Failed to delete contract: ' + error.message);
+            }
         }
 
         function addContractTaskRow(defaults) {
@@ -4218,8 +4250,9 @@
                 });
 
                 if (response.ok) {
+                    var jobId = currentContractJobId;
                     closeAddContractModal();
-                    await refreshProject(currentContractJobId);
+                    await refreshProject(jobId);
                 } else {
                     var errData = await response.json().catch(function() { return {}; });
                     showError('Failed to save contract (HTTP ' + response.status + '):\n\n' + (errData.detail || JSON.stringify(errData)));
