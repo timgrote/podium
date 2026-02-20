@@ -3283,7 +3283,7 @@
             // Auto-create client if new email entered
             let clientId = selectedClientId;
             if (!selectedClientId && clientEmail) {
-                const existingClient = allClients.find(c => c.email.toLowerCase() === clientEmail.toLowerCase());
+                const existingClient = allClients.find(c => c.email && c.email.toLowerCase() === clientEmail.toLowerCase());
                 if (!existingClient) {
                     try {
                         const clientRes = await fetch(CLIENTS_API, {
