@@ -540,7 +540,7 @@
         }
         .invoice-task-row {
             display: grid;
-            grid-template-columns: 1fr 100px 70px 20px 100px;
+            grid-template-columns: 1fr 70px 20px 130px 100px;
             align-items: center;
             gap: 8px;
             padding: 10px 12px;
@@ -3467,11 +3467,6 @@
                 nameSpan.textContent = task.name;
                 row.appendChild(nameSpan);
 
-                const billedSpan = document.createElement('span');
-                billedSpan.className = 'invoice-task-billed';
-                billedSpan.textContent = '$' + Number(task.amount * billedPct / 100).toLocaleString() + ' prev';
-                row.appendChild(billedSpan);
-
                 const pctDiv = document.createElement('div');
                 pctDiv.className = 'invoice-task-percent';
                 const pctInput = document.createElement('input');
@@ -3491,6 +3486,11 @@
                 const pctLabel = document.createElement('span');
                 pctLabel.textContent = '%';
                 row.appendChild(pctLabel);
+
+                const billedSpan = document.createElement('span');
+                billedSpan.className = 'invoice-task-billed';
+                billedSpan.textContent = '$' + Number(task.amount * billedPct / 100).toLocaleString() + '/$' + Number(task.amount).toLocaleString() + ' prev';
+                row.appendChild(billedSpan);
 
                 const computedSpan = document.createElement('span');
                 computedSpan.className = 'invoice-task-computed';
@@ -3762,10 +3762,6 @@
                         nameSpan.title = li.name || '';
                         nameSpan.textContent = li.name || '';
                         row.appendChild(nameSpan);
-                        var billedSpan = document.createElement('span');
-                        billedSpan.className = 'invoice-task-billed';
-                        billedSpan.textContent = '$' + Number(li.previous_billing || 0).toLocaleString() + ' prev';
-                        row.appendChild(billedSpan);
                         var pctDiv = document.createElement('div');
                         pctDiv.className = 'invoice-task-percent';
                         var pctInput = document.createElement('input');
@@ -3783,6 +3779,10 @@
                         var pctLabel = document.createElement('span');
                         pctLabel.textContent = '%';
                         row.appendChild(pctLabel);
+                        var billedSpan = document.createElement('span');
+                        billedSpan.className = 'invoice-task-billed';
+                        billedSpan.textContent = '$' + Number(li.previous_billing || 0).toLocaleString() + '/$' + Number(li.unit_price || 0).toLocaleString() + ' prev';
+                        row.appendChild(billedSpan);
                         var computedSpan = document.createElement('span');
                         computedSpan.className = 'invoice-task-computed';
                         computedSpan.id = 'edit-inv-computed-' + idx;
