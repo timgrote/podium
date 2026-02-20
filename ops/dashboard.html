@@ -1470,7 +1470,7 @@
                         <input type="text" id="edit-inv-number" autocomplete="off">
                     </div>
                     <div id="edit-inv-tasks-section" class="hidden">
-                        <p class="invoice-instructions">Adjust task percentages for this invoice:</p>
+                        <p class="invoice-instructions">Adjust percent complete for each task:</p>
                         <div id="edit-inv-tasks-list"></div>
                         <div class="invoice-total-row">
                             <span>Invoice Total:</span>
@@ -3778,7 +3778,7 @@
                         pctInput.id = 'edit-inv-percent-' + idx;
                         pctInput.setAttribute('data-unit-price', li.unit_price || 0);
                         pctInput.setAttribute('data-previous-billing', li.previous_billing || 0);
-                        pctInput.value = li.quantity || 0;
+                        pctInput.value = li.unit_price ? Math.round(((li.previous_billing || 0) + (li.amount || 0)) / li.unit_price * 100) : 0;
                         pctInput.min = '0';
                         pctInput.max = '100';
                         pctInput.step = '5';
@@ -3845,7 +3845,8 @@
                 if (!input || !computed) continue;
                 var pct = parseFloat(input.value) || 0;
                 var unitPrice = parseFloat(input.getAttribute('data-unit-price')) || 0;
-                var amt = (unitPrice * pct) / 100;
+                var prevBilling = parseFloat(input.getAttribute('data-previous-billing')) || 0;
+                var amt = Math.max(0, (unitPrice * pct / 100) - prevBilling);
                 computed.textContent = '$' + amt.toLocaleString();
                 total += amt;
             }
@@ -3939,10 +3940,14 @@
                 for (var i = 0; i < count; i++) {
                     var input = document.getElementById('edit-inv-percent-' + i);
                     if (!input) continue;
+                    var cumulativePct = parseFloat(input.value) || 0;
+                    var uPrice = parseFloat(input.getAttribute('data-unit-price')) || 0;
+                    var prevBill = parseFloat(input.getAttribute('data-previous-billing')) || 0;
+                    var deltaPct = uPrice ? cumulativePct - (prevBill / uPrice * 100) : 0;
                     lineItems.push({
-                        quantity: parseFloat(input.value) || 0,
-                        unit_price: parseFloat(input.getAttribute('data-unit-price')) || 0,
-                        previous_billing: parseFloat(input.getAttribute('data-previous-billing')) || 0,
+                        quantity: Math.max(0, deltaPct),
+                        unit_price: uPrice,
+                        previous_billing: prevBill,
                     });
                 }
                 updates.line_items = lineItems;
