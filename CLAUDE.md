@@ -121,6 +121,9 @@ All APIs are local FastAPI routes at `/api/*`:
 | `/api/proposals` | Proposal CRUD |
 | `/api/invoices` | Invoice management + Google Sheets export/PDF/email |
 | `/api/flows` | Public flow data for client-facing pages |
+| `/api/auth` | Authentication (login, signup, password reset) |
+| `/api/employees` | Employee/team member management |
+| `/api/tasks` | Project task management |
 
 Standard CRUD pattern: `GET /` (list), `GET /{id}`, `POST /`, `PATCH /{id}`, `DELETE /{id}` (soft delete).
 
@@ -143,6 +146,8 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 
 ## Key Patterns
 
+- **Startup requirement**: `uploads/` directory must exist at project root or StaticFiles mount fails on startup.
+- **Route ordering**: Fixed routes (e.g., `/generate`) must be registered before parameterized routes (`/{id}`) in FastAPI routers.
 - **ID generation**: Short 8-char UUIDs with entity prefixes — `c-` (client), `con-` (contract), `prop-` (proposal), `inv-` (invoice). See `app/utils.py:generate_id()`.
 - **Soft deletes**: All tables have `deleted_at` column. Queries must filter `WHERE deleted_at IS NULL`.
 - **Database access**: Use `Depends(get_db)` for FastAPI dependency injection. Connection wrapper uses `psycopg2` with `RealDictCursor` — rows are dicts natively.
@@ -150,7 +155,7 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 - **Invoice chaining**: `previous_invoice_id` links invoices for task-based billing across multiple pay apps.
 - **Contract tasks**: Track `billed_amount` and `billed_percent` for partial billing.
 - **File uploads**: Stored in `uploads/` directory, paths saved in database.
-- **Frontend**: Vanilla HTML/JS with fetch API calls to `/api/*` — no frameworks, no build step.
+- **Frontend**: Vanilla HTML/JS with fetch API calls to `/api/*` — no frameworks, no build step. Use DOM methods (createElement, textContent) instead of innerHTML to avoid XSS.
 - **Google integration**: Optional Sheets/Drive/Gmail via `app/google_sheets.py`. Check for credentials before using.
 
 ## What AI Should NOT Do
