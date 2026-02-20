@@ -79,3 +79,6 @@ agents/
 tie-proposals/
 tie_proposals
 service-account.json
+
+# Script output
+scripts/invoice_extraction_report.json

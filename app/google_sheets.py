@@ -77,8 +77,9 @@ def get_gmail_service():
 
 def _find_or_create_folder(drive, name: str, parent_id: str) -> str:
     """Find a subfolder by name under parent_id, or create it. Returns folder ID."""
+    escaped_name = name.replace("\\", "\\\\").replace("'", "\\'")
     query = (
-        f"name = '{name}' and mimeType = 'application/vnd.google-apps.folder' "
+        f"name = '{escaped_name}' and mimeType = 'application/vnd.google-apps.folder' "
         f"and '{parent_id}' in parents and trashed = false"
     )
     results = drive.files().list(
