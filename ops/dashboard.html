@@ -1549,6 +1549,9 @@
                 navigator.clipboard.writeText(message).then(function() {
                     copyBtn.textContent = 'Copied!';
                     setTimeout(function() { copyBtn.textContent = 'Copy Error'; }, 1500);
+                }).catch(function() {
+                    copyBtn.textContent = 'Copy failed';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Error'; }, 1500);
                 });
             };
             modal.classList.add('active');
@@ -3365,7 +3368,7 @@
 
         function escapeAttr(text) {
             if (!text) return '';
-            return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return text.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
         // Invoice functions
@@ -3856,8 +3859,9 @@
             var invoiceId = document.getElementById('edit-inv-id').value;
             var jobId = document.getElementById('edit-inv-project-id').value;
             var invoiceNumber = document.getElementById('edit-inv-number').value;
+            var sheetUrl = document.getElementById('edit-inv-data-path').value || null;
             closeEditInvoiceModal();
-            deleteInvoiceState = { jobId: jobId, invoiceNumber: invoiceNumber };
+            deleteInvoiceState = { jobId: jobId, invoiceNumber: invoiceNumber, sheetUrl: sheetUrl };
             document.getElementById('delete-invoice-message').textContent =
                 'Are you sure you want to delete invoice ' + invoiceNumber + '?';
             document.getElementById('delete-sheet-checkbox').checked = true;
@@ -4021,12 +4025,12 @@
         async function refreshProject(jobId) {
             try {
                 var res = await fetch(PROJECTS_API + '/' + jobId);
-                if (!res.ok) return;
+                if (!res.ok) { await refreshData(); return; }
                 var fresh = mapProject(await res.json());
 
                 // Update allProjects in place
                 var idx = allProjects.findIndex(function(p) { return p.id === jobId; });
-                if (idx === -1) return;
+                if (idx === -1) { await refreshData(); return; }
                 allProjects[idx] = fresh;
 
                 // Re-render the table row
@@ -4042,6 +4046,7 @@
                 updateStats(allProjects);
             } catch (e) {
                 console.error('Failed to refresh project:', e);
+                await refreshData();
             }
         }
 
@@ -4696,7 +4701,7 @@
                 }
             } catch (error) {
                 console.error('Error saving proposal:', error);
-                showError('Failed to save proposal:\n\n' + e.message);
+                showError('Failed to save proposal:\n\n' + error.message);
             } finally {
                 createBtn.disabled = false;
                 createBtn.textContent = isEditing ? 'Save Changes' : 'Create Proposal';
@@ -4796,12 +4801,12 @@
                     alert('Proposal promoted to contract!');
                     await refreshProject(promoteJobId);
                 } else {
-                    const err = await response.json();
-                    showError('Failed to promote: ' + (err.detail || 'Unknown error'));
+                    const err = await response.json().catch(function() { return {}; });
+                    showError('Failed to promote (HTTP ' + response.status + '): ' + (err.detail || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error promoting proposal:', error);
-                showError('Failed to promote proposal:\n\n' + e.message);
+                showError('Failed to promote proposal:\n\n' + error.message);
             }
         }
 
