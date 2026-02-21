@@ -15,7 +15,6 @@ import ProposalModal from '../components/modals/ProposalModal.vue'
 import PromoteProposalModal from '../components/modals/PromoteProposalModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import CompanySettingsModal from '../components/modals/CompanySettingsModal.vue'
-import NotesModal from '../components/modals/NotesModal.vue'
 import ErrorModal from '../components/modals/ErrorModal.vue'
 
 const {
@@ -53,8 +52,6 @@ const showDeleteModal = ref(false)
 const deleteLabel = ref('')
 const deleteAction = ref<(() => Promise<void>) | null>(null)
 const showSettingsModal = ref(false)
-const showNotesModal = ref(false)
-const notesProjectId = ref('')
 const showErrorModal = ref(false)
 const errorMessage = ref('')
 
@@ -154,11 +151,6 @@ function openPromoteProposal(proposalId: string) {
   showPromoteModal.value = true
 }
 
-function openNotes(projectId: string) {
-  notesProjectId.value = projectId
-  showNotesModal.value = true
-}
-
 function showError(msg: string) {
   errorMessage.value = msg
   showErrorModal.value = true
@@ -210,7 +202,8 @@ onMounted(async () => {
       @edit-proposal="openEditProposal"
       @delete-proposal="openDeleteProposal"
       @promote-proposal="openPromoteProposal"
-      @view-notes="openNotes"
+
+
     />
 
     <!-- Modals -->
@@ -275,11 +268,6 @@ onMounted(async () => {
     <CompanySettingsModal
       v-model:visible="showSettingsModal"
       @error="showError"
-    />
-
-    <NotesModal
-      v-model:visible="showNotesModal"
-      :project-id="notesProjectId"
     />
 
     <ErrorModal

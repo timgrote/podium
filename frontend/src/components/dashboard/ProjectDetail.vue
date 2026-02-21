@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { ProjectSummary } from '../../types'
+import { ref, watch, computed } from 'vue'
+import type { ProjectSummary, ProjectNote, Task } from '../../types'
+import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
+import { getProjectTasks } from '../../api/tasks'
+import { useToast } from '../../composables/useToast'
 
 const props = defineProps<{
   project: ProjectSummary
@@ -20,10 +23,84 @@ const emit = defineEmits<{
   editProposal: [proposalId: string]
   deleteProposal: [proposalId: string]
   promoteProposal: [proposalId: string]
-  viewNotes: [projectId: string]
 }>()
 
+const toast = useToast()
 const activeTab = ref<'financial' | 'tasks' | 'notes'>('financial')
+
+// Notes state
+const notes = ref<ProjectNote[]>([])
+const notesLoading = ref(false)
+const newNote = ref('')
+const noteSaving = ref(false)
+const noteSearch = ref('')
+
+const filteredNotes = computed(() => {
+  const sorted = [...notes.value].sort((a, b) => {
+    const da = a.created_at ? new Date(a.created_at).getTime() : 0
+    const db = b.created_at ? new Date(b.created_at).getTime() : 0
+    return db - da
+  })
+  if (!noteSearch.value.trim()) return sorted
+  const q = noteSearch.value.toLowerCase()
+  return sorted.filter(n => n.content.toLowerCase().includes(q))
+})
+
+// Tasks state
+const tasks = ref<Task[]>([])
+const tasksLoading = ref(false)
+
+watch(activeTab, async (tab) => {
+  if (tab === 'notes' && notes.value.length === 0) await loadNotes()
+  if (tab === 'tasks' && tasks.value.length === 0) await loadTasks()
+})
+
+async function loadNotes() {
+  notesLoading.value = true
+  try {
+    notes.value = await getProjectNotes(props.project.id)
+  } catch (e) {
+    console.error('Failed to load notes:', e)
+  } finally {
+    notesLoading.value = false
+  }
+}
+
+async function submitNote() {
+  if (!newNote.value.trim()) return
+  noteSaving.value = true
+  try {
+    await addProjectNote(props.project.id, { content: newNote.value })
+    newNote.value = ''
+    toast.success('Note added')
+    await loadNotes()
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    noteSaving.value = false
+  }
+}
+
+async function removeNote(noteId: string) {
+  try {
+    await deleteProjectNote(noteId)
+    toast.success('Note deleted')
+    await loadNotes()
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+async function loadTasks() {
+  tasksLoading.value = true
+  try {
+    tasks.value = await getProjectTasks(props.project.id)
+  } catch (e) {
+    console.error('Failed to load tasks:', e)
+  } finally {
+    tasksLoading.value = false
+  }
+}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -38,8 +115,21 @@ function formatDate(dateStr: string | null): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
+function formatDateTime(dateStr: string | null): string {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleString()
+}
+
 function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`
+}
+
+const taskStatusIcon: Record<string, string> = {
+  todo: 'pi-circle',
+  in_progress: 'pi-spin pi-spinner',
+  blocked: 'pi-ban',
+  done: 'pi-check-circle',
+  canceled: 'pi-times-circle',
 }
 </script>
 
@@ -71,6 +161,13 @@ function formatPercent(value: number): string {
         @click="activeTab = 'financial'"
       >
         Financial
+      </button>
+      <button
+        class="tab"
+        :class="{ active: activeTab === 'tasks' }"
+        @click="activeTab = 'tasks'"
+      >
+        Tasks
       </button>
       <button
         class="tab"
@@ -199,10 +296,52 @@ function formatPercent(value: number): string {
       </div>
     </div>
 
+    <div v-if="activeTab === 'tasks'" class="tab-content">
+      <div v-if="tasksLoading" class="empty">Loading tasks...</div>
+      <div v-else-if="tasks.length === 0" class="empty">No tasks</div>
+      <div v-else class="tasks-list">
+        <div v-for="task in tasks" :key="task.id" class="task-item">
+          <i class="pi" :class="taskStatusIcon[task.status] || 'pi-circle'" />
+          <span class="task-title">{{ task.title }}</span>
+          <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
+          <span v-if="task.due_date" class="task-due">{{ formatDate(task.due_date) }}</span>
+        </div>
+      </div>
+    </div>
+
     <div v-if="activeTab === 'notes'" class="tab-content">
-      <button class="btn btn-sm btn-primary" @click="emit('viewNotes', project.id)">
-        <i class="pi pi-comments" /> View Notes
-      </button>
+      <div class="add-note">
+        <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" />
+        <button class="btn btn-sm btn-primary" :disabled="noteSaving" @click="submitNote">
+          {{ noteSaving ? 'Adding...' : 'Add Note' }}
+        </button>
+      </div>
+
+      <div v-if="notes.length > 1" class="note-search">
+        <i class="pi pi-search" />
+        <input
+          v-model="noteSearch"
+          type="text"
+          placeholder="Search notes..."
+        />
+        <button v-if="noteSearch" class="search-clear" @click="noteSearch = ''">
+          <i class="pi pi-times" />
+        </button>
+      </div>
+
+      <div v-if="notesLoading" class="empty">Loading notes...</div>
+      <div v-else-if="filteredNotes.length === 0 && notes.length > 0" class="empty">No matching notes</div>
+      <div v-else-if="notes.length === 0 && !notesLoading" class="empty">No notes yet</div>
+      <div v-else class="notes-list">
+        <div v-for="note in filteredNotes" :key="note.id" class="note-card">
+          <div class="note-header">
+            <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
+            <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
+            <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
+          </div>
+          <div class="note-body">{{ note.content }}</div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -372,6 +511,145 @@ function formatPercent(value: number): string {
   font-size: 0.8125rem;
   color: var(--p-text-muted-color);
   font-style: italic;
+}
+
+/* Tasks */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.task-item .pi {
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+}
+
+.task-title {
+  flex: 1;
+}
+
+.task-status-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  color: var(--p-text-muted-color);
+  letter-spacing: 0.05em;
+}
+
+.task-due {
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+}
+
+/* Notes */
+.add-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.note-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  resize: vertical;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-family: inherit;
+}
+
+.note-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+}
+
+.note-search i {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+}
+
+.note-search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 0.8125rem;
+  background: transparent;
+  color: var(--p-text-color);
+}
+
+.search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.125rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.search-clear:hover {
+  color: var(--p-text-color);
+}
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.note-card {
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.625rem;
+}
+
+.note-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.note-author {
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.note-date {
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+}
+
+.note-body {
+  font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+  white-space: pre-wrap;
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--p-red-600);
+  cursor: pointer;
+  font-size: 1rem;
+  margin-left: auto;
+  padding: 0 0.25rem;
 }
 
 .btn {

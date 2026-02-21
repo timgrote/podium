@@ -33,7 +33,6 @@ const emit = defineEmits<{
   editProposal: [proposalId: string]
   deleteProposal: [proposalId: string]
   promoteProposal: [proposalId: string]
-  viewNotes: [projectId: string]
 }>()
 
 const expandedId = ref<string | null>(null)
@@ -54,6 +53,13 @@ function toggleExpand(id: string) {
           :value="searchQuery"
           @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
         />
+        <button
+          v-if="searchQuery"
+          class="search-clear"
+          @click="emit('update:searchQuery', '')"
+        >
+          <i class="pi pi-times" />
+        </button>
       </div>
       <div class="filters">
         <select
@@ -99,7 +105,6 @@ function toggleExpand(id: string) {
           @edit-proposal="emit('editProposal', $event)"
           @delete-proposal="emit('deleteProposal', $event)"
           @promote-proposal="emit('promoteProposal', $event)"
-          @view-notes="emit('viewNotes', $event)"
         />
       </ProjectCard>
       <div v-if="projects.length === 0" class="empty-state">
@@ -145,6 +150,21 @@ function toggleExpand(id: string) {
   flex: 1;
   font-size: 0.875rem;
   background: transparent;
+  color: var(--p-text-color);
+}
+
+.search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.125rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.search-clear:hover {
   color: var(--p-text-color);
 }
 

@@ -12,13 +12,16 @@ const emit = defineEmits<{
   delete: []
 }>()
 
-const statusColors: Record<string, string> = {
-  proposal: 'var(--p-violet-500)',
-  contract: 'var(--p-primary-color)',
-  invoiced: 'var(--p-amber-500)',
-  paid: 'var(--p-green-600)',
-  complete: 'var(--p-surface-500)',
+const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
+  proposal: { icon: 'pi-file-edit', color: 'var(--p-violet-500)', label: 'Proposal' },
+  contract: { icon: 'pi-file-check', color: 'var(--p-primary-color)', label: 'Contract' },
+  in_process: { icon: 'pi-spinner', color: 'var(--p-cyan-500)', label: 'In Process' },
+  invoiced: { icon: 'pi-send', color: 'var(--p-amber-500)', label: 'Invoiced' },
+  paid: { icon: 'pi-dollar', color: 'var(--p-green-600)', label: 'Paid' },
+  complete: { icon: 'pi-check-circle', color: 'var(--p-surface-500)', label: 'Complete' },
 }
+
+const defaultStatus = { icon: 'pi-circle', color: 'var(--p-surface-500)', label: 'Unknown' }
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -34,12 +37,12 @@ function formatCurrency(value: number): string {
   <div class="project-card" :class="{ expanded }">
     <div class="project-row" @click="emit('toggle')">
       <div class="project-info">
-        <span
-          class="status-badge"
-          :style="{ backgroundColor: statusColors[project.status] || 'var(--p-surface-500)' }"
-        >
-          {{ project.status }}
-        </span>
+        <i
+          class="pi status-icon"
+          :class="(statusConfig[project.status] || defaultStatus).icon"
+          :style="{ color: (statusConfig[project.status] || defaultStatus).color }"
+          :title="(statusConfig[project.status] || defaultStatus).label"
+        />
         <span class="job-code">{{ project.job_code || project.id }}</span>
         <span class="project-name">{{ project.project_name }}</span>
         <span v-if="project.client_name" class="client-name">{{ project.client_name }}</span>
@@ -91,15 +94,9 @@ function formatCurrency(value: number): string {
   min-width: 0;
 }
 
-.status-badge {
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #fff;
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  white-space: nowrap;
-  font-weight: 600;
+.status-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .job-code {
