@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ProjectSummary } from '../../types'
 
-defineProps<{
+const props = defineProps<{
   project: ProjectSummary
   expanded: boolean
 }>()
@@ -11,6 +12,18 @@ const emit = defineEmits<{
   edit: []
   delete: []
 }>()
+
+const invoicedSent = computed(() =>
+  props.project.invoices
+    ?.filter(i => i.sent_status === 'sent')
+    .reduce((sum, i) => sum + (Number(i.total_due) || 0), 0) ?? 0
+)
+
+const invoicedUnsent = computed(() =>
+  props.project.invoices
+    ?.filter(i => i.sent_status === 'unsent')
+    .reduce((sum, i) => sum + (Number(i.total_due) || 0), 0) ?? 0
+)
 
 const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
   proposal: { icon: 'pi-file-edit', color: 'var(--p-violet-500)', label: 'Proposal' },
@@ -43,14 +56,12 @@ function formatCurrency(value: number): string {
           :style="{ color: (statusConfig[project.status] || defaultStatus).color }"
           :title="(statusConfig[project.status] || defaultStatus).label"
         />
-        <span class="job-code">{{ project.job_code || project.id }}</span>
         <span class="project-name">{{ project.project_name }}</span>
-        <span v-if="project.client_name" class="client-name">{{ project.client_name }}</span>
       </div>
       <div class="project-financials">
-        <span class="financial">{{ formatCurrency(project.total_contracted) }}</span>
-        <span class="financial invoiced">{{ formatCurrency(project.total_invoiced) }}</span>
-        <span class="financial paid">{{ formatCurrency(project.total_paid) }}</span>
+        <span class="financial" title="Contract value">{{ formatCurrency(project.total_contracted) }}</span>
+        <span class="financial invoiced-sent" title="Invoiced (sent)">{{ formatCurrency(invoicedSent) }}</span>
+        <span class="financial invoiced-unsent" title="Invoiced (unsent)">{{ formatCurrency(invoicedUnsent) }}</span>
         <i :class="expanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" />
       </div>
     </div>
@@ -99,24 +110,12 @@ function formatCurrency(value: number): string {
   flex-shrink: 0;
 }
 
-.job-code {
+.project-name {
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--p-text-color);
-  white-space: nowrap;
-}
-
-.project-name {
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.client-name {
-  color: var(--p-text-muted-color);
-  font-size: 0.8125rem;
   white-space: nowrap;
 }
 
@@ -135,12 +134,12 @@ function formatCurrency(value: number): string {
   text-align: right;
 }
 
-.financial.invoiced {
-  color: var(--p-amber-600);
+.financial.invoiced-sent {
+  color: var(--p-green-600);
 }
 
-.financial.paid {
-  color: var(--p-green-600);
+.financial.invoiced-unsent {
+  color: var(--p-amber-600);
 }
 
 .project-detail-slot {
