@@ -38,6 +38,8 @@ async function doAction(action: string) {
         await createNextInvoice(props.invoiceId)
         toast.success('Next invoice created')
         break
+      default:
+        throw new Error(`Unknown invoice action: ${action}`)
     }
     emit('saved')
     visible.value = false

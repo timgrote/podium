@@ -38,6 +38,9 @@ watch(visible, async (val) => {
       invoice_template_id: settings.invoice_template_id || '',
       invoice_drive_folder_id: settings.invoice_drive_folder_id || '',
     }
+  } catch (e) {
+    emit('error', String(e))
+    visible.value = false
   } finally {
     loading.value = false
   }

@@ -26,4 +26,8 @@ app.use(PrimeVue, {
 app.use(ToastService)
 app.use(ConfirmationService)
 
+app.config.errorHandler = (err, _instance, info) => {
+  console.error('Unhandled app error:', err, info)
+}
+
 app.mount('#app')

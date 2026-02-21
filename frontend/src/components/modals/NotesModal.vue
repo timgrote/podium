@@ -26,6 +26,8 @@ async function loadNotes() {
   loading.value = true
   try {
     notes.value = await getProjectNotes(props.projectId)
+  } catch (e) {
+    console.error('Failed to load notes:', e)
   } finally {
     loading.value = false
   }
@@ -39,15 +41,21 @@ async function addNote() {
     newNote.value = ''
     toast.success('Note added')
     await loadNotes()
+  } catch (e) {
+    toast.error(String(e))
   } finally {
     saving.value = false
   }
 }
 
 async function removeNote(noteId: string) {
-  await deleteProjectNote(noteId)
-  toast.success('Note deleted')
-  await loadNotes()
+  try {
+    await deleteProjectNote(noteId)
+    toast.success('Note deleted')
+    await loadNotes()
+  } catch (e) {
+    toast.error(String(e))
+  }
 }
 
 function formatDate(dateStr: string | null): string {

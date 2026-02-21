@@ -7,8 +7,12 @@ defineProps<{
   message: string
 }>()
 
-function copyError(message: string) {
-  navigator.clipboard.writeText(message)
+async function copyError(message: string) {
+  try {
+    await navigator.clipboard.writeText(message)
+  } catch {
+    // Clipboard API not available or permission denied
+  }
 }
 </script>
 

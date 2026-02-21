@@ -30,6 +30,9 @@ watch(visible, async (val) => {
       ...t,
       percentThisInvoice: 0,
     }))
+  } catch (e) {
+    emit('error', String(e))
+    visible.value = false
   } finally {
     loading.value = false
   }

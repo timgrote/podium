@@ -78,7 +78,7 @@ async function save() {
   try {
     if (props.project) {
       await updateProject(props.project.id, {
-        name: form.value.project_name,
+        project_name: form.value.project_name,
         job_code: form.value.job_code || undefined,
         client_id: form.value.client_id || undefined,
         location: form.value.location || undefined,

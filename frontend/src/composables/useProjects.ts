@@ -4,6 +4,7 @@ import { getProjects } from '../api/projects'
 
 const projects = ref<ProjectSummary[]>([])
 const loading = ref(false)
+const error = ref<string | null>(null)
 const searchQuery = ref('')
 const statusFilter = ref('')
 const pmFilter = ref('')
@@ -14,8 +15,12 @@ const sortOrder = ref<'asc' | 'desc'>('desc')
 export function useProjects() {
   async function load() {
     loading.value = true
+    error.value = null
     try {
       projects.value = await getProjects()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to load projects'
+      console.error('Failed to load projects:', e)
     } finally {
       loading.value = false
     }
@@ -91,6 +96,7 @@ export function useProjects() {
   return {
     projects,
     loading,
+    error,
     searchQuery,
     statusFilter,
     pmFilter,

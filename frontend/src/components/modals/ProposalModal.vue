@@ -50,6 +50,9 @@ watch(visible, async (val) => {
         description: t.description || '',
         amount: t.amount,
       }))
+    } catch (e) {
+      emit('error', String(e))
+      visible.value = false
     } finally {
       loading.value = false
     }
@@ -79,6 +82,7 @@ async function save() {
         engineer_name: form.value.engineer_name || undefined,
         contact_method: form.value.contact_method || undefined,
         proposal_date: form.value.proposal_date || undefined,
+        tasks: validTasks,
       })
       toast.success('Proposal updated')
     } else {

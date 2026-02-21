@@ -268,7 +268,7 @@ onMounted(async () => {
     <DeleteConfirmModal
       v-model:visible="showDeleteModal"
       :label="deleteLabel"
-      :action="deleteAction!"
+      :action="deleteAction ?? (async () => {})"
       @error="showError"
     />
 

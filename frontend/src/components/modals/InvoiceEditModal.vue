@@ -37,6 +37,9 @@ watch(visible, async (val) => {
       ...li,
       editQuantity: li.quantity,
     }))
+  } catch (e) {
+    emit('error', String(e))
+    visible.value = false
   } finally {
     loading.value = false
   }

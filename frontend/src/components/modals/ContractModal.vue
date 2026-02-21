@@ -44,6 +44,9 @@ watch(visible, async (val) => {
         description: t.description || '',
         amount: t.amount,
       }))
+    } catch (e) {
+      emit('error', String(e))
+      visible.value = false
     } finally {
       loading.value = false
     }
