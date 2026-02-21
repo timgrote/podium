@@ -22,8 +22,15 @@ echo "==> Pulling latest from master..."
 git pull origin master
 
 # ── 2. Install dependencies ──────────────────────────────────────────
-echo "==> Installing dependencies..."
+echo "==> Installing Python dependencies..."
 "$VENV/bin/pip" install -q -r requirements.txt
+
+# ── 2b. Build frontend ──────────────────────────────────────────────
+echo "==> Building frontend..."
+cd "$REPO_DIR/frontend"
+npm ci --prefer-offline
+npm run build
+cd "$REPO_DIR"
 
 # ── 3. Run new migrations only ───────────────────────────────────────
 echo "==> Running migrations..."

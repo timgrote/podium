@@ -1,0 +1,159 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import Toast from 'primevue/toast'
+import { useColorMode } from '../composables/useColorMode'
+
+const sidebarCollapsed = ref(false)
+const { isDark, toggleColorMode } = useColorMode()
+
+const navItems = [
+  { label: 'Dashboard', icon: 'pi pi-home', route: '/dashboard' },
+]
+</script>
+
+<template>
+  <Toast />
+  <div class="layout">
+    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+      <div class="sidebar-header">
+        <h2 v-if="!sidebarCollapsed">Conductor</h2>
+        <button class="toggle-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+          <i :class="sidebarCollapsed ? 'pi pi-angle-right' : 'pi pi-angle-left'" />
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        <router-link
+          v-for="item in navItems"
+          :key="item.route"
+          :to="item.route"
+          class="nav-item"
+        >
+          <i :class="item.icon" />
+          <span v-if="!sidebarCollapsed">{{ item.label }}</span>
+        </router-link>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="toggle-btn theme-btn" @click="toggleColorMode">
+          <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'" />
+          <span v-if="!sidebarCollapsed">{{ isDark ? 'Light' : 'Dark' }}</span>
+        </button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <slot />
+    </main>
+  </div>
+</template>
+
+<style scoped>
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: var(--p-surface-900);
+  color: var(--p-surface-200);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s;
+  z-index: 10;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid var(--p-surface-800);
+}
+
+.sidebar-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: var(--p-surface-400);
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 1rem;
+}
+
+.toggle-btn:hover {
+  color: var(--p-surface-200);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  color: var(--p-surface-300);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: background 0.15s;
+}
+
+.nav-item:hover {
+  background: var(--p-surface-800);
+}
+
+.nav-item.router-link-active {
+  background: var(--p-surface-800);
+  color: #fff;
+}
+
+.sidebar-footer {
+  padding: 0.5rem;
+  border-top: 1px solid var(--p-surface-800);
+}
+
+.theme-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.theme-btn:hover {
+  background: var(--p-surface-800);
+}
+
+.main-content {
+  flex: 1;
+  padding: 1.5rem;
+  margin-left: 240px;
+  overflow-y: auto;
+  transition: margin-left 0.2s;
+}
+
+.sidebar.collapsed + .main-content {
+  margin-left: 60px;
+}
+</style>

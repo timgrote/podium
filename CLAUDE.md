@@ -158,6 +158,84 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 - **Frontend**: Vanilla HTML/JS with fetch API calls to `/api/*` — no frameworks, no build step. Use DOM methods (createElement, textContent) instead of innerHTML to avoid XSS.
 - **Google integration**: Optional Sheets/Drive/Gmail via `app/google_sheets.py`. Check for credentials before using.
 
+## Vue Frontend (`frontend/`)
+
+Vue 3 + Vite + TypeScript + PrimeVue single-page app that replaces the static `ops/dashboard.html`.
+
+```bash
+cd frontend
+npm install
+npm run dev    # Dev server on :5173, proxies /api to :3000
+npm run build  # Production build to dist/
+npm run test   # Vitest unit tests
+```
+
+**Architecture:**
+- `src/types/` — TypeScript interfaces matching API responses
+- `src/api/` — Typed fetch wrappers for each API domain (projects, clients, contracts, invoices, proposals, company, employees)
+- `src/composables/` — Reactive state management (useProjects, useClients, useToast)
+- `src/components/` — Dashboard components and modals
+- `src/layouts/` — DashboardLayout with sidebar nav
+- `src/views/` — Route-level views
+
+**Invoice billing logic:**
+- `quantity` on invoice line items = delta percent for THIS invoice only
+- Display shows cumulative: `(previous_billing + amount) / unit_price * 100`
+- `previous_billing` carries forward from prior invoices in the chain
+- `billed_amount` and `billed_percent` on contract_tasks are server-computed — never set from frontend
+
+## Vue Frontend (`frontend/`)
+
+Vue 3 + Vite + TypeScript + PrimeVue single-page app that replaces the static `ops/dashboard.html`.
+
+```bash
+cd frontend
+npm install
+npm run dev    # Dev server on :5173, proxies /api to :3000
+npm run build  # Production build to dist/
+npm run test   # Vitest unit tests
+```
+
+**Architecture:**
+- `src/types/` — TypeScript interfaces matching API responses
+- `src/api/` — Typed fetch wrappers for each API domain (projects, clients, contracts, invoices, proposals, company, employees)
+- `src/composables/` — Reactive state management (useProjects, useClients, useToast)
+- `src/components/` — Dashboard components and modals
+- `src/layouts/` — DashboardLayout with sidebar nav
+- `src/views/` — Route-level views
+
+**Invoice billing logic:**
+- `quantity` on invoice line items = delta percent for THIS invoice only
+- Display shows cumulative: `(previous_billing + amount) / unit_price * 100`
+- `previous_billing` carries forward from prior invoices in the chain
+- `billed_amount` and `billed_percent` on contract_tasks are server-computed — never set from frontend
+
+## Vue Frontend (`frontend/`)
+
+Vue 3 + Vite + TypeScript + PrimeVue single-page app that replaces the static `ops/dashboard.html`.
+
+```bash
+cd frontend
+npm install
+npm run dev    # Dev server on :5173, proxies /api to :3000
+npm run build  # Production build to dist/
+npm run test   # Vitest unit tests
+```
+
+**Architecture:**
+- `src/types/` — TypeScript interfaces matching API responses
+- `src/api/` — Typed fetch wrappers for each API domain (projects, clients, contracts, invoices, proposals, company, employees)
+- `src/composables/` — Reactive state management (useProjects, useClients, useToast)
+- `src/components/` — Dashboard components and modals
+- `src/layouts/` — DashboardLayout with sidebar nav
+- `src/views/` — Route-level views
+
+**Invoice billing logic:**
+- `quantity` on invoice line items = delta percent for THIS invoice only
+- Display shows cumulative: `(previous_billing + amount) / unit_price * 100`
+- `previous_billing` carries forward from prior invoices in the chain
+- `billed_amount` and `billed_percent` on contract_tasks are server-computed — never set from frontend
+
 ## What AI Should NOT Do
 
 - Don't create separate files for each project (use the API/database)
@@ -165,3 +243,12 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 - Don't modify production database directly except for schema migrations
 - Don't skip `deleted_at IS NULL` checks in queries
 - Don't create raw SQL without parameter binding (use `%s` placeholders)
+- Don't modify backend API routes or database schema as part of frontend work
+- Don't set `billed_amount` or `billed_percent` from the frontend — these are server-computed
+- Don't use innerHTML in Vue templates — use Vue's template syntax and text interpolation
+- Don't modify backend API routes or database schema as part of frontend work
+- Don't set `billed_amount` or `billed_percent` from the frontend — these are server-computed
+- Don't use innerHTML in Vue templates — use Vue's template syntax and text interpolation
+- Don't modify backend API routes or database schema as part of frontend work
+- Don't set `billed_amount` or `billed_percent` from the frontend — these are server-computed
+- Don't use innerHTML in Vue templates — use Vue's template syntax and text interpolation
