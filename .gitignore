@@ -33,7 +33,7 @@ uploads/
 
 # Legacy/experimental scripts
 api.py
-api/
+/api/
 api-proposal-endpoint.py
 v2_api.py
 main.py
