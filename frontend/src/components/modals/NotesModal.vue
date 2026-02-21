@@ -92,14 +92,14 @@ function formatDate(dateStr: string | null): string {
 .add-note { display: flex; flex-direction: column; gap: 0.5rem; }
 .add-note textarea { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; resize: vertical; background: var(--p-form-field-background); color: var(--p-text-color); }
 .notes-list { display: flex; flex-direction: column; gap: 0.75rem; max-height: 400px; overflow-y: auto; }
-.note { border: 1px solid var(--p-surface-200); border-radius: 0.375rem; padding: 0.75rem; }
+.note { border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; padding: 0.75rem; }
 .note-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; }
 .note-author { font-weight: 600; font-size: 0.8125rem; }
-.note-date { font-size: 0.75rem; color: var(--p-surface-400); }
-.note-content { font-size: 0.875rem; color: var(--p-surface-600); white-space: pre-wrap; }
+.note-date { font-size: 0.75rem; color: var(--p-text-muted-color); }
+.note-content { font-size: 0.875rem; color: var(--p-text-muted-color); white-space: pre-wrap; }
 .btn-remove { background: none; border: none; color: var(--p-red-600); cursor: pointer; font-size: 1rem; margin-left: auto; padding: 0 0.25rem; }
-.empty { text-align: center; color: var(--p-surface-400); font-size: 0.875rem; padding: 1rem; }
-.loading { text-align: center; color: var(--p-surface-400); padding: 1rem; }
+.empty { text-align: center; color: var(--p-text-muted-color); font-size: 0.875rem; padding: 1rem; }
+.loading { text-align: center; color: var(--p-text-muted-color); padding: 1rem; }
 .btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; color: var(--p-text-color); }
 .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }

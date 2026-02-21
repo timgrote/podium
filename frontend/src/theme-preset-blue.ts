@@ -59,7 +59,7 @@ export default {
         },
         primary: {
           color:         '{primary.400}',
-          contrastColor: '{surface.950}',
+          contrastColor: '#ffffff',
           hoverColor:    '{primary.300}',
           activeColor:   '{primary.200}',
         },

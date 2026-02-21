@@ -56,14 +56,14 @@ function formatCurrency(value: number): string {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--p-surface-500);
+  color: var(--p-text-muted-color);
   margin-bottom: 0.25rem;
 }
 
 .stat-value {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--p-surface-800);
+  color: var(--p-text-color);
 }
 
 .stat-value.paid {

@@ -3,11 +3,15 @@
   line-height: 1.5;
   font-weight: 400;
   color: var(--p-text-color);
-  background-color: var(--p-surface-ground, var(--p-surface-950));
+  background-color: var(--p-surface-50);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.app-dark:root {
+  background-color: var(--p-surface-950);
 }
 
 * {

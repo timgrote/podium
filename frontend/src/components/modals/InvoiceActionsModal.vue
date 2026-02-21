@@ -81,11 +81,11 @@ async function doAction(action: string) {
 .actions { display: flex; flex-direction: column; gap: 0.5rem; }
 .action-btn {
   display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.75rem 1rem; border: 1px solid var(--p-surface-200); border-radius: 0.375rem;
+  padding: 0.75rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem;
   background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; text-align: left;
   transition: all 0.15s; width: 100%; color: var(--p-text-color);
 }
-.action-btn:hover { background: var(--p-surface-50); border-color: var(--p-primary-color); }
+.action-btn:hover { background: var(--p-content-hover-background); border-color: var(--p-primary-color); }
 .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .action-btn i { font-size: 1.125rem; color: var(--p-primary-color); width: 1.5rem; }
 </style>

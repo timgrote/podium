@@ -227,7 +227,7 @@ function formatPercent(value: number): string {
 
 .meta-item {
   font-size: 0.8125rem;
-  color: var(--p-surface-500);
+  color: var(--p-text-muted-color);
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -241,7 +241,7 @@ function formatPercent(value: number): string {
 .tabs {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid var(--p-surface-200);
+  border-bottom: 2px solid var(--p-content-border-color);
 }
 
 .tab {
@@ -250,7 +250,7 @@ function formatPercent(value: number): string {
   border: none;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--p-surface-500);
+  color: var(--p-text-muted-color);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
@@ -258,7 +258,7 @@ function formatPercent(value: number): string {
 }
 
 .tab.active {
-  color: var(--p-surface-800);
+  color: var(--p-text-color);
   border-bottom-color: var(--p-primary-color);
 }
 
@@ -279,12 +279,12 @@ function formatPercent(value: number): string {
   margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--p-surface-800);
+  color: var(--p-text-color);
 }
 
 .sub-card {
-  background: var(--p-surface-50);
-  border: 1px solid var(--p-surface-200);
+  background: var(--p-content-hover-background);
+  border: 1px solid var(--p-content-border-color);
   border-radius: 0.375rem;
   padding: 0.75rem;
   margin-bottom: 0.5rem;
@@ -304,12 +304,12 @@ function formatPercent(value: number): string {
 .sub-card-amount {
   font-weight: 500;
   font-size: 0.875rem;
-  color: var(--p-surface-600);
+  color: var(--p-text-muted-color);
 }
 
 .sub-card-date {
   font-size: 0.75rem;
-  color: var(--p-surface-400);
+  color: var(--p-text-muted-color);
 }
 
 .sub-card-actions {
@@ -324,8 +324,8 @@ function formatPercent(value: number): string {
   letter-spacing: 0.05em;
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
-  background: var(--p-surface-200);
-  color: var(--p-surface-600);
+  background: var(--p-content-hover-background);
+  color: var(--p-text-muted-color);
   font-weight: 600;
 }
 
@@ -350,16 +350,16 @@ function formatPercent(value: number): string {
   gap: 0.5rem;
   padding: 0.25rem 0;
   font-size: 0.8125rem;
-  border-bottom: 1px solid var(--p-surface-100);
+  border-bottom: 1px solid var(--p-content-border-color);
 }
 
 .task-header-row {
   font-weight: 600;
-  color: var(--p-surface-500);
+  color: var(--p-text-muted-color);
   font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--p-surface-200);
+  border-bottom: 1px solid var(--p-content-border-color);
 }
 
 .task-amount,
@@ -370,7 +370,7 @@ function formatPercent(value: number): string {
 
 .empty {
   font-size: 0.8125rem;
-  color: var(--p-surface-400);
+  color: var(--p-text-muted-color);
   font-style: italic;
 }
 
@@ -379,7 +379,7 @@ function formatPercent(value: number): string {
   align-items: center;
   gap: 0.25rem;
   padding: 0.375rem 0.75rem;
-  border: 1px solid var(--p-surface-300);
+  border: 1px solid var(--p-content-border-color);
   border-radius: 0.375rem;
   background: var(--p-content-background);
   cursor: pointer;
@@ -390,7 +390,7 @@ function formatPercent(value: number): string {
 }
 
 .btn:hover {
-  background: var(--p-surface-50);
+  background: var(--p-content-hover-background);
 }
 
 .btn-sm {
@@ -422,13 +422,13 @@ function formatPercent(value: number): string {
   border: none;
   cursor: pointer;
   padding: 0.25rem;
-  color: var(--p-surface-500);
+  color: var(--p-text-muted-color);
   border-radius: 0.25rem;
   font-size: 0.875rem;
 }
 
 .btn-icon:hover {
-  background: var(--p-surface-200);
-  color: var(--p-surface-800);
+  background: var(--p-content-hover-background);
+  color: var(--p-text-color);
 }
 </style>

@@ -136,7 +136,7 @@ function toggleExpand(id: string) {
 }
 
 .search-bar i {
-  color: var(--p-surface-400);
+  color: var(--p-text-muted-color);
 }
 
 .search-bar input {
@@ -172,7 +172,7 @@ function toggleExpand(id: string) {
 .empty-state {
   text-align: center;
   padding: 3rem;
-  color: var(--p-surface-400);
+  color: var(--p-text-muted-color);
   font-size: 0.875rem;
 }
 

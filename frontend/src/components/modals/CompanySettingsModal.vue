@@ -123,11 +123,11 @@ async function handleLogoUpload(event: Event) {
 <style scoped>
 .form { display: flex; flex-direction: column; gap: 0.75rem; }
 .field { display: flex; flex-direction: column; gap: 0.25rem; }
-.field label { font-size: 0.75rem; font-weight: 600; color: var(--p-surface-600); text-transform: uppercase; letter-spacing: 0.05em; }
+.field label { font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.05em; }
 .field input, .field textarea { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .logo-row { display: flex; align-items: center; gap: 1rem; }
 .logo-preview { height: 40px; border-radius: 0.25rem; }
-.loading { text-align: center; padding: 2rem; color: var(--p-surface-400); }
+.loading { text-align: center; padding: 2rem; color: var(--p-text-muted-color); }
 .btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; margin-left: 0.5rem; color: var(--p-text-color); }
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .btn-primary:hover { background: var(--p-primary-hover-color); }

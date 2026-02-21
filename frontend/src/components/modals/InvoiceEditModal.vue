@@ -137,18 +137,18 @@ async function save() {
 <style scoped>
 .form { display: flex; flex-direction: column; gap: 0.75rem; }
 .field { display: flex; flex-direction: column; gap: 0.25rem; }
-.field label { font-size: 0.75rem; font-weight: 600; color: var(--p-surface-600); text-transform: uppercase; }
+.field label { font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; }
 .field textarea { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .task-grid { display: flex; flex-direction: column; gap: 0.25rem; }
 .task-header, .task-row { display: grid; grid-template-columns: 1fr 5.5rem 5.5rem 4.5rem 5rem 5.5rem; gap: 0.5rem; align-items: center; padding: 0.375rem 0; }
-.task-header { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--p-surface-500); font-weight: 600; border-bottom: 1px solid var(--p-surface-200); }
+.task-header { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--p-text-muted-color); font-weight: 600; border-bottom: 1px solid var(--p-content-border-color); }
 .task-name { font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .num { font-size: 0.8125rem; text-align: right; }
 .cumulative { font-weight: 600; color: var(--p-primary-color); }
 .pct-input { width: 100%; padding: 0.25rem 0.375rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; text-align: right; background: var(--p-form-field-background); color: var(--p-text-color); }
-.total-row { display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 2px solid var(--p-surface-200); margin-top: 0.25rem; font-weight: 600; font-size: 0.875rem; }
-.total { color: var(--p-surface-800); }
-.loading { text-align: center; padding: 2rem; color: var(--p-surface-400); }
+.total-row { display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 2px solid var(--p-content-border-color); margin-top: 0.25rem; font-weight: 600; font-size: 0.875rem; }
+.total { color: var(--p-text-color); }
+.loading { text-align: center; padding: 2rem; color: var(--p-text-muted-color); }
 .btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; margin-left: 0.5rem; color: var(--p-text-color); }
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .btn-primary:hover { background: var(--p-primary-hover-color); }

@@ -105,12 +105,12 @@ function formatCurrency(value: number): string {
 .job-code {
   font-weight: 600;
   font-size: 0.875rem;
-  color: var(--p-surface-800);
+  color: var(--p-text-color);
   white-space: nowrap;
 }
 
 .project-name {
-  color: var(--p-surface-600);
+  color: var(--p-text-muted-color);
   font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -118,7 +118,7 @@ function formatCurrency(value: number): string {
 }
 
 .client-name {
-  color: var(--p-surface-400);
+  color: var(--p-text-muted-color);
   font-size: 0.8125rem;
   white-space: nowrap;
 }
@@ -133,7 +133,7 @@ function formatCurrency(value: number): string {
 .financial {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--p-surface-600);
+  color: var(--p-text-muted-color);
   min-width: 5rem;
   text-align: right;
 }
@@ -147,7 +147,7 @@ function formatCurrency(value: number): string {
 }
 
 .project-detail-slot {
-  border-top: 1px solid var(--p-surface-200);
+  border-top: 1px solid var(--p-content-border-color);
   padding: 1rem;
 }
 </style>

@@ -305,21 +305,21 @@ onMounted(async () => {
 .dashboard-header h1 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--p-surface-800);
+  color: var(--p-text-color);
 }
 
 .btn-settings {
   background: none;
-  border: 1px solid var(--p-surface-300);
+  border: 1px solid var(--p-content-border-color);
   border-radius: 0.375rem;
   padding: 0.5rem;
   cursor: pointer;
-  color: var(--p-surface-500);
+  color: var(--p-text-muted-color);
   font-size: 1rem;
 }
 
 .btn-settings:hover {
-  background: var(--p-surface-100);
-  color: var(--p-surface-800);
+  background: var(--p-content-hover-background);
+  color: var(--p-text-color);
 }
 </style>
