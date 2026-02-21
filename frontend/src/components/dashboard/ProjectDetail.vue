@@ -145,12 +145,6 @@ const taskStatusIcon: Record<string, string> = {
         </span>
       </div>
       <div class="detail-actions">
-        <button class="btn btn-sm" @click="emit('editProject')">
-          <i class="pi pi-pencil" /> Edit
-        </button>
-        <button class="btn btn-sm btn-danger" @click="emit('deleteProject')">
-          <i class="pi pi-trash" /> Delete
-        </button>
       </div>
     </div>
 

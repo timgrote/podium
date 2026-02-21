@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   saved: []
   error: [msg: string]
+  delete: []
 }>()
 
 const { clients } = useClients()
@@ -175,10 +176,17 @@ async function save() {
       </div>
     </div>
     <template #footer>
-      <button class="btn" @click="visible = false">Cancel</button>
-      <button class="btn btn-primary" :disabled="saving" @click="save">
-        {{ saving ? 'Saving...' : 'Save' }}
-      </button>
+      <div class="footer-row">
+        <button v-if="project" class="btn btn-danger" @click="emit('delete'); visible = false">
+          <i class="pi pi-trash" /> Delete
+        </button>
+        <div class="footer-right">
+          <button class="btn" @click="visible = false">Cancel</button>
+          <button class="btn btn-primary" :disabled="saving" @click="save">
+            {{ saving ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </div>
     </template>
   </Dialog>
 </template>
@@ -193,4 +201,8 @@ async function save() {
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .btn-primary:hover { background: var(--p-primary-hover-color); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-danger { color: var(--p-red-600); border-color: var(--p-red-300); }
+.btn-danger:hover { background: var(--p-red-50); }
+.footer-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.footer-right { display: flex; gap: 0.5rem; }
 </style>

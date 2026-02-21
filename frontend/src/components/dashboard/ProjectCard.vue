@@ -62,7 +62,9 @@ function formatCurrency(value: number): string {
         <span class="financial" title="Contract value">{{ formatCurrency(project.total_contracted) }}</span>
         <span class="financial invoiced-sent" title="Invoiced (sent)">{{ formatCurrency(invoicedSent) }}</span>
         <span class="financial invoiced-unsent" title="Invoiced (unsent)">{{ formatCurrency(invoicedUnsent) }}</span>
-        <i :class="expanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" />
+        <button class="btn-edit" title="Edit project" @click.stop="emit('edit')">
+          <i class="pi pi-pencil" />
+        </button>
       </div>
     </div>
     <div v-if="expanded" class="project-detail-slot">
@@ -140,6 +142,21 @@ function formatCurrency(value: number): string {
 
 .financial.invoiced-unsent {
   color: var(--p-amber-600);
+}
+
+.btn-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: var(--p-text-muted-color);
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.btn-edit:hover {
+  background: var(--p-content-hover-background);
+  color: var(--p-text-color);
 }
 
 .project-detail-slot {

@@ -89,6 +89,7 @@ function toggleExpand(id: string) {
         :project="project"
         :expanded="expandedId === project.id"
         @toggle="toggleExpand(project.id)"
+        @edit="emit('editProject', project)"
       >
         <ProjectDetail
           :project="project"

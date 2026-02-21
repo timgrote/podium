@@ -212,6 +212,7 @@ onMounted(async () => {
       :project="editingProject"
       @saved="handleSaved"
       @error="showError"
+      @delete="editingProject && openDeleteProject(editingProject)"
     />
 
     <ContractModal
