@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .routers import auth, clients, company, contracts, employees, flows, invoices, projects, proposals, tasks
@@ -44,11 +44,10 @@ async def log_api_requests(request: Request, call_next):
 frontend_mode = os.environ.get("CONDUCTOR_FRONTEND_MODE", "legacy")
 
 
-@app.get("/")
-def root_redirect():
-    if frontend_mode == "vue":
-        return RedirectResponse(url="/dashboard")
-    return RedirectResponse(url="/ops/dashboard.html")
+if frontend_mode != "vue":
+    @app.get("/")
+    def root_redirect():
+        return RedirectResponse(url="/ops/dashboard.html")
 
 
 # --- API routers ---
@@ -67,9 +66,20 @@ app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 static_root = Path(__file__).resolve().parent.parent
 
 if frontend_mode == "vue":
+    vue_dist = static_root / "frontend" / "dist"
     app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
     app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
-    app.mount("/", StaticFiles(directory=static_root / "frontend" / "dist", html=True), name="vue")
+    app.mount("/assets", StaticFiles(directory=vue_dist / "assets"), name="vue-assets")
+
+    @app.get("/{path:path}")
+    async def vue_spa_fallback(path: str):
+        """Serve Vue SPA index.html for all non-API, non-static routes."""
+        # If a real file exists in dist/, serve it
+        file_path = vue_dist / path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        # Otherwise serve index.html for client-side routing
+        return FileResponse(vue_dist / "index.html")
 else:
     app.mount("/ops", StaticFiles(directory=static_root / "ops", html=True), name="ops")
     app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
