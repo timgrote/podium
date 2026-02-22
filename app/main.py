@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -40,8 +41,13 @@ async def log_api_requests(request: Request, call_next):
     return response
 
 
+frontend_mode = os.environ.get("CONDUCTOR_FRONTEND_MODE", "legacy")
+
+
 @app.get("/")
 def root_redirect():
+    if frontend_mode == "vue":
+        return RedirectResponse(url="/dashboard")
     return RedirectResponse(url="/ops/dashboard.html")
 
 
@@ -60,6 +66,11 @@ app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 # --- Static files ---
 static_root = Path(__file__).resolve().parent.parent
 
-app.mount("/ops", StaticFiles(directory=static_root / "ops", html=True), name="ops")
-app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
-app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
+if frontend_mode == "vue":
+    app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
+    app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
+    app.mount("/", StaticFiles(directory=static_root / "frontend" / "dist", html=True), name="vue")
+else:
+    app.mount("/ops", StaticFiles(directory=static_root / "ops", html=True), name="ops")
+    app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
+    app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
