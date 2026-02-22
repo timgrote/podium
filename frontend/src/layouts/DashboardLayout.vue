@@ -2,13 +2,28 @@
 import { ref } from 'vue'
 import Toast from 'primevue/toast'
 import { useColorMode } from '../composables/useColorMode'
+import { useAuth } from '../composables/useAuth'
 
 const sidebarCollapsed = ref(false)
 const { isDark, toggleColorMode } = useColorMode()
+const { user, logout } = useAuth()
+const showUserMenu = ref(false)
 
 const navItems = [
   { label: 'Dashboard', icon: 'pi pi-home', route: '/dashboard' },
 ]
+
+function userInitials(): string {
+  if (!user.value) return '?'
+  const f = user.value.first_name?.[0] || ''
+  const l = user.value.last_name?.[0] || ''
+  return (f + l).toUpperCase() || '?'
+}
+
+function handleLogout() {
+  showUserMenu.value = false
+  logout()
+}
 </script>
 
 <template>
@@ -33,6 +48,26 @@ const navItems = [
         </router-link>
       </nav>
       <div class="sidebar-footer">
+        <div v-if="user" class="user-section">
+          <button class="user-btn" @click="showUserMenu = !showUserMenu">
+            <img
+              v-if="user.avatar_url"
+              :src="user.avatar_url"
+              :alt="userInitials()"
+              class="avatar-img"
+            />
+            <span v-else class="avatar-initials">{{ userInitials() }}</span>
+            <span v-if="!sidebarCollapsed" class="user-name">
+              {{ user.first_name }} {{ user.last_name }}
+            </span>
+          </button>
+          <div v-if="showUserMenu" class="user-menu">
+            <button class="menu-item" @click="handleLogout">
+              <i class="pi pi-sign-out" />
+              Logout
+            </button>
+          </div>
+        </div>
         <button class="toggle-btn theme-btn" @click="toggleColorMode">
           <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'" />
           <span v-if="!sidebarCollapsed">{{ isDark ? 'Light' : 'Dark' }}</span>
@@ -129,6 +164,90 @@ const navItems = [
 .sidebar-footer {
   padding: 0.5rem;
   border-top: 1px solid var(--p-surface-800);
+}
+
+.user-section {
+  position: relative;
+  margin-bottom: 0.25rem;
+}
+
+.user-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 0.375rem;
+  color: var(--p-surface-300);
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.user-btn:hover {
+  background: var(--p-surface-800);
+}
+
+.avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.avatar-initials {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--p-surface-700);
+  color: var(--p-surface-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0.5rem;
+  right: 0.5rem;
+  margin-bottom: 0.25rem;
+  background: var(--p-surface-800);
+  border: 1px solid var(--p-surface-700);
+  border-radius: 0.375rem;
+  padding: 0.25rem;
+  z-index: 20;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 0.25rem;
+  color: var(--p-surface-300);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--p-surface-700);
+  color: var(--p-surface-100);
 }
 
 .theme-btn {
