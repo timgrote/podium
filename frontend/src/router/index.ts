@@ -22,11 +22,9 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  const { isAuthenticated, loading, checkSession } = useAuth()
+  const { isAuthenticated, checkSession } = useAuth()
 
-  if (loading.value) {
-    await checkSession()
-  }
+  await checkSession()
 
   if (to.meta.public) {
     if (isAuthenticated.value && to.path === '/login') {

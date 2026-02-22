@@ -47,8 +47,14 @@ export function useAuth() {
   }
 
   async function logout() {
-    await authApi.logout()
+    try {
+      await authApi.logout()
+    } catch {
+      // Clear client state even if server-side cleanup fails
+    }
     user.value = null
+    sessionChecked = false
+    sessionPromise = null
     router.push('/login')
   }
 
@@ -61,7 +67,8 @@ export function useAuth() {
 
   function clearUser() {
     user.value = null
-    sessionChecked = true
+    sessionChecked = false
+    sessionPromise = null
     loading.value = false
   }
 
