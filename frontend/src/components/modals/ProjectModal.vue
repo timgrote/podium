@@ -5,6 +5,8 @@ import type { ProjectSummary } from '../../types'
 import { useClients } from '../../composables/useClients'
 import { useToast } from '../../composables/useToast'
 import { createProject, updateProject } from '../../api/projects'
+import { getEmployees } from '../../api/employees'
+import type { Employee } from '../../types'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -20,6 +22,7 @@ const emit = defineEmits<{
 
 const { clients } = useClients()
 const toast = useToast()
+const employees = ref<Employee[]>([])
 
 const form = ref({
   project_name: '',
@@ -29,8 +32,7 @@ const form = ref({
   client_email: '',
   location: '',
   status: 'proposal',
-  pm_name: '',
-  pm_email: '',
+  pm_id: '',
   client_project_number: '',
   data_path: '',
   notes: '',
@@ -38,8 +40,9 @@ const form = ref({
 
 const saving = ref(false)
 
-watch(visible, (val) => {
+watch(visible, async (val) => {
   if (!val) return
+  employees.value = await getEmployees()
   if (props.project) {
     form.value = {
       project_name: props.project.project_name || '',
@@ -49,8 +52,7 @@ watch(visible, (val) => {
       client_email: props.project.client_email || '',
       location: props.project.location || '',
       status: props.project.status,
-      pm_name: props.project.pm_name || '',
-      pm_email: props.project.pm_email || '',
+      pm_id: props.project.pm_id || '',
       client_project_number: props.project.client_project_number || '',
       data_path: '',
       notes: '',
@@ -64,8 +66,7 @@ watch(visible, (val) => {
       client_email: '',
       location: '',
       status: 'proposal',
-      pm_name: '',
-      pm_email: '',
+      pm_id: '',
       client_project_number: '',
       data_path: '',
       notes: '',
@@ -84,8 +85,7 @@ async function save() {
         client_id: form.value.client_id || undefined,
         location: form.value.location || undefined,
         status: form.value.status,
-        pm_name: form.value.pm_name || undefined,
-        pm_email: form.value.pm_email || undefined,
+        pm_id: form.value.pm_id || null,
         client_project_number: form.value.client_project_number || undefined,
         data_path: form.value.data_path || undefined,
       })
@@ -99,6 +99,7 @@ async function save() {
         client_email: form.value.client_email || undefined,
         location: form.value.location || undefined,
         status: form.value.status,
+        pm_id: form.value.pm_id || undefined,
       })
       toast.success('Project created')
     }
@@ -149,15 +150,12 @@ async function save() {
         <label>Location</label>
         <input v-model="form.location" type="text" placeholder="Austin, TX" />
       </div>
-      <div class="field-group">
-        <div class="field">
-          <label>PM Name</label>
-          <input v-model="form.pm_name" type="text" />
-        </div>
-        <div class="field">
-          <label>PM Email</label>
-          <input v-model="form.pm_email" type="email" />
-        </div>
+      <div class="field">
+        <label>Project Manager</label>
+        <select v-model="form.pm_id">
+          <option value="">-- None --</option>
+          <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.first_name }} {{ e.last_name }}</option>
+        </select>
       </div>
       <div class="field">
         <label>Client Project #</label>

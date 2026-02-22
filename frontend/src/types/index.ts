@@ -130,6 +130,7 @@ export interface ProjectSummary {
   client_name: string | null
   client_company: string | null
   client_email: string | null
+  pm_id: string | null
   pm_name: string | null
   pm_email: string | null
   client_project_number: string | null
