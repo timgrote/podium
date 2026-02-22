@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import Dialog from 'primevue/dialog'
-import type { Task, TaskNote, Employee } from '../../types'
+import type { Task, Employee } from '../../types'
 import { getTask, createTask, updateTask, deleteTask, addTaskNote, deleteTaskNote } from '../../api/tasks'
 import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'

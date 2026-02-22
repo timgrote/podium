@@ -230,13 +230,6 @@ function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`
 }
 
-const taskStatusIcon: Record<string, string> = {
-  todo: 'pi-circle',
-  in_progress: 'pi-spin pi-spinner',
-  blocked: 'pi-ban',
-  done: 'pi-check-circle',
-  canceled: 'pi-times-circle',
-}
 </script>
 
 <template>
