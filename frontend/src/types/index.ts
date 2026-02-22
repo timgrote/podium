@@ -160,12 +160,33 @@ export interface TaskNote {
   id: string
   task_id: string
   author_id: string | null
+  author_name: string | null
+  author_avatar_url: string | null
   content: string
   created_at: string | null
 }
 
+export interface TaskCreatePayload {
+  title: string
+  description?: string | null
+  parent_id?: string | null
+  status?: string
+  start_date?: string | null
+  due_date?: string | null
+  assignee_ids?: string[]
+}
+
+export interface TaskUpdatePayload {
+  title?: string
+  description?: string | null
+  status?: string
+  start_date?: string | null
+  due_date?: string | null
+  assignee_ids?: string[]
+}
+
 export interface TaskAssignee {
-  employee_id: string
+  id: string
   first_name: string
   last_name: string
 }

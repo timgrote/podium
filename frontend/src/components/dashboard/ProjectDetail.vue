@@ -2,7 +2,10 @@
 import { ref, watch, computed } from 'vue'
 import type { ProjectSummary, ProjectNote, Task } from '../../types'
 import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
-import { getProjectTasks } from '../../api/tasks'
+import { getProjectTasks, createTask, updateTask } from '../../api/tasks'
+import { getEmployees } from '../../api/employees'
+import TaskDetailModal from '../modals/TaskDetailModal.vue'
+import type { Employee } from '../../types'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 
@@ -51,11 +54,56 @@ const filteredNotes = computed(() => {
 // Tasks state
 const tasks = ref<Task[]>([])
 const tasksLoading = ref(false)
+const showNewTaskForm = ref(false)
+const newTaskTitle = ref('')
+const newTaskDueDate = ref('')
+const newTaskDescription = ref('')
+const newTaskSaving = ref(false)
+const newTaskAssigneeIds = ref<string[]>([])
+const employees = ref<Employee[]>([])
+const showCompletedTasks = ref(false)
 
-watch(activeTab, async (tab) => {
-  if (tab === 'notes' && notes.value.length === 0) await loadNotes()
-  if (tab === 'tasks' && tasks.value.length === 0) await loadTasks()
+// Task detail modal
+const taskModalVisible = ref(false)
+const selectedTaskId = ref<string | null>(null)
+
+const activeTasks = computed(() =>
+  tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled')
+)
+
+const completedTasks = computed(() =>
+  tasks.value.filter(t => t.status === 'done' || t.status === 'canceled')
+)
+
+const totalTaskCount = computed(() => {
+  let count = tasks.value.length
+  for (const t of tasks.value) {
+    if (t.subtasks) count += t.subtasks.length
+  }
+  return count
 })
+
+// Load counts eagerly so tabs show badges before clicking
+watch(() => props.project.id, async () => {
+  await Promise.all([loadNotes(), loadTasks(), loadEmployees()])
+}, { immediate: true })
+
+async function loadEmployees() {
+  try {
+    employees.value = await getEmployees()
+  } catch (e) {
+    console.error('Failed to load employees:', e)
+  }
+}
+
+function toggleNewTaskAssignee(empId: string) {
+  const idx = newTaskAssigneeIds.value.indexOf(empId)
+  if (idx >= 0) {
+    newTaskAssigneeIds.value.splice(idx, 1)
+  } else {
+    newTaskAssigneeIds.value.push(empId)
+  }
+}
 
 async function loadNotes() {
   notesLoading.value = true
@@ -102,6 +150,62 @@ async function loadTasks() {
   } finally {
     tasksLoading.value = false
   }
+}
+
+async function submitNewTask() {
+  if (!newTaskTitle.value.trim()) return
+  newTaskSaving.value = true
+  try {
+    await createTask(props.project.id, {
+      title: newTaskTitle.value,
+      due_date: newTaskDueDate.value || undefined,
+      description: newTaskDescription.value || undefined,
+      assignee_ids: newTaskAssigneeIds.value.length ? newTaskAssigneeIds.value : undefined,
+    })
+    newTaskTitle.value = ''
+    newTaskDueDate.value = ''
+    newTaskDescription.value = ''
+    newTaskAssigneeIds.value = []
+    showNewTaskForm.value = false
+    toast.success('Task created')
+    await loadTasks()
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    newTaskSaving.value = false
+  }
+}
+
+async function toggleTaskDone(taskId: string, currentStatus: string) {
+  const newStatus = currentStatus === 'done' ? 'todo' : 'done'
+  try {
+    await updateTask(taskId, { status: newStatus })
+    await loadTasks()
+    if (newStatus === 'done') {
+      showCompletedTasks.value = true
+    }
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+function openTaskDetail(taskId: string) {
+  selectedTaskId.value = taskId
+  taskModalVisible.value = true
+}
+
+function isOverdue(dateStr: string | null): boolean {
+  if (!dateStr) return false
+  return new Date(dateStr) < new Date()
+}
+
+function getInitials(assignees: Task['assignees']): string[] {
+  if (!assignees) return []
+  return assignees.map(a => {
+    const f = a.first_name?.[0] ?? ''
+    const l = a.last_name?.[0] ?? ''
+    return `${f}${l}`.toUpperCase() || '?'
+  })
 }
 
 function formatCurrency(value: number): string {
@@ -163,14 +267,14 @@ const taskStatusIcon: Record<string, string> = {
         :class="{ active: activeTab === 'tasks' }"
         @click="activeTab = 'tasks'"
       >
-        Tasks
+        Tasks <span v-if="totalTaskCount" class="tab-count">({{ totalTaskCount }})</span>
       </button>
       <button
         class="tab"
         :class="{ active: activeTab === 'notes' }"
         @click="activeTab = 'notes'"
       >
-        Notes
+        Notes <span v-if="notes.length" class="tab-count">({{ notes.length }})</span>
       </button>
     </div>
 
@@ -293,16 +397,122 @@ const taskStatusIcon: Record<string, string> = {
     </div>
 
     <div v-if="activeTab === 'tasks'" class="tab-content">
-      <div v-if="tasksLoading" class="empty">Loading tasks...</div>
-      <div v-else-if="tasks.length === 0" class="empty">No tasks</div>
-      <div v-else class="tasks-list">
-        <div v-for="task in tasks" :key="task.id" class="task-item">
-          <i class="pi" :class="taskStatusIcon[task.status] || 'pi-circle'" />
-          <span class="task-title">{{ task.title }}</span>
-          <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
-          <span v-if="task.due_date" class="task-due">{{ formatDate(task.due_date) }}</span>
+      <div class="section">
+        <div class="section-header tasks-header">
+          <h4>Tasks</h4>
+          <button class="btn-icon" :title="showNewTaskForm ? 'Cancel' : 'Add task'" @click="showNewTaskForm = !showNewTaskForm">
+            <i class="pi" :class="showNewTaskForm ? 'pi-times' : 'pi-plus'" />
+          </button>
         </div>
+
+        <!-- Inline new task form -->
+        <div v-if="showNewTaskForm" class="new-task-form">
+          <input v-model="newTaskTitle" type="text" placeholder="Task title" class="new-task-input" />
+          <div class="new-task-row">
+            <input v-model="newTaskDueDate" type="date" class="new-task-date" />
+            <button class="btn btn-sm btn-primary" :disabled="newTaskSaving || !newTaskTitle.trim()" @click="submitNewTask">
+              {{ newTaskSaving ? 'Creating...' : 'Create' }}
+            </button>
+          </div>
+          <textarea v-model="newTaskDescription" rows="2" placeholder="Description (optional)" class="new-task-desc" />
+          <div v-if="employees.length" class="new-task-assignees">
+            <label class="new-task-label">Assign to</label>
+            <div class="assignee-chips">
+              <button
+                v-for="emp in employees"
+                :key="emp.id"
+                class="chip"
+                :class="{ active: newTaskAssigneeIds.includes(emp.id) }"
+                @click="toggleNewTaskAssignee(emp.id)"
+              >
+                {{ emp.first_name }} {{ emp.last_name }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="tasksLoading" class="empty">Loading tasks...</div>
+        <div v-else-if="tasks.length === 0 && !showNewTaskForm" class="empty">No tasks</div>
+        <template v-else>
+          <!-- Active tasks -->
+          <div v-if="activeTasks.length" class="tasks-list">
+            <template v-for="task in activeTasks" :key="task.id">
+              <div class="task-item clickable" @click="openTaskDetail(task.id)">
+                <span class="task-checkbox" :class="{ checked: task.status === 'done' }" @click.stop="toggleTaskDone(task.id, task.status)">
+                  <i v-if="task.status === 'done'" class="pi pi-check" />
+                </span>
+                <span class="task-title">{{ task.title }}</span>
+                <span v-if="task.assignees?.length" class="task-assignees">
+                  <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
+                </span>
+                <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
+                <span v-if="task.due_date" class="task-due" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }">
+                  {{ formatDate(task.due_date) }}
+                </span>
+              </div>
+              <!-- Subtasks -->
+              <div v-if="task.subtasks?.length" class="subtask-group">
+                <div
+                  v-for="sub in task.subtasks"
+                  :key="sub.id"
+                  class="task-item clickable subtask"
+                  @click="openTaskDetail(sub.id)"
+                >
+                  <span class="task-checkbox" :class="{ checked: sub.status === 'done' }" @click.stop="toggleTaskDone(sub.id, sub.status)">
+                    <i v-if="sub.status === 'done'" class="pi pi-check" />
+                  </span>
+                  <span class="task-title">{{ sub.title }}</span>
+                  <span class="task-status-label">{{ sub.status.replace('_', ' ') }}</span>
+                  <span v-if="sub.due_date" class="task-due" :class="{ overdue: isOverdue(sub.due_date) && sub.status !== 'done' }">
+                    {{ formatDate(sub.due_date) }}
+                  </span>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Completed tasks -->
+          <div v-if="completedTasks.length" class="completed-section">
+            <button class="completed-toggle" @click="showCompletedTasks = !showCompletedTasks">
+              <i class="pi" :class="showCompletedTasks ? 'pi-chevron-down' : 'pi-chevron-right'" />
+              Completed ({{ completedTasks.length }})
+            </button>
+            <div v-if="showCompletedTasks" class="tasks-list">
+              <template v-for="task in completedTasks" :key="task.id">
+                <div class="task-item clickable done" @click="openTaskDetail(task.id)">
+                  <span class="task-checkbox checked" @click.stop="toggleTaskDone(task.id, task.status)">
+                    <i class="pi pi-check" />
+                  </span>
+                  <span class="task-title">{{ task.title }}</span>
+                  <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
+                </div>
+                <div v-if="task.subtasks?.length" class="subtask-group">
+                  <div
+                    v-for="sub in task.subtasks"
+                    :key="sub.id"
+                    class="task-item clickable subtask done"
+                    @click="openTaskDetail(sub.id)"
+                  >
+                    <span class="task-checkbox checked" @click.stop="toggleTaskDone(sub.id, sub.status)">
+                      <i class="pi pi-check" />
+                    </span>
+                    <span class="task-title">{{ sub.title }}</span>
+                    <span class="task-status-label">{{ sub.status.replace('_', ' ') }}</span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
       </div>
+
+      <TaskDetailModal
+        v-model:visible="taskModalVisible"
+        :task-id="selectedTaskId"
+        :project-id="project.id"
+        @saved="loadTasks"
+        @deleted="loadTasks"
+      />
     </div>
 
     <div v-if="activeTab === 'notes'" class="tab-content">
@@ -396,6 +606,11 @@ const taskStatusIcon: Record<string, string> = {
 .tab.active {
   color: var(--p-text-color);
   border-bottom-color: var(--p-primary-color);
+}
+
+.tab-count {
+  color: var(--p-text-muted-color);
+  font-weight: 400;
 }
 
 .tab-content {
@@ -526,13 +741,74 @@ const taskStatusIcon: Record<string, string> = {
   border-bottom: 1px solid var(--p-content-border-color);
 }
 
-.task-item .pi {
-  font-size: 0.75rem;
-  color: var(--p-text-muted-color);
+.task-item.clickable {
+  cursor: pointer;
+  padding: 0.375rem 0.25rem;
+  border-radius: 0.25rem;
+  border-bottom: none;
+  margin-bottom: 1px;
+}
+
+.task-item.clickable:hover {
+  background: var(--p-content-hover-background);
+}
+
+.task-item.done {
+  opacity: 0.6;
+}
+
+.tasks-header {
+  justify-content: flex-start;
+  gap: 0.25rem;
+}
+
+.task-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--p-content-border-color);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.task-checkbox:hover {
+  border-color: var(--p-primary-color);
+}
+
+.task-checkbox.checked {
+  background: var(--p-primary-color);
+  border-color: var(--p-primary-color);
+}
+
+.task-checkbox .pi {
+  font-size: 0.5625rem;
+  color: #fff;
 }
 
 .task-title {
   flex: 1;
+}
+
+.task-assignees {
+  display: flex;
+  gap: 0.125rem;
+}
+
+.initials-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--p-primary-color);
+  color: #fff;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .task-status-label {
@@ -545,6 +821,131 @@ const taskStatusIcon: Record<string, string> = {
 .task-due {
   font-size: 0.75rem;
   color: var(--p-text-muted-color);
+}
+
+.task-due.overdue {
+  color: var(--p-red-600);
+  font-weight: 600;
+}
+
+.subtask-group {
+  padding-left: 1.5rem;
+}
+
+.subtask {
+  font-size: 0.75rem;
+}
+
+.new-task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  margin-bottom: 0.75rem;
+  background: var(--p-content-hover-background);
+}
+
+.new-task-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--p-form-field-border-color);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: var(--p-form-field-background);
+  color: var(--p-text-color);
+}
+
+.new-task-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.new-task-date {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--p-form-field-border-color);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  background: var(--p-form-field-background);
+  color: var(--p-text-color);
+}
+
+.new-task-desc {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--p-form-field-border-color);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  resize: vertical;
+  background: var(--p-form-field-background);
+  color: var(--p-text-color);
+  font-family: inherit;
+}
+
+.new-task-assignees {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.new-task-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.assignee-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.chip {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  background: var(--p-content-background);
+  color: var(--p-text-muted-color);
+  transition: all 0.15s;
+}
+
+.chip.active {
+  background: var(--p-primary-color);
+  color: #fff;
+  border-color: var(--p-primary-color);
+}
+
+.chip:hover {
+  border-color: var(--p-primary-color);
+}
+
+.completed-section {
+  margin-top: 0.5rem;
+}
+
+.completed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  padding: 0.25rem 0;
+  font-weight: 500;
+}
+
+.completed-toggle:hover {
+  color: var(--p-text-color);
+}
+
+.completed-toggle .pi {
+  font-size: 0.625rem;
 }
 
 /* Notes */
