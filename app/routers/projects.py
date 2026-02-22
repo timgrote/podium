@@ -112,7 +112,8 @@ def list_projects(db=Depends(get_db)):
 def get_project_note(note_id: str, db=Depends(get_db)):
     row = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
-        "e.first_name || ' ' || e.last_name AS author_name "
+        "e.first_name || ' ' || e.last_name AS author_name, "
+        "e.avatar_url AS author_avatar_url "
         "FROM project_notes n "
         "LEFT JOIN employees e ON n.author_id = e.id "
         "WHERE n.id = %s",
@@ -140,7 +141,8 @@ def delete_project_note(note_id: str, db=Depends(get_db)):
 def list_project_notes(project_id: str, db=Depends(get_db)):
     rows = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
-        "e.first_name || ' ' || e.last_name AS author_name "
+        "e.first_name || ' ' || e.last_name AS author_name, "
+        "e.avatar_url AS author_avatar_url "
         "FROM project_notes n "
         "LEFT JOIN employees e ON n.author_id = e.id "
         "WHERE n.project_id = %s "
@@ -169,7 +171,8 @@ def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db
 
     row = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
-        "e.first_name || ' ' || e.last_name AS author_name "
+        "e.first_name || ' ' || e.last_name AS author_name, "
+        "e.avatar_url AS author_avatar_url "
         "FROM project_notes n "
         "LEFT JOIN employees e ON n.author_id = e.id "
         "WHERE n.id = %s",

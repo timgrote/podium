@@ -116,6 +116,7 @@ export interface ProjectNote {
   project_id: string
   author_id: string | null
   author_name: string | null
+  author_avatar_url: string | null
   content: string
   created_at: string | null
 }

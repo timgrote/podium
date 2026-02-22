@@ -69,6 +69,7 @@ class ProjectNoteResponse(BaseModel):
     project_id: str
     author_id: str | None = None
     author_name: str | None = None
+    author_avatar_url: str | None = None
     content: str
     created_at: datetime | str | None = None
 
