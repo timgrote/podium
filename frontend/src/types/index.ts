@@ -136,6 +136,7 @@ export interface ProjectSummary {
   pm_avatar_url: string | null
   client_project_number: string | null
   location: string | null
+  data_path: string | null
   total_contracted: number
   total_invoiced: number
   total_paid: number

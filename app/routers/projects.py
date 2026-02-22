@@ -93,6 +93,7 @@ def list_projects(db=Depends(get_db)):
             pm_avatar_url=p.get("pm_avatar_url"),
             client_project_number=p.get("client_project_number"),
             location=p.get("location"),
+            data_path=p.get("data_path"),
             total_contracted=p.get("total_contracted", 0),
             total_invoiced=p.get("total_invoiced", 0),
             total_paid=p.get("total_paid", 0),
