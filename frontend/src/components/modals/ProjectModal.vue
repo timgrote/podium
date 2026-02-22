@@ -83,7 +83,7 @@ async function save() {
   try {
     if (props.project) {
       await updateProject(props.project.id, {
-        project_name: form.value.project_name,
+        name: form.value.project_name,
         project_number: form.value.project_number || undefined,
         job_code: form.value.job_code || undefined,
         client_id: form.value.client_id || undefined,
@@ -104,6 +104,7 @@ async function save() {
         location: form.value.location || undefined,
         status: form.value.status,
         pm_id: form.value.pm_id || undefined,
+        data_path: form.value.data_path || undefined,
       })
       toast.success('Project created')
     }
@@ -126,12 +127,12 @@ async function save() {
   >
     <div class="form">
       <!-- Project Basics -->
-      <div class="field-row">
-        <div class="field" style="flex: 2">
+      <div class="field-row" style="grid-template-columns: 2fr 1fr">
+        <div class="field">
           <label>Project Name *</label>
           <input v-model="form.project_name" type="text" />
         </div>
-        <div class="field" style="flex: 1">
+        <div class="field">
           <label>Project #</label>
           <input v-model="form.project_number" type="text" :disabled="!project" :placeholder="project ? '' : 'Auto'" />
         </div>
