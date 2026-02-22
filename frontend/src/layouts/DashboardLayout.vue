@@ -62,6 +62,10 @@ function handleLogout() {
             </span>
           </button>
           <div v-if="showUserMenu" class="user-menu">
+            <router-link class="menu-item" to="/profile" @click="showUserMenu = false">
+              <i class="pi pi-user" />
+              Profile
+            </router-link>
             <button class="menu-item" @click="handleLogout">
               <i class="pi pi-sign-out" />
               Logout
@@ -243,6 +247,7 @@ function handleLogout() {
   color: var(--p-surface-300);
   font-size: 0.8125rem;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .menu-item:hover {

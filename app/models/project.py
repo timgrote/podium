@@ -46,6 +46,7 @@ class ProjectSummary(BaseModel):
     pm_id: str | None = None
     pm_name: str | None = None
     pm_email: str | None = None
+    pm_avatar_url: str | None = None
     client_project_number: str | None = None
     location: str | None = None
     total_contracted: float = 0

@@ -133,6 +133,7 @@ export interface ProjectSummary {
   pm_id: string | null
   pm_name: string | null
   pm_email: string | null
+  pm_avatar_url: string | null
   client_project_number: string | null
   location: string | null
   total_contracted: number

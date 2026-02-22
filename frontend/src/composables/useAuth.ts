@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import type { Employee } from '../types'
 import * as authApi from '../api/auth'
+import { updateEmployee } from '../api/employees'
 import router from '../router'
 
 const user = ref<Employee | null>(null)
@@ -65,6 +66,12 @@ export function useAuth() {
     }
   }
 
+  async function updateProfile(data: { first_name?: string; last_name?: string; email?: string }) {
+    if (!user.value) return
+    const updated = await updateEmployee(user.value.id, data)
+    user.value = { ...user.value, ...updated }
+  }
+
   function clearUser() {
     user.value = null
     sessionChecked = false
@@ -81,6 +88,7 @@ export function useAuth() {
     signup,
     logout,
     updateAvatar,
+    updateProfile,
     clearUser,
   }
 }
