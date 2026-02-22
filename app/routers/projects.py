@@ -87,10 +87,13 @@ def list_projects(db=Depends(get_db)):
             client_name=p.get("client_name"),
             client_company=p.get("client_company"),
             client_email=p.get("client_email") or client_email,
+            pm_id=p.get("pm_id"),
             pm_name=p.get("pm_name"),
             pm_email=p.get("pm_email"),
+            pm_avatar_url=p.get("pm_avatar_url"),
             client_project_number=p.get("client_project_number"),
             location=p.get("location"),
+            data_path=p.get("data_path"),
             total_contracted=p.get("total_contracted", 0),
             total_invoiced=p.get("total_invoiced", 0),
             total_paid=p.get("total_paid", 0),
@@ -109,7 +112,8 @@ def list_projects(db=Depends(get_db)):
 def get_project_note(note_id: str, db=Depends(get_db)):
     row = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
-        "e.first_name || ' ' || e.last_name AS author_name "
+        "e.first_name || ' ' || e.last_name AS author_name, "
+        "e.avatar_url AS author_avatar_url "
         "FROM project_notes n "
         "LEFT JOIN employees e ON n.author_id = e.id "
         "WHERE n.id = %s",
@@ -137,7 +141,8 @@ def delete_project_note(note_id: str, db=Depends(get_db)):
 def list_project_notes(project_id: str, db=Depends(get_db)):
     rows = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
-        "e.first_name || ' ' || e.last_name AS author_name "
+        "e.first_name || ' ' || e.last_name AS author_name, "
+        "e.avatar_url AS author_avatar_url "
         "FROM project_notes n "
         "LEFT JOIN employees e ON n.author_id = e.id "
         "WHERE n.project_id = %s "
@@ -166,7 +171,8 @@ def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db
 
     row = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
-        "e.first_name || ' ' || e.last_name AS author_name "
+        "e.first_name || ' ' || e.last_name AS author_name, "
+        "e.avatar_url AS author_avatar_url "
         "FROM project_notes n "
         "LEFT JOIN employees e ON n.author_id = e.id "
         "WHERE n.id = %s",
@@ -217,8 +223,10 @@ def get_project(project_id: str, db=Depends(get_db)):
         client_company=client_company,
         client_email=client_email,
         client_phone=client_phone,
+        pm_id=p.get("pm_id"),
         pm_name=p.get("pm_name"),
         pm_email=p.get("pm_email"),
+        pm_avatar_url=summary["pm_avatar_url"] if summary else None,
         client_project_number=p.get("client_project_number"),
         location=p.get("location"),
         data_path=p.get("data_path"),
@@ -257,10 +265,23 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
                 (client_id, data.client_name, data.client_email, now, now),
             )
 
+    # Resolve PM name/email from employee if pm_id provided
+    pm_id = data.pm_id
+    pm_name = None
+    pm_email = None
+    if pm_id:
+        emp = db.execute(
+            "SELECT first_name, last_name, email FROM employees WHERE id = %s AND deleted_at IS NULL",
+            (pm_id,),
+        ).fetchone()
+        if emp:
+            pm_name = f"{emp['first_name']} {emp['last_name']}"
+            pm_email = emp["email"]
+
     db.execute(
-        "INSERT INTO projects (id, name, client_id, location, project_number, job_code, status, data_path, notes, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (project_id, data.project_name, client_id, data.location, project_number, data.job_code, data.status, data.data_path, data.notes, now, now),
+        "INSERT INTO projects (id, name, client_id, pm_id, pm_name, pm_email, location, project_number, job_code, status, data_path, notes, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (project_id, data.project_name, client_id, pm_id, pm_name, pm_email, data.location, project_number, data.job_code, data.status, data.data_path, data.notes, now, now),
     )
 
     # Create contract + tasks if provided
@@ -296,9 +317,25 @@ def update_project(project_id: str, data: ProjectUpdate, db=Depends(get_db)):
     if not existing:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    updates = {k: v for k, v in data.model_dump().items() if v is not None}
+    updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         return get_project(project_id, db)
+
+    # If pm_id is being set, sync pm_name/pm_email from employee
+    if "pm_id" in updates:
+        pm_id = updates["pm_id"]
+        if pm_id:
+            emp = db.execute(
+                "SELECT first_name, last_name, email FROM employees WHERE id = %s AND deleted_at IS NULL",
+                (pm_id,),
+            ).fetchone()
+            if emp:
+                updates["pm_name"] = f"{emp['first_name']} {emp['last_name']}"
+                updates["pm_email"] = emp["email"]
+        else:
+            # Clearing pm_id also clears pm_name/pm_email
+            updates["pm_name"] = None
+            updates["pm_email"] = None
 
     updates["updated_at"] = datetime.now().isoformat()
     set_clause = ", ".join(f"{k} = %s" for k in updates)

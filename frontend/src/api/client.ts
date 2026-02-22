@@ -34,6 +34,17 @@ export async function apiFetch<T>(
     } catch {
       // ignore parse errors
     }
+
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      const { useAuth } = await import('../composables/useAuth')
+      const { clearUser } = useAuth()
+      clearUser()
+      const { default: router } = await import('../router')
+      if (router.currentRoute.value.path !== '/login') {
+        router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+      }
+    }
+
     throw new ApiError(res.status, detail)
   }
 

@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
+import { useAuth } from '../../composables/useAuth'
 import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
 import type { ProjectNote } from '../../types'
 
@@ -12,6 +13,7 @@ const props = defineProps<{
 }>()
 
 const toast = useToast()
+const { user } = useAuth()
 const notes = ref<ProjectNote[]>([])
 const loading = ref(false)
 const newNote = ref('')
@@ -37,7 +39,7 @@ async function addNote() {
   if (!newNote.value.trim()) return
   saving.value = true
   try {
-    await addProjectNote(props.projectId, { content: newNote.value })
+    await addProjectNote(props.projectId, { content: newNote.value, author_id: user.value?.id })
     newNote.value = ''
     toast.success('Note added')
     await loadNotes()
@@ -84,6 +86,7 @@ function formatDate(dateStr: string | null): string {
       <div v-else class="notes-list">
         <div v-for="note in notes" :key="note.id" class="note">
           <div class="note-header">
+            <img v-if="note.author_avatar_url" :src="note.author_avatar_url" class="note-avatar" />
             <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
             <span class="note-date">{{ formatDate(note.created_at) }}</span>
             <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
@@ -102,6 +105,7 @@ function formatDate(dateStr: string | null): string {
 .notes-list { display: flex; flex-direction: column; gap: 0.75rem; max-height: 400px; overflow-y: auto; }
 .note { border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; padding: 0.75rem; }
 .note-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; }
+.note-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
 .note-author { font-weight: 600; font-size: 0.8125rem; }
 .note-date { font-size: 0.75rem; color: var(--p-text-muted-color); }
 .note-content { font-size: 0.875rem; color: var(--p-text-muted-color); white-space: pre-wrap; }

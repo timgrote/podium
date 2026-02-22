@@ -116,6 +116,7 @@ export interface ProjectNote {
   project_id: string
   author_id: string | null
   author_name: string | null
+  author_avatar_url: string | null
   content: string
   created_at: string | null
 }
@@ -130,10 +131,13 @@ export interface ProjectSummary {
   client_name: string | null
   client_company: string | null
   client_email: string | null
+  pm_id: string | null
   pm_name: string | null
   pm_email: string | null
+  pm_avatar_url: string | null
   client_project_number: string | null
   location: string | null
+  data_path: string | null
   total_contracted: number
   total_invoiced: number
   total_paid: number

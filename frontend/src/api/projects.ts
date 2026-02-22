@@ -17,6 +17,7 @@ export function createProject(data: {
   client_id?: string
   location?: string
   status?: string
+  pm_id?: string
   data_path?: string
   notes?: string
   tasks?: { name: string; description?: string; amount?: number }[]

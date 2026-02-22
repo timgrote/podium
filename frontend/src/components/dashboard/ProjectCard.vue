@@ -13,6 +13,13 @@ const emit = defineEmits<{
   delete: []
 }>()
 
+const pmInitials = computed(() => {
+  const name = props.project.pm_name
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?'
+})
+
 const invoicedSent = computed(() =>
   props.project.invoices
     ?.filter(i => i.sent_status === 'sent')
@@ -50,6 +57,18 @@ function formatCurrency(value: number): string {
   <div class="project-card" :class="{ expanded }">
     <div class="project-row" @click="emit('toggle')">
       <div class="project-info">
+        <img
+          v-if="project.pm_avatar_url"
+          :src="project.pm_avatar_url"
+          :alt="project.pm_name || 'PM'"
+          class="pm-avatar"
+          :title="project.pm_name || ''"
+        />
+        <span
+          v-else-if="project.pm_name"
+          class="pm-avatar-initials"
+          :title="project.pm_name"
+        >{{ pmInitials }}</span>
         <i
           class="pi status-icon"
           :class="(statusConfig[project.status] || defaultStatus).icon"
@@ -105,6 +124,28 @@ function formatCurrency(value: number): string {
   gap: 0.75rem;
   flex: 1;
   min-width: 0;
+}
+
+.pm-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pm-avatar-initials {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--p-surface-200);
+  color: var(--p-surface-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .status-icon {

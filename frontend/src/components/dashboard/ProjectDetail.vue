@@ -4,6 +4,7 @@ import type { ProjectSummary, ProjectNote, Task } from '../../types'
 import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
 import { getProjectTasks } from '../../api/tasks'
 import { useToast } from '../../composables/useToast'
+import { useAuth } from '../../composables/useAuth'
 
 const props = defineProps<{
   project: ProjectSummary
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { user } = useAuth()
 const activeTab = ref<'financial' | 'tasks' | 'notes'>('financial')
 
 // Notes state
@@ -70,7 +72,7 @@ async function submitNote() {
   if (!newNote.value.trim()) return
   noteSaving.value = true
   try {
-    await addProjectNote(props.project.id, { content: newNote.value })
+    await addProjectNote(props.project.id, { content: newNote.value, author_id: user.value?.id })
     newNote.value = ''
     toast.success('Note added')
     await loadNotes()
@@ -329,6 +331,7 @@ const taskStatusIcon: Record<string, string> = {
       <div v-else class="notes-list">
         <div v-for="note in filteredNotes" :key="note.id" class="note-card">
           <div class="note-header">
+            <img v-if="note.author_avatar_url" :src="note.author_avatar_url" class="note-avatar" />
             <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
             <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
             <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
@@ -618,6 +621,13 @@ const taskStatusIcon: Record<string, string> = {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.25rem;
+}
+
+.note-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .note-author {
