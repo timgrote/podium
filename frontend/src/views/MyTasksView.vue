@@ -26,7 +26,6 @@ const quickAddSubmitting = ref(false)
 const projects = ref<ProjectSummary[]>([])
 
 const activeTasks = computed(() => tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled'))
-const completedTasks = computed(() => tasks.value.filter(t => t.status === 'done' || t.status === 'canceled'))
 
 const displayTasks = computed(() => showCompleted.value ? tasks.value : activeTasks.value)
 
