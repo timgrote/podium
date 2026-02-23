@@ -21,7 +21,8 @@ const showCompleted = ref(false)
 const showQuickAdd = ref(false)
 const quickAddTitle = ref('')
 const quickAddProjectId = ref('')
-const quickAddDueDate = ref('')
+const todayStr = () => new Date().toISOString().split('T')[0]
+const quickAddDueDate = ref(todayStr())
 const quickAddSubmitting = ref(false)
 const projects = ref<ProjectSummary[]>([])
 
@@ -128,7 +129,7 @@ async function submitQuickAdd() {
       assignee_ids: user.value ? [user.value.id] : undefined,
     })
     quickAddTitle.value = ''
-    quickAddDueDate.value = ''
+    quickAddDueDate.value = todayStr()
     showQuickAdd.value = false
     await loadTasks()
     toast.success('Task created')

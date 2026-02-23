@@ -57,7 +57,8 @@ const tasks = ref<Task[]>([])
 const tasksLoading = ref(false)
 const showNewTaskForm = ref(false)
 const newTaskTitle = ref('')
-const newTaskDueDate = ref('')
+const todayStr = () => new Date().toISOString().split('T')[0]
+const newTaskDueDate = ref(todayStr())
 const newTaskDescription = ref('')
 const newTaskSaving = ref(false)
 const newTaskAssigneeIds = ref<string[]>([])
@@ -164,7 +165,7 @@ async function submitNewTask() {
       assignee_ids: newTaskAssigneeIds.value.length ? newTaskAssigneeIds.value : undefined,
     })
     newTaskTitle.value = ''
-    newTaskDueDate.value = ''
+    newTaskDueDate.value = todayStr()
     newTaskDescription.value = ''
     newTaskAssigneeIds.value = []
     showNewTaskForm.value = false
