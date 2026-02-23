@@ -141,6 +141,7 @@ async function addSubtask() {
     await createTask(task.value.project_id, {
       title: newSubtaskTitle.value,
       parent_id: task.value.id,
+      assignee_ids: user.value ? [user.value.id] : undefined,
     })
     newSubtaskTitle.value = ''
     showSubtaskForm.value = false

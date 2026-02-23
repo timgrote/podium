@@ -487,7 +487,7 @@ function formatPercent(value: number): string {
       <div class="section">
         <div class="section-header tasks-header">
           <h4>Tasks</h4>
-          <button class="btn-icon" :title="showNewTaskForm ? 'Cancel' : 'Add task'" @click="showNewTaskForm = !showNewTaskForm">
+          <button class="btn-icon" :title="showNewTaskForm ? 'Cancel' : 'Add task'" @click="showNewTaskForm = !showNewTaskForm; if (showNewTaskForm && user) newTaskAssigneeIds = [user.id]">
             <i class="pi" :class="showNewTaskForm ? 'pi-times' : 'pi-plus'" />
           </button>
         </div>

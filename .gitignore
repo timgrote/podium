@@ -28,6 +28,9 @@ ops/*.db
 # Google service account credentials
 credentials/
 
+# Screenshots (dev/testing artifacts)
+screenshots/
+
 # Playwright
 .playwright-mcp/
 

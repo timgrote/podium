@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import type { MyTask } from '../types'
-import { getMyTasks, updateTask } from '../api/tasks'
+import type { MyTask, Task, ProjectSummary } from '../types'
+import { getMyTasks, createTask, updateTask } from '../api/tasks'
+import { getProjects } from '../api/projects'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import TaskDetailModal from '../components/modals/TaskDetailModal.vue'
@@ -14,14 +15,20 @@ const taskModalVisible = ref(false)
 const selectedTaskId = ref<string | null>(null)
 const selectedProjectId = ref<string>('')
 const collapsedProjects = ref<Set<string>>(new Set())
+const expandedTasks = ref<Set<string>>(new Set())
 const showCompleted = ref(false)
 
-const statusCycle = ['todo', 'in_progress', 'done'] as const
+const showQuickAdd = ref(false)
+const quickAddTitle = ref('')
+const quickAddProjectId = ref('')
+const quickAddDueDate = ref('')
+const quickAddSubmitting = ref(false)
+const projects = ref<ProjectSummary[]>([])
 
 const activeTasks = computed(() => tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled'))
 const completedTasks = computed(() => tasks.value.filter(t => t.status === 'done' || t.status === 'canceled'))
 
-const displayTasks = computed(() => showCompleted.value ? completedTasks.value : activeTasks.value)
+const displayTasks = computed(() => showCompleted.value ? tasks.value : activeTasks.value)
 
 const groupedByProject = computed(() => {
   const groups = new Map<string, { projectName: string; jobCode: string | null; tasks: MyTask[] }>()
@@ -58,25 +65,33 @@ function toggleProject(projectId: string) {
   }
 }
 
-async function cycleStatus(task: MyTask, event: Event) {
+function toggleExpand(taskId: string, event: Event) {
   event.stopPropagation()
-  const currentIdx = statusCycle.indexOf(task.status as typeof statusCycle[number])
-  const nextStatus = statusCycle[(currentIdx + 1) % statusCycle.length]
+  if (expandedTasks.value.has(taskId)) {
+    expandedTasks.value.delete(taskId)
+  } else {
+    expandedTasks.value.add(taskId)
+  }
+}
+
+async function toggleDone(task: MyTask | Task, event: Event) {
+  event.stopPropagation()
+  const newStatus = task.status === 'done' ? 'todo' : 'done'
   try {
-    await updateTask(task.id, { status: nextStatus })
+    await updateTask(task.id, { status: newStatus })
     await loadTasks()
   } catch (e) {
     toast.error(String(e))
   }
 }
 
-function openTask(task: MyTask) {
+function openTask(task: MyTask | Task, projectId?: string) {
   selectedTaskId.value = task.id
-  selectedProjectId.value = task.project_id
+  selectedProjectId.value = projectId || (task as MyTask).project_id
   taskModalVisible.value = true
 }
 
-function isOverdue(task: MyTask): boolean {
+function isOverdue(task: MyTask | Task): boolean {
   if (!task.due_date || task.status === 'done' || task.status === 'canceled') return false
   return new Date(task.due_date) < new Date(new Date().toDateString())
 }
@@ -89,6 +104,40 @@ function formatDate(dateStr: string | null): string {
 
 function statusLabel(status: string): string {
   return status.replace('_', ' ')
+}
+
+async function loadProjects() {
+  try {
+    projects.value = await getProjects()
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+function openQuickAdd() {
+  showQuickAdd.value = true
+  if (!projects.value.length) loadProjects()
+}
+
+async function submitQuickAdd() {
+  if (!quickAddTitle.value.trim() || !quickAddProjectId.value) return
+  quickAddSubmitting.value = true
+  try {
+    await createTask(quickAddProjectId.value, {
+      title: quickAddTitle.value.trim(),
+      due_date: quickAddDueDate.value || undefined,
+      assignee_ids: user.value ? [user.value.id] : undefined,
+    })
+    quickAddTitle.value = ''
+    quickAddDueDate.value = ''
+    showQuickAdd.value = false
+    await loadTasks()
+    toast.success('Task created')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    quickAddSubmitting.value = false
+  }
 }
 
 onMounted(loadTasks)
@@ -106,7 +155,45 @@ onMounted(loadTasks)
           @click="showCompleted = !showCompleted"
         >
           <i class="pi" :class="showCompleted ? 'pi-eye-slash' : 'pi-eye'" />
-          {{ showCompleted ? 'Show Active' : 'Show Completed' }}
+          {{ showCompleted ? 'Hide Completed' : 'Show Completed' }}
+        </button>
+        <button class="btn-add-task" @click="openQuickAdd">
+          <i class="pi pi-plus" />
+          Add Task
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Add Form -->
+    <div v-if="showQuickAdd" class="quick-add-form">
+      <div class="quick-add-row">
+        <select v-model="quickAddProjectId" class="quick-add-select">
+          <option value="" disabled>Select project...</option>
+          <option v-for="p in projects" :key="p.id" :value="p.id">
+            {{ p.project_name }}{{ p.job_code ? ` (${p.job_code})` : '' }}
+          </option>
+        </select>
+        <input
+          v-model="quickAddTitle"
+          class="quick-add-input"
+          type="text"
+          placeholder="Task title..."
+          @keydown.enter="submitQuickAdd"
+        />
+        <input
+          v-model="quickAddDueDate"
+          class="quick-add-date"
+          type="date"
+        />
+        <button
+          class="quick-add-submit"
+          :disabled="!quickAddTitle.trim() || !quickAddProjectId || quickAddSubmitting"
+          @click="submitQuickAdd"
+        >
+          <i class="pi pi-check" />
+        </button>
+        <button class="quick-add-cancel" @click="showQuickAdd = false">
+          <i class="pi pi-times" />
         </button>
       </div>
     </div>
@@ -115,8 +202,7 @@ onMounted(loadTasks)
 
     <div v-else-if="displayTasks.length === 0" class="empty-state">
       <i class="pi pi-check-circle empty-icon" />
-      <p v-if="showCompleted">No completed tasks</p>
-      <p v-else>No tasks assigned to you</p>
+      <p>No tasks assigned to you</p>
     </div>
 
     <div v-else class="project-groups">
@@ -133,28 +219,68 @@ onMounted(loadTasks)
         </button>
 
         <div v-if="!collapsedProjects.has(projectId)" class="task-list">
-          <div
-            v-for="task in group.tasks"
-            :key="task.id"
-            class="task-row"
-            @click="openTask(task)"
-          >
-            <button
-              class="status-badge"
-              :class="task.status"
-              :title="'Click to change status'"
-              @click="cycleStatus(task, $event)"
-            >
-              {{ statusLabel(task.status) }}
-            </button>
-            <span class="task-title">{{ task.title }}</span>
-            <span
-              v-if="task.due_date"
-              class="due-date"
-              :class="{ overdue: isOverdue(task) }"
-            >
-              {{ formatDate(task.due_date) }}
-            </span>
+          <div v-for="task in group.tasks" :key="task.id" class="task-block">
+            <div class="task-row" @click="openTask(task)">
+              <button
+                class="checkbox"
+                :class="{ checked: task.status === 'done' }"
+                title="Toggle complete"
+                @click="toggleDone(task, $event)"
+              >
+                <i class="pi" :class="task.status === 'done' ? 'pi-check' : ''" />
+              </button>
+              <span class="task-title" :class="{ completed: task.status === 'done' }">{{ task.title }}</span>
+              <button
+                v-if="task.subtasks && task.subtasks.length"
+                class="expand-btn"
+                :title="expandedTasks.has(task.id) ? 'Collapse subtasks' : 'Expand subtasks'"
+                @click="toggleExpand(task.id, $event)"
+              >
+                <i class="pi" :class="expandedTasks.has(task.id) ? 'pi-chevron-up' : 'pi-chevron-down'" />
+                <span class="subtask-count">{{ task.subtasks.length }}</span>
+              </button>
+              <span class="spacer" />
+              <span
+                class="status-badge"
+                :class="task.status"
+              >
+                {{ statusLabel(task.status) }}
+              </span>
+              <span
+                v-if="task.due_date"
+                class="due-date"
+                :class="{ overdue: isOverdue(task) }"
+              >
+                {{ formatDate(task.due_date) }}
+              </span>
+            </div>
+
+            <!-- Subtasks -->
+            <div v-if="task.subtasks && task.subtasks.length && expandedTasks.has(task.id)" class="subtask-list">
+              <div
+                v-for="sub in task.subtasks"
+                :key="sub.id"
+                class="subtask-row"
+                @click="openTask(sub, task.project_id)"
+              >
+                <button
+                  class="checkbox checkbox-sm"
+                  :class="{ checked: sub.status === 'done' }"
+                  title="Toggle complete"
+                  @click="toggleDone(sub, $event)"
+                >
+                  <i class="pi" :class="sub.status === 'done' ? 'pi-check' : ''" />
+                </button>
+                <span class="task-title subtask-title" :class="{ completed: sub.status === 'done' }">{{ sub.title }}</span>
+                <span
+                  v-if="sub.due_date"
+                  class="due-date"
+                  :class="{ overdue: isOverdue(sub) }"
+                >
+                  {{ formatDate(sub.due_date) }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -312,6 +438,14 @@ onMounted(loadTasks)
   border-top: 1px solid var(--p-content-border-color);
 }
 
+.task-block {
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.task-block:last-child {
+  border-bottom: none;
+}
+
 .task-row {
   display: flex;
   align-items: center;
@@ -319,33 +453,77 @@ onMounted(loadTasks)
   padding: 0.625rem 1rem;
   cursor: pointer;
   transition: background 0.1s;
-  border-bottom: 1px solid var(--p-content-border-color);
-}
-
-.task-row:last-child {
-  border-bottom: none;
 }
 
 .task-row:hover {
   background: var(--p-content-hover-background);
 }
 
+/* Checkbox */
+.checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--p-content-border-color);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.checkbox .pi {
+  font-size: 0.625rem;
+  color: #fff;
+}
+
+.checkbox:hover {
+  border-color: var(--p-primary-color);
+}
+
+.checkbox.checked {
+  background: var(--p-primary-color);
+  border-color: var(--p-primary-color);
+}
+
+.checkbox-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.checkbox-sm .pi {
+  font-size: 0.5rem;
+}
+
+.task-title {
+  font-size: 0.875rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.task-title.completed {
+  text-decoration: line-through;
+  color: var(--p-text-muted-color);
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
   padding: 0.125rem 0.5rem;
-  border: none;
   border-radius: 9999px;
   font-size: 0.6875rem;
   font-weight: 500;
   text-transform: capitalize;
-  cursor: pointer;
   white-space: nowrap;
-  transition: filter 0.1s;
-}
-
-.status-badge:hover {
-  filter: brightness(0.9);
 }
 
 .status-badge.todo {
@@ -393,15 +571,6 @@ onMounted(loadTasks)
   text-decoration: line-through;
 }
 
-.task-title {
-  flex: 1;
-  font-size: 0.875rem;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .due-date {
   font-size: 0.75rem;
   color: var(--p-text-muted-color);
@@ -411,5 +580,178 @@ onMounted(loadTasks)
 .due-date.overdue {
   color: #dc2626;
   font-weight: 600;
+}
+
+/* Expand button for subtasks */
+.expand-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  cursor: pointer;
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  transition: all 0.15s;
+}
+
+.expand-btn:hover {
+  background: var(--p-content-hover-background);
+  border-color: var(--p-primary-color);
+  color: var(--p-primary-color);
+}
+
+.expand-btn .pi {
+  font-size: 0.5rem;
+}
+
+.subtask-count {
+  font-weight: 600;
+}
+
+/* Subtask rows */
+.subtask-list {
+  background: var(--p-content-hover-background);
+  border-top: 1px solid var(--p-content-border-color);
+}
+
+.subtask-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 1rem 0.5rem 2.75rem;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.subtask-row:last-child {
+  border-bottom: none;
+}
+
+.subtask-row:hover {
+  background: var(--p-surface-200);
+}
+
+:root.p-dark .subtask-row:hover {
+  background: var(--p-surface-700);
+}
+
+.subtask-title {
+  font-size: 0.8125rem;
+}
+
+/* Add Task button */
+.btn-add-task {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: var(--p-primary-color);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-add-task:hover {
+  filter: brightness(1.1);
+}
+
+.btn-add-task .pi {
+  font-size: 0.625rem;
+}
+
+/* Quick Add Form */
+.quick-add-form {
+  margin-bottom: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: var(--p-content-background);
+}
+
+.quick-add-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quick-add-select {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+  min-width: 160px;
+  max-width: 200px;
+}
+
+.quick-add-input {
+  flex: 1;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+}
+
+.quick-add-input:focus,
+.quick-add-select:focus,
+.quick-add-date:focus {
+  outline: none;
+  border-color: var(--p-primary-color);
+}
+
+.quick-add-date {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+  width: 140px;
+}
+
+.quick-add-submit,
+.quick-add-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.quick-add-submit:hover:not(:disabled) {
+  background: var(--p-primary-color);
+  color: #fff;
+  border-color: var(--p-primary-color);
+}
+
+.quick-add-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.quick-add-cancel:hover {
+  background: var(--p-content-hover-background);
+}
+
+.quick-add-submit .pi,
+.quick-add-cancel .pi {
+  font-size: 0.75rem;
 }
 </style>

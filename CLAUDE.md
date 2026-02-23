@@ -184,6 +184,10 @@ npm run test   # Vitest unit tests
 - `previous_billing` carries forward from prior invoices in the chain
 - `billed_amount` and `billed_percent` on contract_tasks are server-computed — never set from frontend
 
+## Screenshots
+
+Save all browser screenshots and dev/testing images to `screenshots/` (gitignored). Don't leave PNGs in the project root.
+
 ## What AI Should NOT Do
 
 - Don't create separate files for each project (use the API/database)
