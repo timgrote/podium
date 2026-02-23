@@ -11,6 +11,7 @@ const showUserMenu = ref(false)
 
 const navItems = [
   { label: 'Dashboard', icon: 'pi pi-home', route: '/dashboard' },
+  { label: 'My Tasks', icon: 'pi pi-check-square', route: '/my-tasks' },
 ]
 
 function userInitials(): string {

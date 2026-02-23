@@ -1,5 +1,9 @@
-import type { Task, TaskCreatePayload, TaskUpdatePayload, TaskNote } from '../types'
+import type { Task, MyTask, TaskCreatePayload, TaskUpdatePayload, TaskNote } from '../types'
 import { apiFetch } from './client'
+
+export function getMyTasks(employeeId: string): Promise<MyTask[]> {
+  return apiFetch(`/tasks/my?employee_id=${encodeURIComponent(employeeId)}`)
+}
 
 export function getProjectTasks(projectId: string): Promise<Task[]> {
   return apiFetch(`/projects/${projectId}/tasks`)

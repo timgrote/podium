@@ -113,6 +113,32 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
     return _build_task_response(db, row)
 
 
+# --- Cross-project "My Tasks" endpoint (before /tasks/{task_id} to avoid shadowing) ---
+
+@router.get("/tasks/my")
+def list_my_tasks(employee_id: str, db=Depends(get_db)):
+    rows = db.execute(
+        "SELECT t.*, p.name AS project_name, p.job_code "
+        "FROM project_tasks t "
+        "JOIN project_task_assignees a ON a.task_id = t.id "
+        "JOIN projects p ON p.id = t.project_id "
+        "WHERE a.employee_id = %s "
+        "AND t.deleted_at IS NULL "
+        "AND p.deleted_at IS NULL "
+        "AND t.parent_id IS NULL "
+        "ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC",
+        (employee_id,),
+    ).fetchall()
+    result = []
+    for row in rows:
+        task = dict(row)
+        task["assignees"] = _get_assignees_for_task(db, task["id"])
+        task["notes"] = _get_notes_for_task(db, task["id"])
+        task["subtasks"] = _get_subtasks(db, task["id"])
+        result.append(task)
+    return result
+
+
 # --- Task Notes (registered before /tasks/{task_id} to avoid route shadowing) ---
 
 @router.post("/tasks/{task_id}/notes", response_model=TaskNoteResponse, status_code=201)

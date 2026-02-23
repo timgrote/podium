@@ -210,3 +210,8 @@ export interface Task {
   notes?: TaskNote[]
   subtasks?: Task[]
 }
+
+export interface MyTask extends Task {
+  project_name: string | null
+  job_code: string | null
+}
