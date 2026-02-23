@@ -32,7 +32,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const { user } = useAuth()
-const activeTab = ref<'financial' | 'tasks' | 'notes'>('financial')
+const activeTab = ref<'financial' | 'tasks' | 'notes'>('tasks')
 
 // Notes state
 const notes = ref<ProjectNote[]>([])
@@ -297,13 +297,6 @@ function formatPercent(value: number): string {
     <div class="tabs">
       <button
         class="tab"
-        :class="{ active: activeTab === 'financial' }"
-        @click="activeTab = 'financial'"
-      >
-        Financial
-      </button>
-      <button
-        class="tab"
         :class="{ active: activeTab === 'tasks' }"
         @click="activeTab = 'tasks'"
       >
@@ -315,6 +308,13 @@ function formatPercent(value: number): string {
         @click="activeTab = 'notes'"
       >
         Notes <span v-if="notes.length" class="tab-count">({{ notes.length }})</span>
+      </button>
+      <button
+        class="tab"
+        :class="{ active: activeTab === 'financial' }"
+        @click="activeTab = 'financial'"
+      >
+        Financial
       </button>
     </div>
 

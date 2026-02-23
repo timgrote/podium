@@ -33,9 +33,7 @@ const isDark = computed(
 )
 
 function toggleColorMode() {
-  if (colorMode.value === 'light') colorMode.value = 'dark'
-  else if (colorMode.value === 'dark') colorMode.value = 'system'
-  else colorMode.value = 'light'
+  colorMode.value = isDark.value ? 'light' : 'dark'
 }
 
 function setColorMode(mode: ColorMode) {
