@@ -7,6 +7,7 @@ import { getCompanySettings, updateCompanySettings, uploadLogo } from '../../api
 const visible = defineModel<boolean>('visible', { required: true })
 
 const emit = defineEmits<{
+  saved: []
   error: [msg: string]
 }>()
 
@@ -51,6 +52,7 @@ async function save() {
   try {
     await updateCompanySettings(form.value)
     toast.success('Settings saved')
+    emit('saved')
     visible.value = false
   } catch (e) {
     emit('error', String(e))

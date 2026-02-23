@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import type { ProjectSummary } from '../types'
+import type { ProjectSummary, CompanySettings } from '../types'
 import { useProjects } from '../composables/useProjects'
 import { useClients } from '../composables/useClients'
+import { getCompanySettings } from '../api/company'
 import { useToast } from '../composables/useToast'
 import StatsBar from '../components/dashboard/StatsBar.vue'
 import ProjectList from '../components/dashboard/ProjectList.vue'
@@ -54,6 +55,8 @@ const deleteAction = ref<(() => Promise<void>) | null>(null)
 const showSettingsModal = ref(false)
 const showErrorModal = ref(false)
 const errorMessage = ref('')
+const company = ref<CompanySettings>({})
+
 
 function openCreateProject() {
   editingProject.value = null
@@ -160,15 +163,29 @@ async function handleSaved() {
   await loadProjects()
 }
 
+async function reloadCompany() {
+  try {
+    const settings = await getCompanySettings()
+    company.value = settings
+    if (settings.company_name) {
+      document.title = `${settings.company_name} — Dashboard`
+    }
+  } catch { /* non-critical */ }
+}
+
 onMounted(async () => {
   await Promise.all([loadProjects(), loadClients()])
+  reloadCompany()
 })
 </script>
 
 <template>
   <div class="dashboard">
     <div class="dashboard-header">
-      <h1>Dashboard</h1>
+      <div class="dashboard-title">
+        <img v-if="company.logo_url" :src="company.logo_url" alt="" class="company-logo" />
+        <h1>{{ company.company_name || 'Dashboard' }}</h1>
+      </div>
       <button class="btn-settings" @click="showSettingsModal = true">
         <i class="pi pi-cog" />
       </button>
@@ -268,6 +285,7 @@ onMounted(async () => {
 
     <CompanySettingsModal
       v-model:visible="showSettingsModal"
+      @saved="reloadCompany"
       @error="showError"
     />
 
@@ -289,6 +307,18 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+}
+
+.dashboard-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.company-logo {
+  height: 2rem;
+  width: auto;
+  object-fit: contain;
 }
 
 .dashboard-header h1 {

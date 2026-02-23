@@ -11,6 +11,9 @@ __pycache__/
 venv/
 dobbvenv/
 
+# Database backups
+backups/
+
 # Database - don't commit actual data, only schema
 db/*.db
 db/*.db-journal

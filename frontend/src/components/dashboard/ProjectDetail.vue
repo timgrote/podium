@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import type { ProjectSummary, ProjectNote, Task } from '../../types'
 import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
 import { getProjectTasks, createTask, updateTask } from '../../api/tasks'
+import { generateDoc, exportProposalPdf, sendProposal } from '../../api/proposals'
 import { getEmployees } from '../../api/employees'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
 import type { Employee } from '../../types'
@@ -208,6 +209,52 @@ function getInitials(assignees: Task['assignees']): string[] {
   })
 }
 
+// Proposal actions
+const proposalBusy = ref<Record<string, string>>({})
+
+async function genProposalDoc(proposalId: string) {
+  proposalBusy.value[proposalId] = 'gen'
+  try {
+    await generateDoc(proposalId)
+    toast.success('Google Doc generated')
+    emit('editProject') // triggers project reload in parent
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    delete proposalBusy.value[proposalId]
+  }
+}
+
+async function exportPdf(proposalId: string) {
+  proposalBusy.value[proposalId] = 'pdf'
+  try {
+    await exportProposalPdf(proposalId)
+    toast.success('PDF exported')
+    emit('editProject')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    delete proposalBusy.value[proposalId]
+  }
+}
+
+async function sendProposalEmail(proposalId: string) {
+  proposalBusy.value[proposalId] = 'send'
+  try {
+    const result = await sendProposal(proposalId)
+    toast.success(`Proposal sent to ${result.sent_to?.join(', ') || 'client'}`)
+    emit('editProject')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    delete proposalBusy.value[proposalId]
+  }
+}
+
+function hasGoogleDoc(proposal: { data_path: string | null }): boolean {
+  return !!proposal.data_path && proposal.data_path.includes('google.com')
+}
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -369,8 +416,55 @@ function formatPercent(value: number): string {
               {{ proposal.status }}
             </span>
             <div class="sub-card-actions">
+              <!-- Google Doc workflow buttons -->
               <button
-                v-if="proposal.status !== 'accepted'"
+                v-if="!hasGoogleDoc(proposal)"
+                class="btn-icon"
+                title="Generate Google Doc"
+                :disabled="!!proposalBusy[proposal.id]"
+                @click="genProposalDoc(proposal.id)"
+              >
+                <i class="pi" :class="proposalBusy[proposal.id] === 'gen' ? 'pi-spin pi-spinner' : 'pi-file'" />
+              </button>
+              <a
+                v-if="hasGoogleDoc(proposal)"
+                class="btn-icon"
+                title="Open Google Doc"
+                :href="proposal.data_path!"
+                target="_blank"
+              >
+                <i class="pi pi-external-link" />
+              </a>
+              <button
+                v-if="hasGoogleDoc(proposal) && !proposal.pdf_path"
+                class="btn-icon"
+                title="Export PDF"
+                :disabled="!!proposalBusy[proposal.id]"
+                @click="exportPdf(proposal.id)"
+              >
+                <i class="pi" :class="proposalBusy[proposal.id] === 'pdf' ? 'pi-spin pi-spinner' : 'pi-file-pdf'" />
+              </button>
+              <a
+                v-if="proposal.pdf_path"
+                class="btn-icon"
+                title="View PDF"
+                :href="proposal.pdf_path"
+                target="_blank"
+              >
+                <i class="pi pi-file-pdf" />
+              </a>
+              <button
+                v-if="hasGoogleDoc(proposal) && proposal.status !== 'sent' && proposal.status !== 'accepted'"
+                class="btn-icon"
+                title="Send to Client"
+                :disabled="!!proposalBusy[proposal.id]"
+                @click="sendProposalEmail(proposal.id)"
+              >
+                <i class="pi" :class="proposalBusy[proposal.id] === 'send' ? 'pi-spin pi-spinner' : 'pi-send'" />
+              </button>
+              <!-- Existing action buttons -->
+              <button
+                v-if="proposal.status === 'accepted'"
                 class="btn-icon"
                 title="Promote to Contract"
                 @click="emit('promoteProposal', proposal.id)"
