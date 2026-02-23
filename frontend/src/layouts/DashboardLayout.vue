@@ -1,13 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Toast from 'primevue/toast'
 import { useColorMode } from '../composables/useColorMode'
 import { useAuth } from '../composables/useAuth'
+import { getCompanySettings } from '../api/company'
 
 const sidebarCollapsed = ref(false)
 const { isDark, toggleColorMode } = useColorMode()
 const { user, logout } = useAuth()
 const showUserMenu = ref(false)
+const companyName = ref('')
+
+onMounted(async () => {
+  try {
+    const settings = await getCompanySettings()
+    companyName.value = settings.company_name || ''
+  } catch { /* silent — sidebar still works without company name */ }
+})
 
 const navItems = [
   { label: 'Dashboard', icon: 'pi pi-home', route: '/dashboard' },
@@ -32,7 +41,10 @@ function handleLogout() {
   <div class="layout">
     <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
-        <h2 v-if="!sidebarCollapsed">Conductor</h2>
+        <div v-if="!sidebarCollapsed" class="sidebar-brand">
+          <span v-if="companyName" class="company-name">{{ companyName }}</span>
+          <h2>Conductor</h2>
+        </div>
         <button class="toggle-btn" @click="sidebarCollapsed = !sidebarCollapsed">
           <i :class="sidebarCollapsed ? 'pi pi-angle-right' : 'pi pi-angle-left'" />
         </button>
@@ -115,6 +127,23 @@ function handleLogout() {
   justify-content: space-between;
   padding: 1rem;
   border-bottom: 1px solid var(--p-surface-800);
+}
+
+.sidebar-brand {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.company-name {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--p-surface-400);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-header h2 {
