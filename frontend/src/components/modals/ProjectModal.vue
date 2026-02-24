@@ -41,6 +41,15 @@ const form = ref({
 
 const saving = ref(false)
 
+function normalizeDataPath(raw: string): string {
+  let p = raw.trim()
+  if (p.startsWith('"') && p.endsWith('"')) p = p.slice(1, -1)
+  p = p.replace(/\\/g, '/')
+  p = p.replace(/^[A-Z]:\/Dropbox\/TIE\//i, '')
+  p = p.replace(/^\/+|\/+$/g, '')
+  return p
+}
+
 watch(visible, async (val) => {
   if (!val) return
   employees.value = await getEmployees()
@@ -91,7 +100,7 @@ async function save() {
         status: form.value.status,
         pm_id: form.value.pm_id || null,
         client_project_number: form.value.client_project_number || undefined,
-        data_path: form.value.data_path || undefined,
+        data_path: normalizeDataPath(form.value.data_path) || undefined,
       })
       toast.success('Project updated')
     } else {
@@ -104,7 +113,7 @@ async function save() {
         location: form.value.location || undefined,
         status: form.value.status,
         pm_id: form.value.pm_id || undefined,
-        data_path: form.value.data_path || undefined,
+        data_path: normalizeDataPath(form.value.data_path) || undefined,
       })
       toast.success('Project created')
     }
@@ -199,7 +208,7 @@ async function save() {
       <!-- Folder Path -->
       <div class="field">
         <label>Folder Path</label>
-        <input v-model="form.data_path" type="text" placeholder="/path/to/project/folder" />
+        <input v-model="form.data_path" type="text" placeholder="e.g. RVi Planning/Thompson Ridge" />
       </div>
     </div>
     <template #footer>
