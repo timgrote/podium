@@ -496,12 +496,7 @@ function formatPercent(value: number): string {
         <!-- Inline new task form -->
         <div v-if="showNewTaskForm" class="new-task-form">
           <input v-model="newTaskTitle" type="text" placeholder="Task title" class="new-task-input" />
-          <div class="new-task-row">
-            <input v-model="newTaskDueDate" type="date" class="new-task-date" />
-            <button class="btn btn-sm btn-primary" :disabled="newTaskSaving || !newTaskTitle.trim()" @click="submitNewTask">
-              {{ newTaskSaving ? 'Creating...' : 'Create' }}
-            </button>
-          </div>
+          <input v-model="newTaskDueDate" type="date" class="new-task-date" />
           <textarea v-model="newTaskDescription" rows="2" placeholder="Description (optional)" class="new-task-desc" />
           <div v-if="employees.length" class="new-task-assignees">
             <label class="new-task-label">Assign to</label>
@@ -517,6 +512,9 @@ function formatPercent(value: number): string {
               </button>
             </div>
           </div>
+          <button class="btn btn-sm btn-primary" :disabled="newTaskSaving || !newTaskTitle.trim()" @click="submitNewTask">
+            {{ newTaskSaving ? 'Creating...' : 'Create' }}
+          </button>
         </div>
 
         <div v-if="tasksLoading" class="empty">Loading tasks...</div>
@@ -942,12 +940,6 @@ function formatPercent(value: number): string {
   font-size: 0.875rem;
   background: var(--p-form-field-background);
   color: var(--p-text-color);
-}
-
-.new-task-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
 }
 
 .new-task-date {

@@ -533,6 +533,7 @@ onMounted(loadTasks)
 
 :root.p-dark .status-badge.todo {
   background: var(--p-surface-600);
+  color: var(--p-surface-100);
 }
 
 .status-badge.in_progress {
