@@ -162,6 +162,37 @@ def upload_avatar(
     return {"avatar_url": avatar_url}
 
 
+@router.get("/settings")
+def get_user_settings(employee: dict = Depends(require_auth), db=Depends(get_db)):
+    """Return all key-value settings for the current user."""
+    rows = db.execute(
+        "SELECT key, value FROM user_settings WHERE employee_id = %s",
+        (employee["id"],),
+    ).fetchall()
+    return {row["key"]: row["value"] for row in rows}
+
+
+@router.put("/settings")
+def update_user_settings(
+    data: dict,
+    employee: dict = Depends(require_auth),
+    db=Depends(get_db),
+):
+    """Upsert key-value settings for the current user."""
+    for key, value in data.items():
+        db.execute(
+            "INSERT INTO user_settings (employee_id, key, value) VALUES (%s, %s, %s) "
+            "ON CONFLICT (employee_id, key) DO UPDATE SET value = EXCLUDED.value",
+            (employee["id"], key, value),
+        )
+    db.commit()
+    rows = db.execute(
+        "SELECT key, value FROM user_settings WHERE employee_id = %s",
+        (employee["id"],),
+    ).fetchall()
+    return {row["key"]: row["value"] for row in rows}
+
+
 class ResetRequest(BaseModel):
     employee_id: str
 

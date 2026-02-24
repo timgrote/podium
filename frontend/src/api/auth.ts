@@ -23,6 +23,17 @@ export function fetchMe(): Promise<Employee> {
   return apiFetch('/auth/me')
 }
 
+export function getUserSettings(): Promise<Record<string, string>> {
+  return apiFetch('/auth/settings')
+}
+
+export function updateUserSettings(data: Record<string, string>): Promise<Record<string, string>> {
+  return apiFetch('/auth/settings', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
 export function uploadAvatar(file: File): Promise<Employee> {
   const form = new FormData()
   form.append('file', file)

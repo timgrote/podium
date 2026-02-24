@@ -262,6 +262,17 @@ CREATE TABLE password_resets (
 CREATE INDEX idx_password_resets_employee ON password_resets(employee_id);
 
 -- ============================================================================
+-- USER SETTINGS
+-- Per-user key-value preferences (e.g., dropbox_base_path)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS user_settings (
+    employee_id TEXT NOT NULL REFERENCES employees(id),
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY (employee_id, key)
+);
+
+-- ============================================================================
 -- PROJECT TASKS
 -- Internal tasks on a project (separate from contract_tasks billing items)
 -- ============================================================================

@@ -1,0 +1,8 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\openfolder]
+@="URL:Open Folder Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\openfolder\shell\open\command]
+@="\"D:\\Dropbox\\TIE\\Tools\\Conductor\\openfolder.cmd\" \"%1\""

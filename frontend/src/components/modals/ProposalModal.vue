@@ -20,6 +20,7 @@ const toast = useToast()
 const saving = ref(false)
 const loading = ref(false)
 const generateGoogleDoc = ref(true)
+const dataPath = ref<string | null>(null)
 
 const form = ref({
   engineer_key: '',
@@ -45,6 +46,7 @@ watch(visible, async (val) => {
       // Edit mode
       generateGoogleDoc.value = false
       const p = await getProposal(props.proposalId)
+      dataPath.value = p.data_path || null
       form.value = {
         engineer_key: p.engineer_key || '',
         engineer_name: p.engineer_name || '',
@@ -60,6 +62,7 @@ watch(visible, async (val) => {
     } else {
       // Create mode — pre-populate from defaults
       generateGoogleDoc.value = true
+      dataPath.value = null
       expandedTask.value = null
       form.value = {
         engineer_key: Object.keys(engineers.value)[0] || '',
@@ -177,6 +180,14 @@ async function save() {
   >
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else class="form">
+      <a
+        v-if="dataPath && dataPath.includes('google.com')"
+        class="doc-banner"
+        :href="dataPath"
+        target="_blank"
+      >
+        <i class="pi pi-file-edit" /> Open Google Doc
+      </a>
       <div class="field-group">
         <div class="field">
           <label>Engineer</label>
@@ -268,6 +279,30 @@ async function save() {
 .task-total { text-align: right; font-weight: 600; font-size: 0.875rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--p-content-border-color); }
 .checkbox-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--p-text-color); cursor: pointer; margin-top: 0.25rem; }
 .checkbox-row input[type="checkbox"] { accent-color: var(--p-primary-color); }
+.doc-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--p-blue-50);
+  border: 1px solid var(--p-blue-200);
+  border-radius: 0.375rem;
+  color: var(--p-blue-700);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.doc-banner:hover {
+  background: var(--p-blue-100);
+}
+:root.p-dark .doc-banner {
+  background: color-mix(in srgb, var(--p-blue-500) 15%, transparent);
+  border-color: color-mix(in srgb, var(--p-blue-400) 30%, transparent);
+  color: var(--p-blue-300);
+}
+:root.p-dark .doc-banner:hover {
+  background: color-mix(in srgb, var(--p-blue-500) 25%, transparent);
+}
 .loading { text-align: center; padding: 2rem; color: var(--p-text-muted-color); }
 .btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; margin-left: 0.5rem; color: var(--p-text-color); }
 .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }

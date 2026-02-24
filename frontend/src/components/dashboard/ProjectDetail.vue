@@ -5,6 +5,7 @@ import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/pr
 import { getProjectTasks, createTask, updateTask } from '../../api/tasks'
 import { generateDoc, exportProposalPdf, sendProposal } from '../../api/proposals'
 import { getEmployees } from '../../api/employees'
+import { getUserSettings } from '../../api/auth'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
 import type { Employee } from '../../types'
 import { useToast } from '../../composables/useToast'
@@ -33,6 +34,19 @@ const emit = defineEmits<{
 const toast = useToast()
 const { user } = useAuth()
 const activeTab = ref<'financial' | 'tasks' | 'notes'>('tasks')
+
+// Dropbox base path from user settings (default: D:/Dropbox/TIE)
+const DEFAULT_DROPBOX_PATH = 'D:/Dropbox/TIE'
+const dropboxBasePath = ref(DEFAULT_DROPBOX_PATH)
+getUserSettings().then(s => {
+  if (s.dropbox_base_path) dropboxBasePath.value = s.dropbox_base_path
+}).catch(() => { /* non-critical — uses default */ })
+
+const folderHref = computed(() => {
+  if (!props.project.data_path || !dropboxBasePath.value) return null
+  const base = dropboxBasePath.value.replace(/\/+$/, '')
+  return `openfolder://${base}/${props.project.data_path}`
+})
 
 // Notes state
 const notes = ref<ProjectNote[]>([])
@@ -290,6 +304,14 @@ function formatPercent(value: number): string {
         <span v-if="project.pm_name" class="meta-item">
           <i class="pi pi-user" /> {{ project.pm_name }}
         </span>
+        <a
+          v-if="folderHref"
+          :href="folderHref"
+          class="meta-item folder-link"
+          title="Open project folder"
+        >
+          <i class="pi pi-folder-open" /> {{ project.data_path }}
+        </a>
       </div>
       <div class="detail-actions">
       </div>
@@ -416,6 +438,15 @@ function formatPercent(value: number): string {
             >
               {{ proposal.status }}
             </span>
+            <a
+              v-if="hasGoogleDoc(proposal)"
+              class="doc-link"
+              :href="proposal.data_path!"
+              target="_blank"
+              title="Open Google Doc"
+            >
+              <i class="pi pi-file-edit" /> Google Doc
+            </a>
             <div class="sub-card-actions">
               <!-- Google Doc workflow buttons -->
               <button
@@ -665,6 +696,16 @@ function formatPercent(value: number): string {
   gap: 0.25rem;
 }
 
+.folder-link {
+  text-decoration: none;
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+}
+
+.folder-link:hover {
+  color: var(--p-primary-color);
+}
+
 .detail-actions {
   display: flex;
   gap: 0.5rem;
@@ -775,6 +816,20 @@ function formatPercent(value: number): string {
 .status-pill.accepted {
   background: var(--p-green-100);
   color: var(--p-green-700);
+}
+
+.doc-link {
+  font-size: 0.75rem;
+  color: var(--p-primary-color);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.doc-link:hover {
+  text-decoration: underline;
 }
 
 .task-table {
