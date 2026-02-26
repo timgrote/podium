@@ -2,10 +2,11 @@
 import { ref, watch, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import type { Task, Employee } from '../../types'
-import { getTask, createTask, updateTask, deleteTask, addTaskNote, deleteTaskNote } from '../../api/tasks'
+import { getTask, createTask, updateTask, deleteTask, addTaskNote, deleteTaskNote, uploadImage } from '../../api/tasks'
 import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
+import RichText from '../RichText.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -26,6 +27,7 @@ const task = ref<Task | null>(null)
 const employees = ref<Employee[]>([])
 const newNote = ref('')
 const noteSaving = ref(false)
+const imageUploading = ref(false)
 const showDeleteConfirm = ref(false)
 
 const statusOptions = [
@@ -189,6 +191,30 @@ async function goBackToParent() {
   }
 }
 
+async function handleNotePaste(event: ClipboardEvent) {
+  const items = event.clipboardData?.files
+  if (!items?.length) return
+  const imageFile = Array.from(items).find(f => f.type.startsWith('image/'))
+  if (!imageFile) return
+
+  event.preventDefault()
+  imageUploading.value = true
+  try {
+    const { url } = await uploadImage(imageFile)
+    const textarea = event.target as HTMLTextAreaElement
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const before = newNote.value.slice(0, start)
+    const after = newNote.value.slice(end)
+    const markdown = `![image](${url})`
+    newNote.value = before + markdown + after
+  } catch (e) {
+    toast.error('Image upload failed: ' + String(e))
+  } finally {
+    imageUploading.value = false
+  }
+}
+
 function formatDateTime(dateStr: string | null): string {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString()
@@ -256,7 +282,7 @@ function formatDateTime(dateStr: string | null): string {
       <!-- Description -->
       <div v-if="task.description" class="field">
         <label>Description</label>
-        <div class="description">{{ task.description }}</div>
+        <RichText :content="task.description" class="description" />
       </div>
 
       <!-- Subtasks -->
@@ -292,7 +318,8 @@ function formatDateTime(dateStr: string | null): string {
       <div class="section">
         <label>Notes</label>
         <div class="add-note">
-          <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" />
+          <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" @paste="handleNotePaste" />
+          <small v-if="imageUploading" class="upload-indicator">Uploading image...</small>
           <button class="btn btn-sm btn-primary" :disabled="noteSaving" @click="submitNote">
             {{ noteSaving ? 'Adding...' : 'Add' }}
           </button>
@@ -304,7 +331,7 @@ function formatDateTime(dateStr: string | null): string {
               <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
               <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
             </div>
-            <div class="note-body">{{ note.content }}</div>
+            <RichText :content="note.content" class="note-body" />
           </div>
         </div>
       </div>
@@ -375,4 +402,5 @@ function formatDateTime(dateStr: string | null): string {
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-danger { color: var(--p-red-600); border-color: var(--p-red-300); }
 .btn-danger:hover { background: var(--p-red-50); }
+.upload-indicator { color: var(--p-primary-color); font-size: 0.75rem; font-style: italic; }
 </style>

@@ -41,3 +41,9 @@ export function addTaskNote(taskId: string, data: { content: string; author_id?:
 export function deleteTaskNote(noteId: string): Promise<void> {
   return apiFetch(`/tasks/notes/${noteId}`, { method: 'DELETE' })
 }
+
+export async function uploadImage(file: File): Promise<{ url: string }> {
+  const form = new FormData()
+  form.append('file', file)
+  return apiFetch('/uploads/images', { method: 'POST', body: form })
+}

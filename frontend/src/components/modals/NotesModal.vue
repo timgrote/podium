@@ -4,7 +4,9 @@ import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
+import { uploadImage } from '../../api/tasks'
 import type { ProjectNote } from '../../types'
+import RichText from '../RichText.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -18,6 +20,7 @@ const notes = ref<ProjectNote[]>([])
 const loading = ref(false)
 const newNote = ref('')
 const saving = ref(false)
+const imageUploading = ref(false)
 
 watch(visible, async (val) => {
   if (!val || !props.projectId) return
@@ -60,6 +63,29 @@ async function removeNote(noteId: string) {
   }
 }
 
+async function handleNotePaste(event: ClipboardEvent) {
+  const items = event.clipboardData?.files
+  if (!items?.length) return
+  const imageFile = Array.from(items).find(f => f.type.startsWith('image/'))
+  if (!imageFile) return
+
+  event.preventDefault()
+  imageUploading.value = true
+  try {
+    const { url } = await uploadImage(imageFile)
+    const textarea = event.target as HTMLTextAreaElement
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const before = newNote.value.slice(0, start)
+    const after = newNote.value.slice(end)
+    newNote.value = before + `![image](${url})` + after
+  } catch (e) {
+    toast.error('Image upload failed: ' + String(e))
+  } finally {
+    imageUploading.value = false
+  }
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString()
@@ -75,7 +101,8 @@ function formatDate(dateStr: string | null): string {
   >
     <div class="notes-container">
       <div class="add-note">
-        <textarea v-model="newNote" rows="2" placeholder="Add a note..." />
+        <textarea v-model="newNote" rows="2" placeholder="Add a note..." @paste="handleNotePaste" />
+        <small v-if="imageUploading" class="upload-indicator">Uploading image...</small>
         <button class="btn btn-primary btn-sm" :disabled="saving" @click="addNote">
           {{ saving ? 'Adding...' : 'Add Note' }}
         </button>
@@ -91,7 +118,7 @@ function formatDate(dateStr: string | null): string {
             <span class="note-date">{{ formatDate(note.created_at) }}</span>
             <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
           </div>
-          <div class="note-content">{{ note.content }}</div>
+          <RichText :content="note.content" class="note-content" />
         </div>
       </div>
     </div>
@@ -117,4 +144,5 @@ function formatDate(dateStr: string | null): string {
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .btn-primary:hover { background: var(--p-primary-hover-color); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.upload-indicator { color: var(--p-primary-color); font-size: 0.75rem; font-style: italic; }
 </style>

@@ -7,6 +7,8 @@ import { generateDoc, exportProposalPdf, sendProposal } from '../../api/proposal
 import { getEmployees } from '../../api/employees'
 import { getUserSettings } from '../../api/auth'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
+import RichText from '../RichText.vue'
+import { uploadImage } from '../../api/tasks'
 import type { Employee } from '../../types'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
@@ -53,6 +55,7 @@ const notes = ref<ProjectNote[]>([])
 const notesLoading = ref(false)
 const newNote = ref('')
 const noteSaving = ref(false)
+const noteImageUploading = ref(false)
 const noteSearch = ref('')
 
 const filteredNotes = computed(() => {
@@ -281,6 +284,37 @@ function formatCurrency(value: number): string {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleDateString()
+}
+
+async function handlePasteImage(event: ClipboardEvent, targetRef: typeof newNote) {
+  const items = event.clipboardData?.files
+  if (!items?.length) return
+  const imageFile = Array.from(items).find(f => f.type.startsWith('image/'))
+  if (!imageFile) return
+
+  event.preventDefault()
+  noteImageUploading.value = true
+  try {
+    const { url } = await uploadImage(imageFile)
+    const textarea = event.target as HTMLTextAreaElement
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const before = targetRef.value.slice(0, start)
+    const after = targetRef.value.slice(end)
+    targetRef.value = before + `![image](${url})` + after
+  } catch (e) {
+    toast.error('Image upload failed: ' + String(e))
+  } finally {
+    noteImageUploading.value = false
+  }
+}
+
+function onNotePaste(event: ClipboardEvent) {
+  handlePasteImage(event, newNote)
+}
+
+function onTaskDescPaste(event: ClipboardEvent) {
+  handlePasteImage(event, newTaskDescription)
 }
 
 function formatDateTime(dateStr: string | null): string {
@@ -528,7 +562,7 @@ function formatPercent(value: number): string {
         <div v-if="showNewTaskForm" class="new-task-form">
           <input v-model="newTaskTitle" type="text" placeholder="Task title" class="new-task-input" />
           <input v-model="newTaskDueDate" type="date" class="new-task-date" />
-          <textarea v-model="newTaskDescription" rows="2" placeholder="Description (optional)" class="new-task-desc" />
+          <textarea v-model="newTaskDescription" rows="2" placeholder="Description (optional)" class="new-task-desc" @paste="onTaskDescPaste" />
           <div v-if="employees.length" class="new-task-assignees">
             <label class="new-task-label">Assign to</label>
             <div class="assignee-chips">
@@ -634,7 +668,8 @@ function formatPercent(value: number): string {
 
     <div v-if="activeTab === 'notes'" class="tab-content">
       <div class="add-note">
-        <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" />
+        <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" @paste="onNotePaste" />
+        <small v-if="noteImageUploading" class="upload-indicator">Uploading image...</small>
         <button class="btn btn-sm btn-primary" :disabled="noteSaving" @click="submitNote">
           {{ noteSaving ? 'Adding...' : 'Add Note' }}
         </button>
@@ -663,7 +698,7 @@ function formatPercent(value: number): string {
             <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
             <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
           </div>
-          <div class="note-body">{{ note.content }}</div>
+          <RichText :content="note.content" class="note-body" />
         </div>
       </div>
     </div>
@@ -1249,4 +1284,5 @@ function formatPercent(value: number): string {
   background: var(--p-content-hover-background);
   color: var(--p-text-color);
 }
+.upload-indicator { color: var(--p-primary-color); font-size: 0.75rem; font-style: italic; }
 </style>
