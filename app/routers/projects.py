@@ -68,10 +68,10 @@ def list_projects(db=Depends(get_db)):
         client_email = None
         if p.get("client_id"):
             client_row = db.execute(
-                "SELECT email FROM clients WHERE id = %s", (p["client_id"],)
+                "SELECT accounting_email FROM clients WHERE id = %s", (p["client_id"],)
             ).fetchone()
             if client_row:
-                client_email = client_row["email"]
+                client_email = client_row["accounting_email"]
 
         contracts = _get_contracts_for_project(db, project_id)
         invoices = _get_invoices_for_project(db, project_id)
@@ -81,16 +81,19 @@ def list_projects(db=Depends(get_db)):
             id=project_id,
             project_number=p.get("project_number"),
             job_code=p.get("job_code"),
-            project_name=p["name"],
+            project_name=p.get("project_name") or p.get("name"),
             status=p["status"],
             client_id=p.get("client_id"),
             client_name=p.get("client_name"),
             client_company=p.get("client_company"),
-            client_email=p.get("client_email") or client_email,
+            client_email=p.get("client_accounting_email") or client_email,
             pm_id=p.get("pm_id"),
             pm_name=p.get("pm_name"),
             pm_email=p.get("pm_email"),
             pm_avatar_url=p.get("pm_avatar_url"),
+            client_pm_id=p.get("client_pm_id"),
+            client_pm_name=p.get("client_pm_name"),
+            client_pm_email=p.get("client_pm_email"),
             client_project_number=p.get("client_project_number"),
             location=p.get("location"),
             data_path=p.get("data_path"),
@@ -195,13 +198,23 @@ def get_project(project_id: str, db=Depends(get_db)):
     client_name = client_company = client_email = client_phone = None
     if p.get("client_id"):
         client_row = db.execute(
-            "SELECT name, company, email, phone FROM clients WHERE id = %s", (p["client_id"],)
+            "SELECT name, company, accounting_email, phone FROM clients WHERE id = %s", (p["client_id"],)
         ).fetchone()
         if client_row:
             client_name = client_row["name"]
             client_company = client_row["company"]
-            client_email = client_row["email"]
+            client_email = client_row["accounting_email"]
             client_phone = client_row["phone"]
+
+    # Client PM contact info
+    client_pm_name = client_pm_email = None
+    if p.get("client_pm_id"):
+        ct_row = db.execute(
+            "SELECT name, email FROM contacts WHERE id = %s AND deleted_at IS NULL", (p["client_pm_id"],)
+        ).fetchone()
+        if ct_row:
+            client_pm_name = ct_row["name"]
+            client_pm_email = ct_row["email"]
 
     # Summary totals
     summary = db.execute(
@@ -227,6 +240,9 @@ def get_project(project_id: str, db=Depends(get_db)):
         pm_name=p.get("pm_name"),
         pm_email=p.get("pm_email"),
         pm_avatar_url=summary["pm_avatar_url"] if summary else None,
+        client_pm_id=p.get("client_pm_id"),
+        client_pm_name=client_pm_name,
+        client_pm_email=client_pm_email,
         client_project_number=p.get("client_project_number"),
         location=p.get("location"),
         data_path=p.get("data_path"),
@@ -254,14 +270,14 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
     client_id = data.client_id
     if not client_id and data.client_email:
         existing = db.execute(
-            "SELECT id FROM clients WHERE email = %s AND deleted_at IS NULL", (data.client_email,)
+            "SELECT id FROM clients WHERE accounting_email = %s AND deleted_at IS NULL", (data.client_email,)
         ).fetchone()
         if existing:
             client_id = existing["id"]
         elif data.client_name:
             client_id = generate_id("c-")
             db.execute(
-                "INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (%s, %s, %s, %s, %s)",
+                "INSERT INTO clients (id, name, accounting_email, created_at, updated_at) VALUES (%s, %s, %s, %s, %s)",
                 (client_id, data.client_name, data.client_email, now, now),
             )
 
@@ -279,9 +295,9 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
             pm_email = emp["email"]
 
     db.execute(
-        "INSERT INTO projects (id, name, client_id, pm_id, pm_name, pm_email, location, project_number, job_code, status, data_path, notes, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (project_id, data.project_name, client_id, pm_id, pm_name, pm_email, data.location, project_number, data.job_code, data.status, data.data_path, data.notes, now, now),
+        "INSERT INTO projects (id, name, client_id, client_pm_id, pm_id, pm_name, pm_email, location, project_number, job_code, status, data_path, notes, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (project_id, data.project_name, client_id, data.client_pm_id, pm_id, pm_name, pm_email, data.location, project_number, data.job_code, data.status, data.data_path, data.notes, now, now),
     )
 
     # Create contract + tasks if provided

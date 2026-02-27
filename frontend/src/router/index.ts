@@ -24,6 +24,11 @@ const router = createRouter({
       meta: { layout: 'dashboard' },
     },
     {
+      path: '/clients',
+      component: () => import('../views/ClientsView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
       path: '/profile',
       component: () => import('../views/ProfileView.vue'),
       meta: { layout: 'dashboard' },

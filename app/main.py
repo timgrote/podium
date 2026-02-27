@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routers import auth, clients, company, contracts, employees, flows, invoices, projects, proposals, tasks, uploads
+from .routers import auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, uploads
 
 _log_file = Path(__file__).resolve().parent.parent / "conductor.log"
 logging.basicConfig(
@@ -55,6 +55,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
 app.include_router(company.router, prefix="/api/company", tags=["company"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(contacts.router, prefix="/api/contacts", tags=["contacts"])
 app.include_router(contracts.router, prefix="/api/contracts", tags=["contracts"])
 app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
 app.include_router(invoices.router, prefix="/api/invoices", tags=["invoices"])

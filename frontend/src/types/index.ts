@@ -1,7 +1,7 @@
 export interface Client {
   id: string
   name: string
-  email: string | null
+  accounting_email: string | null
   company: string | null
   phone: string | null
   address: string | null
@@ -121,6 +121,38 @@ export interface ProjectNote {
   created_at: string | null
 }
 
+export interface Contact {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  role: string | null
+  notes: string | null
+  client_id: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ClientNote {
+  id: string
+  client_id: string
+  author_id: string | null
+  author_name: string | null
+  author_avatar_url: string | null
+  content: string
+  created_at: string | null
+}
+
+export interface ContactNote {
+  id: string
+  contact_id: string
+  author_id: string | null
+  author_name: string | null
+  author_avatar_url: string | null
+  content: string
+  created_at: string | null
+}
+
 export interface ProjectSummary {
   id: string
   project_number: string | null
@@ -135,6 +167,9 @@ export interface ProjectSummary {
   pm_name: string | null
   pm_email: string | null
   pm_avatar_url: string | null
+  client_pm_id: string | null
+  client_pm_name: string | null
+  client_pm_email: string | null
   client_project_number: string | null
   location: string | null
   data_path: string | null

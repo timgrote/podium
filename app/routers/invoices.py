@@ -191,7 +191,7 @@ def send_invoice(invoice_id: str, db=Depends(get_db)):
 
     # Get project and client info
     project = db.execute(
-        "SELECT p.*, c.name as client_name, c.email as client_email, c.company as client_company "
+        "SELECT p.*, c.name as client_name, c.accounting_email as client_email, c.company as client_company "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
         "WHERE p.id = %s",
         (invoice["project_id"],),

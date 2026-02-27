@@ -1,4 +1,4 @@
-import type { Client } from '../types'
+import type { Client, ClientNote } from '../types'
 import { apiFetch } from './client'
 
 export function getClients(q?: string): Promise<Client[]> {
@@ -36,4 +36,24 @@ export function updateClient(
 
 export function deleteClient(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/clients/${id}`, { method: 'DELETE' })
+}
+
+export function getClientNotes(clientId: string): Promise<ClientNote[]> {
+  return apiFetch(`/clients/${clientId}/notes`)
+}
+
+export function addClientNote(
+  clientId: string,
+  data: { content: string; author_id?: string },
+): Promise<ClientNote> {
+  return apiFetch(`/clients/${clientId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteClientNote(
+  noteId: string,
+): Promise<{ success: boolean }> {
+  return apiFetch(`/clients/notes/${noteId}`, { method: 'DELETE' })
 }

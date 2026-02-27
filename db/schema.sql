@@ -337,6 +337,25 @@ CREATE TABLE project_notes (
 
 CREATE INDEX idx_project_notes_project ON project_notes(project_id);
 
+CREATE TABLE client_notes (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    author_id TEXT REFERENCES employees(id),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_client_notes_client ON client_notes(client_id);
+
+CREATE TABLE contact_notes (
+    id TEXT PRIMARY KEY,
+    contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    author_id TEXT REFERENCES employees(id),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_contact_notes_contact ON contact_notes(contact_id);
 -- ============================================================================
 -- VIEWS
 -- Computed totals and useful joins

@@ -10,6 +10,7 @@ class ProjectCreate(BaseModel):
     client_email: str | None = None
     client_id: str | None = None
     pm_id: str | None = None
+    client_pm_id: str | None = None
     location: str | None = None
     status: str = "proposal"
     data_path: str | None = None
@@ -30,6 +31,7 @@ class ProjectUpdate(BaseModel):
     pm_id: str | None = None
     pm_name: str | None = None
     pm_email: str | None = None
+    client_pm_id: str | None = None
     client_project_number: str | None = None
 
 
@@ -47,6 +49,9 @@ class ProjectSummary(BaseModel):
     pm_name: str | None = None
     pm_email: str | None = None
     pm_avatar_url: str | None = None
+    client_pm_id: str | None = None
+    client_pm_name: str | None = None
+    client_pm_email: str | None = None
     client_project_number: str | None = None
     location: str | None = None
     data_path: str | None = None

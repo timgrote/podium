@@ -21,6 +21,7 @@ onMounted(async () => {
 const navItems = [
   { label: 'Dashboard', icon: 'pi pi-home', route: '/dashboard' },
   { label: 'My Tasks', icon: 'pi pi-check-square', route: '/my-tasks' },
+  { label: 'Clients', icon: 'pi pi-users', route: '/clients' },
 ]
 
 function userInitials(): string {

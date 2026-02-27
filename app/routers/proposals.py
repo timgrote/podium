@@ -330,7 +330,7 @@ def generate_doc(proposal_id: str, db=Depends(get_db)):
 
     project = db.execute(
         "SELECT p.*, c.name as client_name, c.company as client_company, "
-        "c.email as client_email, c.address as client_address "
+        "c.accounting_email as client_email, c.address as client_address "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
         "WHERE p.id = %s AND p.deleted_at IS NULL",
         (proposal["project_id"],),
@@ -445,12 +445,12 @@ def send_proposal(proposal_id: str, db=Depends(get_db)):
     to_email = proposal["client_contact_email"]
     if not to_email:
         row = db.execute(
-            "SELECT c.email FROM projects p JOIN clients c ON p.client_id = c.id "
+            "SELECT c.accounting_email FROM projects p JOIN clients c ON p.client_id = c.id "
             "WHERE p.id = %s AND p.deleted_at IS NULL",
             (proposal["project_id"],),
         ).fetchone()
         if row:
-            to_email = row["email"]
+            to_email = row["accounting_email"]
     if not to_email:
         raise HTTPException(status_code=400, detail="No client email found")
 

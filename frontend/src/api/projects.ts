@@ -15,6 +15,7 @@ export function createProject(data: {
   client_name?: string
   client_email?: string
   client_id?: string
+  client_pm_id?: string
   location?: string
   status?: string
   pm_id?: string
