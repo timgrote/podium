@@ -234,9 +234,10 @@ const invoiceBusy = ref<Record<string, string>>({})
 async function genInvoiceSheet(invoiceId: string) {
   invoiceBusy.value[invoiceId] = 'gen'
   try {
-    await generateSheet(invoiceId)
+    const result = await generateSheet(invoiceId)
+    const inv = props.project.invoices.find(i => i.id === invoiceId)
+    if (inv) inv.data_path = result.data_path
     toast.success('Google Sheet generated')
-    emit('editProject')
   } catch (e) {
     toast.error(String(e))
   } finally {
