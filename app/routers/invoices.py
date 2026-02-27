@@ -265,8 +265,8 @@ def send_invoice(invoice_id: str, db=Depends(get_db)):
 
 
 @router.post("/{invoice_id}/generate-sheet")
-def generate_sheet_for_invoice(invoice_id: str, db=Depends(get_db)):
-    """Generate a Google Sheet for an existing invoice that doesn't have one."""
+def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(get_db)):
+    """Generate a Google Sheet for an invoice. Use force=true to recreate."""
     invoice = db.execute(
         "SELECT * FROM invoices WHERE id = %s AND deleted_at IS NULL", (invoice_id,)
     ).fetchone()
@@ -274,7 +274,7 @@ def generate_sheet_for_invoice(invoice_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail="Invoice not found")
     invoice = dict(invoice)
 
-    if invoice.get("data_path"):
+    if invoice.get("data_path") and not force:
         raise HTTPException(status_code=400, detail="Invoice already has a sheet")
 
     project_id = invoice["project_id"]

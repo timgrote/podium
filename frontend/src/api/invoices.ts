@@ -39,8 +39,10 @@ export function deleteInvoice(id: string): Promise<{ success: boolean }> {
 
 export function generateSheet(
   id: string,
+  opts?: { force?: boolean },
 ): Promise<{ success: boolean; data_path: string }> {
-  return apiFetch(`/invoices/${id}/generate-sheet`, { method: 'POST' })
+  const qs = opts?.force ? '?force=true' : ''
+  return apiFetch(`/invoices/${id}/generate-sheet${qs}`, { method: 'POST' })
 }
 
 export function exportPdf(

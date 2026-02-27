@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
-import { sendInvoice, createNextInvoice, deleteInvoice } from '../../api/invoices'
+import { sendInvoice, createNextInvoice, deleteInvoice, generateSheet } from '../../api/invoices'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -30,6 +30,10 @@ async function doAction(action: string) {
       case 'next':
         await createNextInvoice(props.invoiceId)
         toast.success('Next invoice created')
+        break
+      case 'recreate-sheet':
+        await generateSheet(props.invoiceId, { force: true })
+        toast.success('Google Sheet recreated')
         break
       case 'delete':
         await deleteInvoice(props.invoiceId)
@@ -64,6 +68,10 @@ async function doAction(action: string) {
       <button class="action-btn" :disabled="acting" @click="doAction('next')">
         <i class="pi pi-arrow-right" />
         <span>Create Next Invoice</span>
+      </button>
+      <button class="action-btn" :disabled="acting" @click="doAction('recreate-sheet')">
+        <i class="pi pi-refresh" />
+        <span>Recreate Google Sheet</span>
       </button>
       <div class="delete-section">
         <button v-if="!confirmDelete" class="action-btn danger" :disabled="acting" @click="confirmDelete = true">
