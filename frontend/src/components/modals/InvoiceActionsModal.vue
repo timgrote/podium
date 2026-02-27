@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
-import { generateSheet, exportPdf, sendInvoice, createNextInvoice } from '../../api/invoices'
+import { sendInvoice, createNextInvoice, deleteInvoice } from '../../api/invoices'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -17,19 +17,12 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const acting = ref(false)
+const confirmDelete = ref(false)
 
 async function doAction(action: string) {
   acting.value = true
   try {
     switch (action) {
-      case 'generate':
-        await generateSheet(props.invoiceId)
-        toast.success('Google Sheet generated')
-        break
-      case 'pdf':
-        await exportPdf(props.invoiceId)
-        toast.success('PDF exported')
-        break
       case 'send':
         await sendInvoice(props.invoiceId)
         toast.success('Invoice sent')
@@ -37,6 +30,10 @@ async function doAction(action: string) {
       case 'next':
         await createNextInvoice(props.invoiceId)
         toast.success('Next invoice created')
+        break
+      case 'delete':
+        await deleteInvoice(props.invoiceId)
+        toast.success('Invoice deleted')
         break
       default:
         throw new Error(`Unknown invoice action: ${action}`)
@@ -47,6 +44,7 @@ async function doAction(action: string) {
     emit('error', String(e))
   } finally {
     acting.value = false
+    confirmDelete.value = false
   }
 }
 </script>
@@ -59,14 +57,6 @@ async function doAction(action: string) {
     :style="{ width: '400px' }"
   >
     <div class="actions">
-      <button class="action-btn" :disabled="acting" @click="doAction('generate')">
-        <i class="pi pi-file-excel" />
-        <span>Generate Google Sheet</span>
-      </button>
-      <button class="action-btn" :disabled="acting" @click="doAction('pdf')">
-        <i class="pi pi-file-pdf" />
-        <span>Export PDF</span>
-      </button>
       <button class="action-btn" :disabled="acting" @click="doAction('send')">
         <i class="pi pi-envelope" />
         <span>Send Invoice</span>
@@ -75,6 +65,19 @@ async function doAction(action: string) {
         <i class="pi pi-arrow-right" />
         <span>Create Next Invoice</span>
       </button>
+      <div class="delete-section">
+        <button v-if="!confirmDelete" class="action-btn danger" :disabled="acting" @click="confirmDelete = true">
+          <i class="pi pi-trash" />
+          <span>Delete Invoice</span>
+        </button>
+        <div v-else class="confirm-row">
+          <span class="confirm-text">Delete this invoice?</span>
+          <button class="btn btn-sm btn-danger" :disabled="acting" @click="doAction('delete')">
+            {{ acting ? 'Deleting...' : 'Yes, Delete' }}
+          </button>
+          <button class="btn btn-sm" :disabled="acting" @click="confirmDelete = false">Cancel</button>
+        </div>
+      </div>
     </div>
   </Dialog>
 </template>
@@ -90,4 +93,14 @@ async function doAction(action: string) {
 .action-btn:hover { background: var(--p-content-hover-background); border-color: var(--p-primary-color); }
 .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .action-btn i { font-size: 1.125rem; color: var(--p-primary-color); width: 1.5rem; }
+.action-btn.danger i { color: var(--p-red-600); }
+.action-btn.danger:hover { border-color: var(--p-red-400); }
+.delete-section { margin-top: 0.5rem; border-top: 1px solid var(--p-content-border-color); padding-top: 0.75rem; }
+.confirm-row { display: flex; align-items: center; gap: 0.5rem; }
+.confirm-text { font-size: 0.875rem; color: var(--p-red-600); font-weight: 500; }
+.btn { display: inline-flex; align-items: center; padding: 0.25rem 0.5rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.75rem; color: var(--p-text-color); }
+.btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+.btn-danger { color: #fff; background: var(--p-red-600); border-color: var(--p-red-600); }
+.btn-danger:hover { background: var(--p-red-700); }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

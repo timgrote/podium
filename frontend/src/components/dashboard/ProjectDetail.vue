@@ -4,6 +4,7 @@ import type { ProjectSummary, ProjectNote, Task } from '../../types'
 import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
 import { getProjectTasks, createTask, updateTask } from '../../api/tasks'
 import { generateDoc, exportProposalPdf, sendProposal } from '../../api/proposals'
+import { generateSheet, exportPdf as exportInvoicePdfApi } from '../../api/invoices'
 import { getEmployees } from '../../api/employees'
 import { getUserSettings } from '../../api/auth'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
@@ -227,6 +228,35 @@ function getInitials(assignees: Task['assignees']): string[] {
   })
 }
 
+// Invoice inline actions
+const invoiceBusy = ref<Record<string, string>>({})
+
+async function genInvoiceSheet(invoiceId: string) {
+  invoiceBusy.value[invoiceId] = 'gen'
+  try {
+    await generateSheet(invoiceId)
+    toast.success('Google Sheet generated')
+    emit('editProject')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    delete invoiceBusy.value[invoiceId]
+  }
+}
+
+async function exportInvoicePdf(invoiceId: string) {
+  invoiceBusy.value[invoiceId] = 'pdf'
+  try {
+    await exportInvoicePdfApi(invoiceId)
+    toast.success('PDF exported')
+    emit('editProject')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    delete invoiceBusy.value[invoiceId]
+  }
+}
+
 // Proposal actions
 const proposalBusy = ref<Record<string, string>>({})
 
@@ -439,15 +469,41 @@ function formatPercent(value: number): string {
             >
               {{ invoice.paid_status === 'paid' ? 'Paid' : invoice.sent_status === 'sent' ? 'Sent' : 'Draft' }}
             </span>
+            <span v-if="invoice.sent_status === 'sent' && invoice.sent_at" class="sub-card-date">
+              {{ formatDate(invoice.sent_at) }}
+            </span>
             <div class="sub-card-actions">
+              <a
+                v-if="invoice.data_path && invoice.data_path.includes('google.com')"
+                class="btn-icon"
+                title="Open Google Sheet"
+                :href="invoice.data_path"
+                target="_blank"
+              >
+                <i class="pi pi-file-excel" />
+              </a>
+              <button
+                v-else
+                class="btn-icon"
+                title="Generate Google Sheet"
+                :disabled="!!invoiceBusy[invoice.id]"
+                @click="genInvoiceSheet(invoice.id)"
+              >
+                <i class="pi" :class="invoiceBusy[invoice.id] === 'gen' ? 'pi-spin pi-spinner' : 'pi-file-excel'" />
+              </button>
+              <button
+                class="btn-icon"
+                title="Export PDF"
+                :disabled="!!invoiceBusy[invoice.id]"
+                @click="exportInvoicePdf(invoice.id)"
+              >
+                <i class="pi" :class="invoiceBusy[invoice.id] === 'pdf' ? 'pi-spin pi-spinner' : 'pi-file-pdf'" />
+              </button>
               <button class="btn-icon" title="Actions" @click="emit('invoiceActions', invoice.id)">
                 <i class="pi pi-ellipsis-h" />
               </button>
               <button class="btn-icon" title="Edit" @click="emit('editInvoice', invoice.id)">
                 <i class="pi pi-pencil" />
-              </button>
-              <button class="btn-icon" title="Delete" @click="emit('deleteInvoice', invoice.id)">
-                <i class="pi pi-trash" />
               </button>
             </div>
           </div>

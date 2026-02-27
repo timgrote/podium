@@ -30,7 +30,7 @@ def _get_contracts_for_project(db, project_id: str) -> list[dict]:
 
 def _get_invoices_for_project(db, project_id: str) -> list[dict]:
     rows = db.execute(
-        "SELECT * FROM invoices WHERE project_id = %s AND deleted_at IS NULL ORDER BY created_at",
+        "SELECT * FROM invoices WHERE project_id = %s AND deleted_at IS NULL ORDER BY created_at DESC",
         (project_id,),
     ).fetchall()
     return [dict(r) for r in rows]
