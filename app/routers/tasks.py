@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..activity_log import log_activity
 from ..database import get_db
 from ..models.task import TaskCreate, TaskNoteCreate, TaskNoteResponse, TaskResponse, TaskUpdate
 from ..utils import generate_id
@@ -107,6 +108,8 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
     if data.assignee_ids:
         _set_assignees(db, task_id, data.assignee_ids)
 
+    log_activity(db, action="created", entity_type="project_task", entity_id=task_id,
+                 project_id=project_id, metadata={"title": data.title})
     db.commit()
 
     row = db.execute("SELECT * FROM project_tasks WHERE id = %s", (task_id,)).fetchone()
@@ -156,6 +159,10 @@ def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db)):
         "VALUES (%s, %s, %s, %s, %s)",
         (note_id, task_id, data.author_id, data.content, now),
     )
+    # Get project_id for the activity log
+    task_row = db.execute("SELECT project_id FROM project_tasks WHERE id = %s", (task_id,)).fetchone()
+    log_activity(db, action="created", entity_type="task_note", entity_id=note_id,
+                 project_id=task_row["project_id"] if task_row else None, actor_id=data.author_id)
     db.commit()
 
     # Fetch with author name
@@ -229,6 +236,15 @@ def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db)):
 
     if data.assignee_ids is not None:
         _set_assignees(db, task_id, data.assignee_ids)
+
+    # Log status changes
+    if data.status == "done" and existing["status"] != "done":
+        log_activity(db, action="completed", entity_type="project_task", entity_id=task_id,
+                     project_id=existing["project_id"], metadata={"title": existing["title"]})
+    elif data.status and data.status != existing["status"]:
+        log_activity(db, action="updated", entity_type="project_task", entity_id=task_id,
+                     project_id=existing["project_id"],
+                     metadata={"title": existing["title"], "old_status": existing["status"], "new_status": data.status})
 
     db.commit()
 

@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..activity_log import log_activity
 from ..database import get_db
 from ..models.contract import ContractCreate, ContractTaskCreate, ContractTaskUpdate, ContractUpdate
 from ..models.invoice import InvoiceFromContract
@@ -84,6 +85,8 @@ def create_contract(data: ContractCreate, db=Depends(get_db)):
                 (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0), now, now),
             )
 
+    log_activity(db, action="created", entity_type="contract", entity_id=contract_id,
+                 project_id=data.project_id, metadata={"total_amount": float(total)})
     db.commit()
     return get_contract(contract_id, db)
 
@@ -142,6 +145,8 @@ def delete_contract(contract_id: str, db=Depends(get_db)):
 
     now = datetime.now().isoformat()
     db.execute("UPDATE contracts SET deleted_at = %s WHERE id = %s", (now, contract_id))
+    log_activity(db, action="deleted", entity_type="contract", entity_id=contract_id,
+                 project_id=existing["project_id"])
     db.commit()
     return {"success": True}
 
@@ -316,6 +321,8 @@ def create_invoice_from_contract(
     # Set as current invoice on project
     db.execute("UPDATE projects SET current_invoice_id = %s WHERE id = %s", (inv_id, project_id))
 
+    log_activity(db, action="created", entity_type="invoice", entity_id=inv_id, project_id=project_id,
+                 metadata={"invoice_number": invoice_number, "total_due": float(total_due), "from_contract": contract_id})
     db.commit()
 
     invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (inv_id,)).fetchone()
