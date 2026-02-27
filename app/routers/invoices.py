@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..activity_log import log_activity
 from ..database import get_db
 from ..models.invoice import InvoiceUpdate
 from ..utils import generate_id, next_invoice_number
@@ -170,6 +171,8 @@ def finalize_invoice(invoice_id: str, db=Depends(get_db)):
     )
     db.commit()
 
+    log_activity(db, action="finalized", entity_type="invoice", entity_id=invoice_id, project_id=invoice["project_id"],
+                 metadata={"invoice_number": invoice["invoice_number"], "total_due": float(total_due)})
     logger.info("Finalized invoice %s: total=$%.2f, pdf=%s", invoice["invoice_number"], total_due, drive_url)
     return {"success": True, "total_due": total_due, "pdf_path": drive_url}
 
@@ -261,6 +264,8 @@ def send_invoice(invoice_id: str, db=Depends(get_db)):
     )
     db.commit()
 
+    log_activity(db, action="sent", entity_type="invoice", entity_id=invoice_id, project_id=invoice["project_id"],
+                 metadata={"invoice_number": invoice["invoice_number"], "sent_to": to_emails})
     return {"success": True, "sent_to": to_emails, "pdf_path": drive_url}
 
 
@@ -358,6 +363,8 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
             "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
             (sheet_url, now, invoice_id),
         )
+        log_activity(db, action="created", entity_type="invoice_sheet", entity_id=invoice_id, project_id=invoice["project_id"],
+                     metadata={"invoice_number": invoice["invoice_number"]})
         db.commit()
         return {"success": True, "data_path": sheet_url}
     except FileNotFoundError:
@@ -438,6 +445,8 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
     )
     db.commit()
 
+    log_activity(db, action="created", entity_type="invoice", entity_id=new_inv_id, project_id=project_id,
+                 metadata={"invoice_number": new_invoice_number, "chained_from": invoice["invoice_number"]})
     new_invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (new_inv_id,)).fetchone()
     logger.info("Created next invoice %s (chain from %s)", new_invoice_number, invoice["invoice_number"])
     return dict(new_invoice)
@@ -505,6 +514,14 @@ def update_invoice(
         values = list(updates.values()) + [invoice_id]
         db.execute(f"UPDATE invoices SET {set_clause} WHERE id = %s", values)
 
+    # Log status changes
+    if "sent_status" in updates and updates["sent_status"] == "sent":
+        log_activity(db, action="sent", entity_type="invoice", entity_id=invoice_id,
+                     project_id=existing["project_id"], metadata={"invoice_number": existing["invoice_number"]})
+    if "paid_status" in updates and updates["paid_status"] == "paid":
+        log_activity(db, action="paid", entity_type="invoice", entity_id=invoice_id,
+                     project_id=existing["project_id"], metadata={"invoice_number": existing["invoice_number"]})
+
     db.commit()
 
     row = db.execute("SELECT * FROM invoices WHERE id = %s", (invoice_id,)).fetchone()
@@ -525,6 +542,8 @@ def delete_invoice(invoice_id: str, db=Depends(get_db)):
     # Billing is computed from active invoices — no reversal needed on delete.
     # Soft-delete the invoice
     db.execute("UPDATE invoices SET deleted_at = %s WHERE id = %s", (now, invoice_id))
+    log_activity(db, action="deleted", entity_type="invoice", entity_id=invoice_id,
+                 project_id=inv.get("project_id"), metadata={"invoice_number": inv.get("invoice_number")})
 
     # Clear current_invoice_id if this was the current invoice
     if inv.get("project_id"):

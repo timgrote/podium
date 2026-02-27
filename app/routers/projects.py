@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..activity_log import log_activity
 from ..database import get_db
 from ..models.project import ProjectCreate, ProjectDetail, ProjectNoteCreate, ProjectNoteResponse, ProjectSummary, ProjectUpdate
 from ..utils import generate_id, next_invoice_number, next_project_number
@@ -167,6 +168,8 @@ def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db
         "VALUES (%s, %s, %s, %s, %s)",
         (note_id, project_id, data.author_id, data.content, now),
     )
+    log_activity(db, action="created", entity_type="project_note", entity_id=note_id,
+                 project_id=project_id, actor_id=data.author_id)
     db.commit()
 
     row = db.execute(
@@ -305,6 +308,8 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
                 (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0), now, now),
             )
 
+    log_activity(db, action="created", entity_type="project", entity_id=project_id, project_id=project_id,
+                 metadata={"name": data.project_name, "status": data.status})
     db.commit()
     return get_project(project_id, db)
 
@@ -375,6 +380,7 @@ def delete_project(
         )
 
     db.execute("UPDATE projects SET deleted_at = %s WHERE id = %s", (now, project_id))
+    log_activity(db, action="deleted", entity_type="project", entity_id=project_id, project_id=project_id)
     db.commit()
     return {"success": True}
 
@@ -406,6 +412,8 @@ def add_invoice_to_project(
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
         (inv_id, invoice_number, project_id, invoice_type, description, total_due, now, now),
     )
+    log_activity(db, action="created", entity_type="invoice", entity_id=inv_id, project_id=project_id,
+                 metadata={"invoice_number": invoice_number, "type": invoice_type})
     db.commit()
 
     row = db.execute("SELECT * FROM invoices WHERE id = %s", (inv_id,)).fetchone()

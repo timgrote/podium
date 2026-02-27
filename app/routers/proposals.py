@@ -3,6 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..activity_log import log_activity
 from ..config import settings
 from ..database import get_db
 from ..engineers import CHANGES_TASK, ENGINEERS, RATES, load_default_tasks
@@ -174,6 +175,8 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
             (task_id, proposal_id, i + 1, task.name, task.description, task.amount, now),
         )
 
+    log_activity(db, action="created", entity_type="proposal", entity_id=proposal_id, project_id=project_id,
+                 metadata={"total_fee": float(total_fee), "engineer": engineer_key})
     db.commit()
 
     # --- Optionally generate Google Doc ---
@@ -309,6 +312,8 @@ def delete_proposal(proposal_id: str, db=Depends(get_db)):
 
     now = datetime.now().isoformat()
     db.execute("UPDATE proposals SET deleted_at = %s WHERE id = %s", (now, proposal_id))
+    log_activity(db, action="deleted", entity_type="proposal", entity_id=proposal_id,
+                 project_id=existing["project_id"])
     db.commit()
     return {"success": True}
 
@@ -494,6 +499,8 @@ def send_proposal(proposal_id: str, db=Depends(get_db)):
             "UPDATE proposals SET pdf_path = %s, sent_at = %s, status = 'sent', updated_at = %s WHERE id = %s",
             (pdf_url, now, now, proposal_id),
         )
+        log_activity(db, action="sent", entity_type="proposal", entity_id=proposal_id,
+                     project_id=proposal["project_id"], metadata={"sent_to": to_email})
         db.commit()
 
         result = _get_proposal_with_tasks(db, proposal_id)
@@ -627,6 +634,8 @@ def promote_to_contract(
         "UPDATE projects SET status = 'contract', updated_at = %s WHERE id = %s",
         (now, project_id),
     )
+    log_activity(db, action="promoted", entity_type="proposal", entity_id=proposal_id,
+                 project_id=project_id, metadata={"contract_id": contract_id})
 
     db.commit()
 
