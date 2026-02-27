@@ -289,10 +289,11 @@ def create_invoice_sheet(
         for i, task in enumerate(tasks):
             row_num = marker_row + i + 1  # 1-based sheet row
             percent_val = task.get("quantity", 0)
-            decimal_pct = percent_val / 100 if percent_val > 1 else percent_val
+            # Round to avoid float artifacts (e.g. 59.99999 → 60), format as "60%"
+            pct_display = f"{round(percent_val)}%"
             updates.append({"range": f"A{row_num}", "values": [[task.get("name", "")]]})
             updates.append({"range": f"C{row_num}", "values": [[task.get("unit_price", 0)]]})
-            updates.append({"range": f"D{row_num}", "values": [[decimal_pct]]})
+            updates.append({"range": f"D{row_num}", "values": [[pct_display]]})
             updates.append({"range": f"E{row_num}", "values": [[task.get("previous_billing", 0)]]})
             updates.append({"range": f"F{row_num}", "values": [[task.get("amount", 0)]]})
         # Clear the original marker row token text if no tasks replaced it
