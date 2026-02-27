@@ -331,6 +331,7 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
             "unit_price": unit_price,
             "quantity": cumulative_pct,
             "previous_billing": prev_billing,
+            "amount": this_amount,
         })
 
     try:

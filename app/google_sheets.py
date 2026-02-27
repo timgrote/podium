@@ -192,9 +192,9 @@ def create_invoice_sheet(
 
     # Build blank rows to clear template defaults in columns A, C, D, E
     clear_names = [[""] for _ in range(max_task_rows)]
-    clear_data = [["", "", ""] for _ in range(max_task_rows)]
+    clear_data = [["", "", "", ""] for _ in range(max_task_rows)]
     header_data.append({"range": "A15:A24", "values": clear_names})
-    header_data.append({"range": "C15:E24", "values": clear_data})
+    header_data.append({"range": "C15:F24", "values": clear_data})
 
     if num_tasks > 0:
         name_rows = []
@@ -208,6 +208,7 @@ def create_invoice_sheet(
                 task.get("unit_price", 0),      # C: task fee
                 decimal_val,                     # D: percent complete (as decimal)
                 task.get("previous_billing", 0), # E: previous billing
+                task.get("amount", 0),           # F: current fee billing
             ])
 
         end_row = 14 + num_tasks
@@ -216,7 +217,7 @@ def create_invoice_sheet(
             "values": name_rows,
         })
         header_data.append({
-            "range": f"C15:E{end_row}",
+            "range": f"C15:F{end_row}",
             "values": data_rows,
         })
 
