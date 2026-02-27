@@ -328,10 +328,13 @@ def export_sheet_as_pdf(spreadsheet_id: str) -> bytes:
     return response.content
 
 
-def upload_pdf_to_drive(pdf_bytes: bytes, filename: str, folder_id: str = "") -> str:
+def upload_pdf_to_drive(pdf_bytes: bytes, filename: str, folder_id: str = "", project_data_path: str = "") -> str:
     """Upload PDF bytes to Google Drive. Returns the Drive file URL."""
     drive = get_drive_service()
     dest_folder = folder_id or settings.invoice_drive_folder_id
+
+    if project_data_path and dest_folder:
+        dest_folder = resolve_project_folder(drive, dest_folder, project_data_path)
 
     file_metadata = {"name": filename, "mimeType": "application/pdf"}
     if dest_folder:

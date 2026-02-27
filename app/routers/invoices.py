@@ -60,6 +60,19 @@ def _extract_spreadsheet_id(data_path: str) -> str:
     return data_path
 
 
+def _get_drive_context(db, invoice: dict) -> tuple:
+    """Return (folder_id, project_data_path) for Drive file placement."""
+    folder_row = db.execute(
+        "SELECT value FROM company_settings WHERE key = 'invoice_drive_folder_id'"
+    ).fetchone()
+    folder_id = folder_row["value"] if folder_row else ""
+    project_row = db.execute(
+        "SELECT data_path FROM projects WHERE id = %s", (invoice["project_id"],)
+    ).fetchone()
+    data_path = project_row["data_path"] if project_row and project_row["data_path"] else ""
+    return folder_id, data_path
+
+
 # --- Google Sheets integration endpoints ---
 
 
@@ -81,14 +94,9 @@ def export_invoice_pdf(invoice_id: str, db=Depends(get_db)):
     spreadsheet_id = _extract_spreadsheet_id(invoice["data_path"])
     pdf_bytes = export_sheet_as_pdf(spreadsheet_id)
 
-    # Upload PDF to Google Drive
-    folder_row = db.execute(
-        "SELECT value FROM company_settings WHERE key = 'invoice_drive_folder_id'"
-    ).fetchone()
-    folder_id = folder_row["value"] if folder_row else ""
-
+    folder_id, project_data_path = _get_drive_context(db, invoice)
     filename = f"{invoice['invoice_number']}.pdf"
-    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id)
+    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id, project_data_path=project_data_path)
 
     now = datetime.now().isoformat()
     db.execute(
@@ -150,14 +158,10 @@ def finalize_invoice(invoice_id: str, db=Depends(get_db)):
     # 4. Export Google Sheet as PDF
     pdf_bytes = export_sheet_as_pdf(spreadsheet_id)
 
-    # 5. Upload PDF to Google Drive
-    folder_row = db.execute(
-        "SELECT value FROM company_settings WHERE key = 'invoice_drive_folder_id'"
-    ).fetchone()
-    folder_id = folder_row["value"] if folder_row else ""
-
+    # 5. Upload PDF to Google Drive (in project subfolder)
+    folder_id, project_data_path = _get_drive_context(db, invoice)
     filename = f"{invoice['invoice_number']}.pdf"
-    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id)
+    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id, project_data_path=project_data_path)
 
     # 6. Update invoice: set pdf_path, keep data_path as sheet URL
     db.execute(
@@ -213,13 +217,9 @@ def send_invoice(invoice_id: str, db=Depends(get_db)):
     spreadsheet_id = _extract_spreadsheet_id(invoice["data_path"])
     pdf_bytes = export_sheet_as_pdf(spreadsheet_id)
 
-    folder_row = db.execute(
-        "SELECT value FROM company_settings WHERE key = 'invoice_drive_folder_id'"
-    ).fetchone()
-    folder_id = folder_row["value"] if folder_row else ""
-
+    folder_id, project_data_path = _get_drive_context(db, invoice)
     filename = f"{invoice['invoice_number']}.pdf"
-    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id)
+    drive_url = upload_pdf_to_drive(pdf_bytes, filename, folder_id, project_data_path=project_data_path)
 
     # 2. Determine recipients
     to_emails = []
