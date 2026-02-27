@@ -1,8 +1,13 @@
 Windows Registry Editor Version 5.00
 
+; Register openfolder:// protocol handler
 [HKEY_CURRENT_USER\Software\Classes\openfolder]
 @="URL:Open Folder Protocol"
 "URL Protocol"=""
 
 [HKEY_CURRENT_USER\Software\Classes\openfolder\shell\open\command]
 @="\"D:\\Dropbox\\TIE\\Tools\\Conductor\\openfolder.cmd\" \"%1\""
+
+; Show "Always allow" checkbox in Brave's external protocol dialog
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave]
+"ExternalProtocolDialogShowAlwaysOpenCheckbox"=dword:00000001

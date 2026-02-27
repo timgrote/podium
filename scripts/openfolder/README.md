@@ -1,32 +1,34 @@
 # Open Folder Protocol Handler
 
-Registers a custom `openfolder://` protocol on Windows so Conductor can open project Dropbox folders directly in Explorer.
+Opens project Dropbox folders directly in Windows Explorer from Conductor.
 
 ## Setup (one-time, per machine)
 
-Both files live in Dropbox and sync automatically. Just run the registry file:
+Both files sync via Dropbox automatically. You only need to register the protocol:
 
-```
-Navigate to D:\Dropbox\TIE\Tools\Conductor\
-Double-click install-openfolder.reg and confirm the prompt.
-```
+1. Open `D:\Dropbox\TIE\Tools\Conductor\` in Explorer
+2. **Right-click** `install-openfolder.reg` → **Run as administrator**
+3. Click **Yes** when Windows asks to confirm the registry change
 
-That's it. Conductor will now be able to open project folders via the folder icon in the project detail view.
+Done. The reg file registers the `openfolder://` protocol and configures Brave to launch it without prompting.
 
 ## Files
 
-Both files are in `D:\Dropbox\TIE\Tools\Conductor\`:
+Both live in `D:\Dropbox\TIE\Tools\Conductor\`:
 
-- `openfolder.cmd` — Batch script that handles the protocol
-- `install-openfolder.reg` — Registry file that registers the protocol (points to the .cmd in this folder)
+| File | Purpose |
+|------|---------|
+| `openfolder.cmd` | Batch script that receives the link and opens Explorer |
+| `install-openfolder.reg` | Registers the `openfolder://` protocol with Windows |
 
 ## How it works
 
-- Conductor renders links like `openfolder://D:/Dropbox/TIE/TBG/HeronLakes`
-- Windows recognizes the `openfolder://` protocol and launches `D:\Dropbox\TIE\Tools\Conductor\openfolder.cmd`
-- The batch script strips the protocol prefix, converts forward slashes to backslashes, and opens Explorer at that path
-- On first click, the browser asks "Allow this site to open openfolder links?" (can be remembered)
+1. You click the folder icon on a project in Conductor
+2. The browser opens a link like `openfolder://D:/Dropbox/TIE/TBG/HeronLakes`
+3. Windows hands it to `openfolder.cmd`, which opens Explorer at that path
 
-## Configuration
+## Troubleshooting
 
-The Dropbox base path defaults to `D:/Dropbox/TIE` per user. Each user can override it via their user settings in the API.
+- **Nothing happens on click** — Make sure you ran `install-openfolder.reg` on this machine
+- **Browser blocks the link** — Look for a popup asking to allow `openfolder://` links and click Allow
+- **Wrong Dropbox location** — The base path defaults to `D:/Dropbox/TIE`. If yours is different, an admin can update it in your user settings in Conductor
