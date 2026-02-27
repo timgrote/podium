@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
-import type { Client, Contact } from '../../types'
+import type { Contact } from '../../types'
 import { getClient, createClient, updateClient } from '../../api/clients'
 import { getContacts, createContact, updateContact, deleteContact } from '../../api/contacts'
 import { useToast } from '../../composables/useToast'

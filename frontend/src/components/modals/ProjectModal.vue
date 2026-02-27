@@ -70,8 +70,8 @@ watch(() => form.value.client_id, async (newClientId, oldClientId) => {
     showNewContact.value = false
     newContactName.value = ''
     newContactEmail.value = ''
-    await loadContacts(newClientId)
-    if (contacts.value.length > 0) {
+    await loadContacts(newClientId || '')
+    if (contacts.value.length > 0 && contacts.value[0]) {
       form.value.client_pm_id = contacts.value[0].id
     } else {
       form.value.client_pm_id = ''

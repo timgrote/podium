@@ -1,5 +1,7 @@
--- Add client_pm contact fields to v_project_summary view
+-- Add client_pm_id column to projects and update v_project_summary view
 -- Joins contacts table to expose client_pm_id, client_pm_name, client_pm_email
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS client_pm_id TEXT REFERENCES contacts(id);
 
 DROP VIEW IF EXISTS v_project_summary;
 CREATE VIEW v_project_summary AS
