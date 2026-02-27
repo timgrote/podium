@@ -2,14 +2,23 @@
 -- This field is the company-level accounting email, used as CC on invoice sends.
 -- Person-level emails live on the contacts table.
 
-ALTER TABLE clients RENAME COLUMN email TO accounting_email;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'clients' AND column_name = 'email'
+  ) THEN
+    ALTER TABLE clients RENAME COLUMN email TO accounting_email;
+  END IF;
+END $$;
 
 -- Drop old index, create new one
 DROP INDEX IF EXISTS idx_clients_email;
 CREATE INDEX IF NOT EXISTS idx_clients_accounting_email ON clients(accounting_email);
 
 -- Recreate v_project_summary with updated column name
-CREATE OR REPLACE VIEW v_project_summary AS
+DROP VIEW IF EXISTS v_project_summary;
+CREATE VIEW v_project_summary AS
 SELECT
     p.id,
     p.name AS project_name,
