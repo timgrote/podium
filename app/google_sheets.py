@@ -112,6 +112,11 @@ def resolve_project_folder(drive, root_folder_id: str, data_path: str) -> str:
     return current
 
 
+def _col_letter(col_index: int) -> str:
+    """Convert 0-based column index to sheet letter (0=A, 1=B, ..., 25=Z)."""
+    return chr(ord("A") + col_index)
+
+
 def create_invoice_sheet(
     invoice_number: str,
     project_name: str,
@@ -128,7 +133,12 @@ def create_invoice_sheet(
     client_project_number: str = "",
     project_data_path: str = "",
 ) -> str:
-    """Copy the invoice template and populate it with invoice data.
+    """Copy the invoice template and populate it via token replacement.
+
+    Template tokens (found by scanning all cells):
+      Header:  [ProjectName], [InvoiceDate], [InvoiceID], etc.
+      Tasks:   {{task_name}}, {{task_fee}}, {{task_percent}}, {{task_previous}}, {{task_amount}}
+      Totals:  [TotalFee], [TotalPrevious], [TotalAmount], [InvoiceTotal]
 
     Returns:
         URL of the new Google Sheet
@@ -140,7 +150,6 @@ def create_invoice_sheet(
     src_template = template_id or settings.invoice_template_id
     dest_folder = folder_id or settings.invoice_drive_folder_id
 
-    # Resolve project subfolder if data_path is set (e.g. "DR Horton/Silver Peaks")
     if project_data_path and dest_folder:
         dest_folder = resolve_project_folder(drive, dest_folder, project_data_path)
 
@@ -155,120 +164,168 @@ def create_invoice_sheet(
     ).execute()
     spreadsheet_id = copied["id"]
 
-    # 2. Write project info to header cells
-    # Left side: B6=Project Name, B7=Job ID, B8=Invoice Date, B9=Invoice #, B10=PM Email
-    # Right side: F6=Client Contact, F7=Client Company, F8-F9=Address, F10=Client Project #
-    # A12: "Professional Services Rendered Through: <date>"
+    # 2. Get sheet ID and read all cells
+    sheet_meta = sheets.spreadsheets().get(
+        spreadsheetId=spreadsheet_id, fields="sheets.properties"
+    ).execute()
+    sheet_id = sheet_meta["sheets"][0]["properties"]["sheetId"]
+    sheet_title = sheet_meta["sheets"][0]["properties"]["title"]
 
-    # Parse address into street + city/state/zip lines
-    addr_line1 = ""
-    addr_line2 = ""
+    all_data = sheets.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{sheet_title}!A1:H50",
+        valueRenderOption="FORMATTED_VALUE",
+    ).execute()
+    grid = all_data.get("values", [])
+
+    # 3. Find the task marker row (contains {{task_name}})
+    marker_row = None
+    for r, row in enumerate(grid):
+        for cell in row:
+            if "{{task_name}}" in str(cell):
+                marker_row = r
+                break
+        if marker_row is not None:
+            break
+
+    # 4. Insert extra rows for tasks (duplicate marker row formatting)
+    num_tasks = len(tasks) if tasks else 0
+    rows_to_insert = max(num_tasks - 1, 0)
+
+    if rows_to_insert > 0 and marker_row is not None:
+        sheets.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"requests": [{
+                "insertDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "ROWS",
+                        "startIndex": marker_row + 1,
+                        "endIndex": marker_row + 1 + rows_to_insert,
+                    },
+                    "inheritFromBefore": True,
+                }
+            }]},
+        ).execute()
+
+    # 5. Build token map for header and total replacements
+    # Parse address into street + city/state/zip
+    addr_line1, addr_line2 = "", ""
     if client_address:
-        parts = [line.strip() for line in client_address.replace("\r\n", "\n").split("\n") if line.strip()]
+        parts = [l.strip() for l in client_address.replace("\r\n", "\n").split("\n") if l.strip()]
         addr_line1 = parts[0] if len(parts) > 0 else ""
         addr_line2 = parts[1] if len(parts) > 1 else ""
 
-    header_data = [
-        {"range": "B6", "values": [[project_name]]},
-        {"range": "B7", "values": [[project_id]]},
-        {"range": "B8", "values": [[invoice_date]]},
-        {"range": "B9", "values": [[invoice_number]]},
-        {"range": "B10", "values": [[company_email]]},
-        # Client info column F
-        {"range": "F6", "values": [[client_contact]]},
-        {"range": "F7", "values": [[client_company or client_name]]},
-        {"range": "F8", "values": [[addr_line1]]},
-        {"range": "F9", "values": [[addr_line2]]},
-        {"range": "F10", "values": [[client_project_number]]},
-        # A12: services rendered date
-        {"range": "A12", "values": [[f"Professional Services Rendered Through: {invoice_date}"]]},
-    ]
+    # Compute totals from task data
+    total_fee = sum(float(t.get("unit_price", 0)) for t in tasks) if tasks else 0
+    total_previous = sum(float(t.get("previous_billing", 0)) for t in tasks) if tasks else 0
+    total_amount = sum(float(t.get("amount", 0)) for t in tasks) if tasks else 0
 
-    # 3. Write task rows — A=name, C=fee, D=percent, E=previous_billing
-    #    Column B and F are left for sheet formulas (F = calculated amount)
-    #    Clear all 10 task rows first (15-24), then write actual data
-    max_task_rows = 10
-    num_tasks = min(len(tasks), max_task_rows) if tasks else 0
+    token_map = {
+        "[ProjectName]": project_name,
+        "[ProjectJobCode]": project_id,
+        "[InvoiceDate]": invoice_date,
+        "[InvoiceID]": invoice_number,
+        "[TIE-PM-Email]": company_email,
+        "[Client Company]": client_company or client_name,
+        "[Client Contact]": client_contact,
+        "[Client Address]": addr_line1,
+        "[City, State ZIP]": addr_line2,
+        "[Client Project #]": client_project_number,
+        "[Date]": invoice_date,
+        "[TotalFee]": total_fee,
+        "[TotalPrevious]": total_previous,
+        "[TotalAmount]": total_amount,
+        "[InvoiceTotal]": total_amount,
+    }
 
-    # Build blank rows to clear template defaults in columns A, C, D, E
-    clear_names = [[""] for _ in range(max_task_rows)]
-    clear_data = [["", "", "", ""] for _ in range(max_task_rows)]
-    header_data.append({"range": "A15:A24", "values": clear_names})
-    header_data.append({"range": "C15:F24", "values": clear_data})
+    # 6. Re-read the grid after row insertion
+    all_data = sheets.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{sheet_title}!A1:H{50 + rows_to_insert}",
+        valueRenderOption="FORMATTED_VALUE",
+    ).execute()
+    grid = all_data.get("values", [])
 
-    if num_tasks > 0:
-        name_rows = []
-        data_rows = []
-        for task in tasks[:max_task_rows]:
-            name_rows.append([task.get("name", "")])
+    # Pad rows/cols so we can index safely
+    max_cols = 8  # A-H
+    for row in grid:
+        while len(row) < max_cols:
+            row.append("")
+
+    # Tokens whose replacements are text (need left-align to prevent right-align)
+    text_tokens = {
+        "[ProjectName]", "[ProjectJobCode]", "[InvoiceDate]", "[InvoiceID]",
+        "[TIE-PM-Email]", "[Client Company]", "[Client Contact]",
+        "[Client Address]", "[City, State ZIP]", "[Client Project #]", "[Date]",
+    }
+
+    # 7. Scan and replace all [bracket] tokens; track cells for left-alignment
+    updates = []  # list of {"range": "A1", "values": [[val]]}
+    header_token_cells = []  # (row, col) of text cells that need left-align
+
+    for r, row in enumerate(grid):
+        for c, cell in enumerate(row):
+            cell_str = str(cell)
+            new_val = cell_str
+            is_text_token = False
+
+            # Replace [bracket] tokens (may appear as substring, e.g. "Rendered Through: [Date]")
+            for token, value in token_map.items():
+                if token in new_val:
+                    new_val = new_val.replace(token, str(value))
+                    if token in text_tokens:
+                        is_text_token = True
+
+            if new_val != cell_str:
+                col_letter = _col_letter(c)
+                cell_ref = f"{col_letter}{r + 1}"
+                updates.append({"range": cell_ref, "values": [[new_val]]})
+                if is_text_token:
+                    header_token_cells.append((r, c))
+
+    # 7b. Write task rows directly (inserted rows are blank — write positionally)
+    if marker_row is not None and num_tasks > 0:
+        for i, task in enumerate(tasks):
+            row_num = marker_row + i + 1  # 1-based sheet row
             percent_val = task.get("quantity", 0)
-            # Write percent as decimal (e.g. 10% → 0.10) for sheet formatting
-            decimal_val = percent_val / 100 if percent_val > 1 else percent_val
-            data_rows.append([
-                task.get("unit_price", 0),      # C: task fee
-                decimal_val,                     # D: percent complete (as decimal)
-                task.get("previous_billing", 0), # E: previous billing
-                task.get("amount", 0),           # F: current fee billing
-            ])
+            decimal_pct = percent_val / 100 if percent_val > 1 else percent_val
+            updates.append({"range": f"A{row_num}", "values": [[task.get("name", "")]]})
+            updates.append({"range": f"C{row_num}", "values": [[task.get("unit_price", 0)]]})
+            updates.append({"range": f"D{row_num}", "values": [[decimal_pct]]})
+            updates.append({"range": f"E{row_num}", "values": [[task.get("previous_billing", 0)]]})
+            updates.append({"range": f"F{row_num}", "values": [[task.get("amount", 0)]]})
+        # Clear the original marker row token text if no tasks replaced it
+        # (handled above since task 0 writes to marker_row)
 
-        end_row = 14 + num_tasks
-        header_data.append({
-            "range": f"A15:A{end_row}",
-            "values": name_rows,
-        })
-        header_data.append({
-            "range": f"C15:F{end_row}",
-            "values": data_rows,
-        })
+    # 8. Write all replacements
+    if updates:
+        sheets.spreadsheets().values().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"valueInputOption": "USER_ENTERED", "data": updates},
+        ).execute()
 
-    sheets.spreadsheets().values().batchUpdate(
-        spreadsheetId=spreadsheet_id,
-        body={
-            "valueInputOption": "USER_ENTERED",
-            "data": header_data,
-        },
-    ).execute()
-
-    # Left-align project info cells B6:B10 (dates auto-right-align otherwise)
-    # Get the first sheet's ID
-    sheet_meta = sheets.spreadsheets().get(
-        spreadsheetId=spreadsheet_id, fields="sheets.properties.sheetId"
-    ).execute()
-    sheet_id = sheet_meta["sheets"][0]["properties"]["sheetId"]
-
-    sheets.spreadsheets().batchUpdate(
-        spreadsheetId=spreadsheet_id,
-        body={"requests": [
-            # Left-align B6:B10
-            {
+    # 9. Left-align cells that had header tokens (prevent date/number right-alignment)
+    if header_token_cells:
+        align_requests = []
+        for row_idx, col_idx in header_token_cells:
+            align_requests.append({
                 "repeatCell": {
                     "range": {
                         "sheetId": sheet_id,
-                        "startRowIndex": 5,
-                        "endRowIndex": 10,
-                        "startColumnIndex": 1,  # B
-                        "endColumnIndex": 2,
+                        "startRowIndex": row_idx,
+                        "endRowIndex": row_idx + 1,
+                        "startColumnIndex": col_idx,
+                        "endColumnIndex": col_idx + 1,
                     },
                     "cell": {"userEnteredFormat": {"horizontalAlignment": "LEFT"}},
                     "fields": "userEnteredFormat.horizontalAlignment",
                 }
-            },
-            # Left-align F6:F10
-            {
-                "repeatCell": {
-                    "range": {
-                        "sheetId": sheet_id,
-                        "startRowIndex": 5,
-                        "endRowIndex": 10,
-                        "startColumnIndex": 5,  # F
-                        "endColumnIndex": 6,
-                    },
-                    "cell": {"userEnteredFormat": {"horizontalAlignment": "LEFT"}},
-                    "fields": "userEnteredFormat.horizontalAlignment",
-                }
-            },
-        ]},
-    ).execute()
+            })
+        sheets.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"requests": align_requests},
+        ).execute()
 
     sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
     logger.info("Created invoice sheet %s: %s", invoice_number, sheet_url)
