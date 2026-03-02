@@ -13,7 +13,6 @@ export function getClient(id: string): Promise<Client> {
 export function createClient(data: {
   name: string
   email?: string
-  company?: string
   phone?: string
   address?: string
   notes?: string

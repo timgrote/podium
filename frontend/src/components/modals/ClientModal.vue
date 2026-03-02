@@ -25,7 +25,6 @@ const editingContactId = ref<string | null>(null)
 
 const form = ref({
   name: '',
-  company: '',
   accounting_email: '',
   phone: '',
   address: '',
@@ -48,7 +47,7 @@ watch(visible, async (val) => {
   editingContactId.value = null
   showAddContact.value = false
   if (!props.clientId) {
-    form.value = { name: '', company: '', accounting_email: '', phone: '', address: '', notes: '' }
+    form.value = { name: '', accounting_email: '', phone: '', address: '', notes: '' }
     contacts.value = []
     return
   }
@@ -60,7 +59,6 @@ watch(visible, async (val) => {
     ])
     form.value = {
       name: client.name || '',
-      company: client.company || '',
       accounting_email: client.accounting_email || '',
       phone: client.phone || '',
       address: client.address || '',
@@ -85,7 +83,6 @@ async function saveClient() {
     if (props.clientId) {
       await updateClient(props.clientId, {
         name: form.value.name || undefined,
-        company: form.value.company || undefined,
         accounting_email: form.value.accounting_email || undefined,
         phone: form.value.phone || undefined,
         address: form.value.address || undefined,
@@ -96,7 +93,6 @@ async function saveClient() {
       await createClient({
         name: form.value.name,
         email: form.value.accounting_email || undefined,
-        company: form.value.company || undefined,
         phone: form.value.phone || undefined,
         address: form.value.address || undefined,
         notes: form.value.notes || undefined,
@@ -187,15 +183,9 @@ async function addContact() {
     <div v-else class="modal-body">
       <!-- Client Details -->
       <div class="form">
-        <div class="field-row">
-          <div class="field">
-            <label>Name</label>
-            <input v-model="form.name" type="text" />
-          </div>
-          <div class="field">
-            <label>Company</label>
-            <input v-model="form.company" type="text" />
-          </div>
+        <div class="field">
+          <label>Name</label>
+          <input v-model="form.name" type="text" />
         </div>
         <div class="field-row">
           <div class="field">

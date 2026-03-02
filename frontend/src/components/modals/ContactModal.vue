@@ -119,7 +119,7 @@ async function save() {
         <label>Client</label>
         <select v-model="form.client_id">
           <option value="">-- None --</option>
-          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.company || c.name }}</option>
+          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
     </div>

@@ -191,7 +191,7 @@ def send_invoice(invoice_id: str, db=Depends(get_db)):
 
     # Get project and client info
     project = db.execute(
-        "SELECT p.*, c.name as client_name, c.accounting_email as client_email, c.company as client_company "
+        "SELECT p.*, c.name as client_name, c.accounting_email as client_email "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
         "WHERE p.id = %s",
         (invoice["project_id"],),
@@ -289,7 +289,7 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
 
     # Get project + client info
     project = db.execute(
-        "SELECT p.*, c.name as client_name, c.company as client_company, "
+        "SELECT p.*, c.name as client_name, "
         "c.address as client_address "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
         "WHERE p.id = %s",
@@ -316,7 +316,7 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
                 template_id = row["value"]
 
     pm_email = p_dict.get("pm_email") or company_email
-    client_display = p_dict.get("client_company") or p_dict.get("client_name") or ""
+    client_display = p_dict.get("client_name") or ""
 
     # Build task list in the format create_invoice_sheet expects
     # quantity = cumulative percent complete (previous + this invoice)
@@ -347,8 +347,8 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
             tasks=sheet_tasks,
             folder_id=drive_folder_id,
             template_id=template_id,
-            client_contact=p_dict.get("client_name") or "",
-            client_company=p_dict.get("client_company") or "",
+            client_contact="",
+            client_company=p_dict.get("client_name") or "",
             client_address=p_dict.get("client_address") or "",
             client_project_number=p_dict.get("client_project_number") or "",
             project_data_path=p_dict.get("data_path") or "",

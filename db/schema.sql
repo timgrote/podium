@@ -13,9 +13,8 @@
 -- ============================================================================
 CREATE TABLE clients (
     id TEXT PRIMARY KEY,                    -- e.g., 'c-abc123' (generated)
-    name TEXT NOT NULL,
+    name TEXT NOT NULL,                     -- company/entity name
     email TEXT,
-    company TEXT,
     phone TEXT,
     address TEXT,
     notes TEXT,                             -- markdown
@@ -25,7 +24,7 @@ CREATE TABLE clients (
 );
 
 CREATE INDEX idx_clients_email ON clients(email);
-CREATE INDEX idx_clients_company ON clients(company);
+CREATE INDEX idx_clients_name ON clients(name);
 
 -- ============================================================================
 -- CONTACTS
@@ -375,7 +374,6 @@ SELECT
     p.project_number,
     p.job_code,
     c.name AS client_name,
-    c.company AS client_company,
     c.email AS client_email,
     c.address AS client_address,
     COALESCE(SUM(CASE WHEN i.deleted_at IS NULL THEN i.total_due END), 0) AS total_invoiced,
@@ -394,7 +392,7 @@ LEFT JOIN (
 WHERE p.deleted_at IS NULL
 GROUP BY p.id, p.name, p.status, p.client_id, p.pm_name, p.pm_email,
          p.client_project_number, p.location, p.project_number, p.job_code,
-         c.name, c.company, c.email, c.address,
+         c.name, c.email, c.address,
          ct.total_contracted;
 
 -- Company settings (key-value store)

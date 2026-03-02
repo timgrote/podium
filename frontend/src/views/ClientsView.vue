@@ -49,7 +49,7 @@ const filteredContacts = computed(() => {
 function clientName(clientId: string | null): string {
   if (!clientId) return '—'
   const c = clients.value.find(cl => cl.id === clientId)
-  return c ? (c.company || c.name) : '—'
+  return c ? c.name : '—'
 }
 
 async function loadClients() {
@@ -153,8 +153,7 @@ onMounted(async () => {
           @click="openEditClient(c.id)"
         >
           <div class="client-card-header">
-            <span class="client-company">{{ c.company || c.name }}</span>
-            <span v-if="c.company && c.name !== c.company" class="client-name-sub">{{ c.name }}</span>
+            <span class="client-company">{{ c.name }}</span>
           </div>
           <div class="client-card-details">
             <span v-if="c.accounting_email" class="detail"><i class="pi pi-envelope" /> {{ c.accounting_email }}</span>
@@ -178,7 +177,7 @@ onMounted(async () => {
       <div class="filters">
         <select v-model="selectedClientId" class="filter-select">
           <option value="">All Clients</option>
-          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.company || c.name }}</option>
+          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
         <input
           v-model="searchQuery"

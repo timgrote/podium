@@ -11,15 +11,15 @@ router = APIRouter()
 
 @router.get("", response_model=list[ClientResponse])
 def list_clients(
-    q: str | None = Query(None, description="Search by name, email, or company"),
+    q: str | None = Query(None, description="Search by name or email"),
     db=Depends(get_db),
 ):
     if q:
         like = f"%{q}%"
         rows = db.execute(
             "SELECT * FROM clients WHERE deleted_at IS NULL "
-            "AND (name ILIKE %s OR email ILIKE %s OR company ILIKE %s) ORDER BY name",
-            (like, like, like),
+            "AND (name ILIKE %s OR email ILIKE %s) ORDER BY name",
+            (like, like),
         ).fetchall()
     else:
         rows = db.execute(
@@ -72,13 +72,13 @@ def create_client(data: ClientCreate, db=Depends(get_db)):
     client_id = generate_id("c-")
     now = datetime.now().isoformat()
     db.execute(
-        "INSERT INTO clients (id, name, accounting_email, company, phone, address, notes, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (client_id, data.name, data.email, data.company, data.phone, data.address, data.notes, now, now),
+        "INSERT INTO clients (id, name, accounting_email, phone, address, notes, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (client_id, data.name, data.email, data.phone, data.address, data.notes, now, now),
     )
     db.commit()
     return {
-        "id": client_id, "name": data.name, "accounting_email": data.email, "company": data.company,
+        "id": client_id, "name": data.name, "accounting_email": data.email,
         "phone": data.phone, "address": data.address, "notes": data.notes,
         "created_at": now, "updated_at": now,
     }

@@ -85,7 +85,6 @@ def list_projects(db=Depends(get_db)):
             status=p["status"],
             client_id=p.get("client_id"),
             client_name=p.get("client_name"),
-            client_company=p.get("client_company"),
             client_email=p.get("client_accounting_email") or client_email,
             pm_id=p.get("pm_id"),
             pm_name=p.get("pm_name"),
@@ -195,14 +194,13 @@ def get_project(project_id: str, db=Depends(get_db)):
     p = dict(row)
 
     # Client info
-    client_name = client_company = client_email = client_phone = None
+    client_name = client_email = client_phone = None
     if p.get("client_id"):
         client_row = db.execute(
-            "SELECT name, company, accounting_email, phone FROM clients WHERE id = %s", (p["client_id"],)
+            "SELECT name, accounting_email, phone FROM clients WHERE id = %s", (p["client_id"],)
         ).fetchone()
         if client_row:
             client_name = client_row["name"]
-            client_company = client_row["company"]
             client_email = client_row["accounting_email"]
             client_phone = client_row["phone"]
 
@@ -233,7 +231,6 @@ def get_project(project_id: str, db=Depends(get_db)):
         status=p["status"],
         client_id=p.get("client_id"),
         client_name=client_name,
-        client_company=client_company,
         client_email=client_email,
         client_phone=client_phone,
         pm_id=p.get("pm_id"),

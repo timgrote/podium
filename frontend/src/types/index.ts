@@ -2,7 +2,6 @@ export interface Client {
   id: string
   name: string
   accounting_email: string | null
-  company: string | null
   phone: string | null
   address: string | null
   notes: string | null
@@ -161,7 +160,6 @@ export interface ProjectSummary {
   status: string
   client_id: string | null
   client_name: string | null
-  client_company: string | null
   client_email: string | null
   pm_id: string | null
   pm_name: string | null

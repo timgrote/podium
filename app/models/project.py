@@ -43,7 +43,6 @@ class ProjectSummary(BaseModel):
     status: str
     client_id: str | None = None
     client_name: str | None = None
-    client_company: str | None = None
     client_email: str | None = None
     pm_id: str | None = None
     pm_name: str | None = None

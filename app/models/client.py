@@ -6,7 +6,6 @@ from pydantic import BaseModel
 class ClientCreate(BaseModel):
     name: str
     email: str | None = None
-    company: str | None = None
     phone: str | None = None
     address: str | None = None
     notes: str | None = None
@@ -15,7 +14,6 @@ class ClientCreate(BaseModel):
 class ClientUpdate(BaseModel):
     name: str | None = None
     accounting_email: str | None = None
-    company: str | None = None
     phone: str | None = None
     address: str | None = None
     notes: str | None = None
@@ -25,7 +23,6 @@ class ClientResponse(BaseModel):
     id: str
     name: str
     accounting_email: str | None = None
-    company: str | None = None
     phone: str | None = None
     address: str | None = None
     notes: str | None = None

@@ -61,14 +61,14 @@ def seed_data(conn):
 
     # --- Clients ---
     clients = [
-        ('c-birdsall', 'Jim Birdsall', 'jim@birdsallhomes.com', 'Birdsall Homes', '555-100-1000', '100 Builder Way', None, now, now, None),
-        ('c-tbg', 'Tom Garcia', 'tom@tbgpartners.com', 'TBG Partners', '555-200-2000', '200 Landscape Blvd', None, now, now, None),
-        ('c-heron', 'Sarah Chen', 'sarah@heronlakes.com', 'Heron Lakes HOA', '555-300-3000', '300 Lakeside Dr', None, now, now, None),
+        ('c-birdsall', 'Birdsall Homes', 'jim@birdsallhomes.com', '555-100-1000', '100 Builder Way', None, now, now, None),
+        ('c-tbg', 'TBG Partners', 'tom@tbgpartners.com', '555-200-2000', '200 Landscape Blvd', None, now, now, None),
+        ('c-heron', 'Heron Lakes HOA', 'sarah@heronlakes.com', '555-300-3000', '300 Lakeside Dr', None, now, now, None),
     ]
     for c in clients:
         cur.execute('''
-            INSERT INTO clients (id, name, email, company, phone, address, notes, created_at, updated_at, deleted_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO clients (id, name, email, phone, address, notes, created_at, updated_at, deleted_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', c)
     print(f"Added {len(clients)} clients")
 

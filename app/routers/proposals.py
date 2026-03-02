@@ -90,7 +90,7 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
 
     if not client_id and data.client_company:
         row = db.execute(
-            "SELECT id FROM clients WHERE company = %s AND deleted_at IS NULL",
+            "SELECT id FROM clients WHERE name = %s AND deleted_at IS NULL",
             (data.client_company,),
         ).fetchone()
         if row:
@@ -111,10 +111,10 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
         address = "\n".join(address_parts) if address_parts else None
 
         db.execute(
-            "INSERT INTO clients (id, name, email, company, address, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (client_id, data.client_name, data.client_email,
-             data.client_company, address, now, now),
+            "INSERT INTO clients (id, name, email, address, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (client_id, data.client_company or data.client_name, data.client_email,
+             address, now, now),
         )
 
         # Also create a contact for this client
@@ -329,7 +329,7 @@ def generate_doc(proposal_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="Proposal has no tasks")
 
     project = db.execute(
-        "SELECT p.*, c.name as client_name, c.company as client_company, "
+        "SELECT p.*, c.name as client_name, "
         "c.accounting_email as client_email, c.address as client_address "
         "FROM projects p LEFT JOIN clients c ON p.client_id = c.id "
         "WHERE p.id = %s AND p.deleted_at IS NULL",
@@ -358,7 +358,7 @@ def generate_doc(proposal_id: str, db=Depends(get_db)):
         doc_url = generate_proposal_doc(
             project_name=project_name,
             client_name=project["client_name"] if project else "",
-            client_company=proposal["client_company"] or (project["client_company"] if project else ""),
+            client_company=proposal["client_company"] or (project["client_name"] if project else ""),
             client_address=client_address,
             client_city=client_city,
             client_state=client_state,
