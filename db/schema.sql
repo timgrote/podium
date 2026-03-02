@@ -14,7 +14,7 @@
 CREATE TABLE clients (
     id TEXT PRIMARY KEY,                    -- e.g., 'c-abc123' (generated)
     name TEXT NOT NULL,                     -- company/entity name
-    email TEXT,
+    accounting_email TEXT,
     phone TEXT,
     address TEXT,
     notes TEXT,                             -- markdown
@@ -364,36 +364,40 @@ CREATE INDEX idx_contact_notes_contact ON contact_notes(contact_id);
 CREATE VIEW v_project_summary AS
 SELECT
     p.id,
-    p.name,
-    p.status,
-    p.client_id,
-    p.pm_name,
-    p.pm_email,
-    p.client_project_number,
-    p.location,
+    p.name AS project_name,
     p.project_number,
     p.job_code,
+    p.status,
+    p.client_id,
+    p.pm_id,
+    p.client_pm_id,
+    p.client_project_number,
+    p.location,
+    p.data_path,
     c.name AS client_name,
-    c.email AS client_email,
+    c.accounting_email AS client_accounting_email,
     c.address AS client_address,
-    COALESCE(SUM(CASE WHEN i.deleted_at IS NULL THEN i.total_due END), 0) AS total_invoiced,
-    COALESCE(SUM(CASE WHEN i.paid_status = 'paid' AND i.deleted_at IS NULL THEN i.total_due END), 0) AS total_paid,
-    COALESCE(SUM(CASE WHEN i.paid_status != 'paid' AND i.deleted_at IS NULL THEN i.total_due END), 0) AS total_outstanding,
-    COALESCE(ct.total_contracted, 0) AS total_contracted
+    (e.first_name || ' ' || e.last_name) AS pm_name,
+    e.email AS pm_email,
+    e.avatar_url AS pm_avatar_url,
+    ct.name AS client_pm_name,
+    ct.email AS client_pm_email,
+    COALESCE(SUM(con.total_amount), 0) AS total_contracted,
+    COALESCE((SELECT SUM(i.total_due) FROM invoices i WHERE i.project_id = p.id AND i.deleted_at IS NULL), 0) AS total_invoiced,
+    COALESCE((SELECT SUM(i.total_due) FROM invoices i WHERE i.project_id = p.id AND i.deleted_at IS NULL AND i.paid_status = 'paid'), 0) AS total_paid,
+    COALESCE((SELECT SUM(i.total_due) FROM invoices i WHERE i.project_id = p.id AND i.deleted_at IS NULL AND i.paid_status != 'paid'), 0) AS total_outstanding
 FROM projects p
 LEFT JOIN clients c ON p.client_id = c.id
-LEFT JOIN invoices i ON p.id = i.project_id
-LEFT JOIN (
-    SELECT project_id, SUM(total_amount) AS total_contracted
-    FROM contracts
-    WHERE deleted_at IS NULL
-    GROUP BY project_id
-) ct ON p.id = ct.project_id
+LEFT JOIN employees e ON p.pm_id = e.id
+LEFT JOIN contacts ct ON p.client_pm_id = ct.id
+LEFT JOIN contracts con ON con.project_id = p.id AND con.deleted_at IS NULL
 WHERE p.deleted_at IS NULL
 GROUP BY p.id, p.name, p.status, p.client_id, p.pm_name, p.pm_email,
-         p.client_project_number, p.location, p.project_number, p.job_code,
-         c.name, c.email, c.address,
-         ct.total_contracted;
+         p.client_project_number, p.location, p.data_path, p.project_number,
+         p.job_code, p.pm_id, p.client_pm_id,
+         c.name, c.accounting_email, c.address,
+         e.first_name, e.last_name, e.email, e.avatar_url,
+         ct.name, ct.email;
 
 -- Company settings (key-value store)
 CREATE TABLE IF NOT EXISTS company_settings (
@@ -407,7 +411,7 @@ SELECT
     i.*,
     p.name AS project_name,
     c.name AS client_name,
-    c.email AS client_email
+    c.accounting_email AS client_email
 FROM invoices i
 JOIN projects p ON i.project_id = p.id
 LEFT JOIN clients c ON p.client_id = c.id
