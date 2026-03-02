@@ -1,10 +1,9 @@
 import logging
-import os
 import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .routers import auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, uploads
@@ -41,15 +40,6 @@ async def log_api_requests(request: Request, call_next):
     return response
 
 
-frontend_mode = os.environ.get("CONDUCTOR_FRONTEND_MODE", "legacy")
-
-
-if frontend_mode != "vue":
-    @app.get("/")
-    def root_redirect():
-        return RedirectResponse(url="/ops/dashboard.html")
-
-
 # --- API routers ---
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
@@ -64,25 +54,19 @@ app.include_router(tasks.router, prefix="/api", tags=["tasks"])
 app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 app.include_router(uploads.router, prefix="/api/uploads", tags=["uploads"])
 
-# --- Static files ---
+# --- Static files (Vue SPA) ---
 static_root = Path(__file__).resolve().parent.parent
+vue_dist = static_root / "frontend" / "dist"
 
-if frontend_mode == "vue":
-    vue_dist = static_root / "frontend" / "dist"
-    app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
-    app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
-    app.mount("/assets", StaticFiles(directory=vue_dist / "assets"), name="vue-assets")
+app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
+app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
+app.mount("/assets", StaticFiles(directory=vue_dist / "assets"), name="vue-assets")
 
-    @app.get("/{path:path}")
-    async def vue_spa_fallback(path: str):
-        """Serve Vue SPA index.html for all non-API, non-static routes."""
-        # If a real file exists in dist/, serve it
-        file_path = vue_dist / path
-        if file_path.is_file():
-            return FileResponse(file_path)
-        # Otherwise serve index.html for client-side routing
-        return FileResponse(vue_dist / "index.html")
-else:
-    app.mount("/ops", StaticFiles(directory=static_root / "ops", html=True), name="ops")
-    app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
-    app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
+
+@app.get("/{path:path}")
+async def vue_spa_fallback(path: str):
+    """Serve Vue SPA index.html for all non-API, non-static routes."""
+    file_path = vue_dist / path
+    if file_path.is_file():
+        return FileResponse(file_path)
+    return FileResponse(vue_dist / "index.html")

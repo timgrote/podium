@@ -112,13 +112,6 @@ fi
 echo "==> Restarting $SERVICE..."
 systemctl restart "$SERVICE"
 
-VUE_SERVICE="conductor-vue"
-
-if systemctl list-unit-files "$VUE_SERVICE.service" | grep -q "$VUE_SERVICE"; then
-    echo "==> Restarting $VUE_SERVICE..."
-    systemctl restart "$VUE_SERVICE"
-fi
-
 # ── 5. Health check ──────────────────────────────────────────────────
 echo "==> Health check (${HEALTH_TIMEOUT}s timeout)..."
 for i in $(seq 1 "$HEALTH_TIMEOUT"); do
@@ -136,24 +129,6 @@ if ! curl -sf "$HEALTH_URL" >/dev/null 2>&1; then
     echo "--- journalctl output ---"
     journalctl -u "$SERVICE" --no-pager -n 30
     exit 1
-fi
-
-# Health check Vue service if it exists
-if systemctl list-unit-files "$VUE_SERVICE.service" | grep -q "$VUE_SERVICE"; then
-    VUE_HEALTH_URL="http://localhost:3001/api/company"
-    echo "==> Vue health check (${HEALTH_TIMEOUT}s timeout)..."
-    for i in $(seq 1 "$HEALTH_TIMEOUT"); do
-        if curl -sf "$VUE_HEALTH_URL" >/dev/null 2>&1; then
-            echo "==> $VUE_SERVICE healthy after ${i}s."
-            break
-        fi
-        sleep 1
-    done
-
-    if ! curl -sf "$VUE_HEALTH_URL" >/dev/null 2>&1; then
-        echo "WARNING: $VUE_SERVICE health check failed (non-fatal)"
-        journalctl -u "$VUE_SERVICE" --no-pager -n 15
-    fi
 fi
 
 echo "==> Deploy complete."
