@@ -9,17 +9,17 @@ Conductor is a multi-tenant SaaS platform for project-based service businesses. 
 ## Architecture
 
 ```
-Frontend (Static HTML/JS)  →  FastAPI (/api/*)  →  PostgreSQL Database
+Vue SPA (frontend/dist)  →  FastAPI (/api/*)  →  PostgreSQL Database
      ↓                           ↓                      ↓
-Caddy (TLS/Auth)           app/routers/*          postgresql://...
+Caddy (:80, Tailscale only) app/routers/*          postgresql://...
 ```
 
-**Three layers:**
-1. **Ops** (`/ops`) - Project management dashboard (protected by OAuth2 Proxy in production)
+**Layers:**
+1. **Dashboard** — Vue 3 SPA served via catch-all route (`/{path:path}` → `index.html`)
 2. **Flows** (`/flows`) - Client-facing pages (public): proposal, contract, invoice, payment
 3. **API** (`/api`) - FastAPI routers: clients, company, projects, contracts, proposals, invoices, flows
 
-FastAPI serves both API routes and static files from a single process (`app/main.py`). Static mounts: `/ops`, `/flows`, `/uploads`, then `/` (root last to avoid shadowing).
+FastAPI serves both API routes and the Vue SPA from a single process (`app/main.py`). Static mounts: `/uploads`, `/flows`, `/assets` (Vite build), then `/{path:path}` catch-all for SPA routing.
 
 ## Development
 
@@ -38,7 +38,7 @@ python3 db/init_db.py --seed-only  # Add seed data to existing DB
 source .venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 
-# Open: http://localhost:3000/ops/dashboard.html
+# Open: http://localhost:3000
 ```
 
 ### PostgreSQL Setup (Local Dev)
@@ -71,13 +71,16 @@ ssh root@100.105.238.37 "cd /var/www/conductor && bash scripts/deploy.sh"
 
 ### Production environment
 
-- **Droplet:** `24.144.82.75` (public), `100.105.238.37` (Tailscale: `tie-conductor`)
+- **Access:** Tailscale only — `http://100.105.238.37` (Tailscale: `tie-conductor`). Public internet returns 403.
+- **Droplet:** `24.144.82.75` (public IP, blocked by Caddy), `100.105.238.37` (Tailscale)
 - **User:** `root`
 - **App dir:** `/var/www/conductor`
 - **Python:** 3.12.3 in `/var/www/conductor/.venv`
-- **Service:** `conductor-api.service` (uvicorn on port 3000)
+- **Service:** `conductor-api.service` (uvicorn on `127.0.0.1:3000`, localhost only)
+- **Reverse proxy:** Caddy on `:80` → `127.0.0.1:3000`, restricted to Tailscale CGNAT range (`100.64.0.0/10`)
 - **DB:** PostgreSQL, connection string in systemd `Environment=`
 - **GitHub secrets:** `DO_HOST` (public IP), `DO_USER`, `DO_KEY`
+- **Logging:** All API requests logged to `conductor.log` with status/timing. Errors (4xx/5xx) include full tracebacks.
 
 ### Migration tracking
 
@@ -130,8 +133,8 @@ Standard CRUD pattern: `GET /` (list), `GET /{id}`, `POST /`, `PATCH /{id}`, `DE
 ## Database Schema
 
 Key tables (see `db/schema.sql` for full schema):
-- `clients` - Companies/people we bill
-- `contacts` - Individual people (PMs, engineers)
+- `clients` - Companies/entities we bill (name = company name)
+- `contacts` - Individual people at client companies (PMs, engineers)
 - `projects` - Jobs with status workflow; IDs are human-readable job codes (e.g., `JBHL21`)
 - `contracts` - Signed agreements
 - `contract_tasks` - Tasks/phases on contracts with billing tracking
@@ -155,12 +158,12 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 - **Invoice chaining**: `previous_invoice_id` links invoices for task-based billing across multiple pay apps.
 - **Contract tasks**: Track `billed_amount` and `billed_percent` for partial billing.
 - **File uploads**: Stored in `uploads/` directory, paths saved in database.
-- **Frontend**: Vanilla HTML/JS with fetch API calls to `/api/*` — no frameworks, no build step. Use DOM methods (createElement, textContent) instead of innerHTML to avoid XSS.
+- **Frontend**: Vue 3 SPA (`frontend/`). The legacy static HTML/JS frontend has been removed.
 - **Google integration**: Optional Sheets/Drive/Gmail via `app/google_sheets.py`. Check for credentials before using.
 
 ## Vue Frontend (`frontend/`)
 
-Vue 3 + Vite + TypeScript + PrimeVue single-page app that replaces the static `ops/dashboard.html`.
+Vue 3 + Vite + TypeScript + PrimeVue single-page app. This is the primary (and only) frontend.
 
 ```bash
 cd frontend
