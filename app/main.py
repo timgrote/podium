@@ -1,9 +1,10 @@
 import logging
 import time
+import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .routers import auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, uploads
@@ -18,6 +19,13 @@ logging.basicConfig(
 logger = logging.getLogger("conductor")
 
 app = FastAPI(title="Conductor API", version="1.0.0")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    logger.error(f"Unhandled {request.method} {request.url.path}: {exc}\n{''.join(tb)}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.middleware("http")
@@ -36,7 +44,10 @@ async def log_api_requests(request: Request, call_next):
     msg = f"{request.method} {request.url.path} -> {response.status_code} ({ms:.0f}ms)"
     if body:
         msg += f" body={body[:500].decode(errors='replace')}"
-    logger.info(msg)
+    if response.status_code >= 400:
+        logger.warning(msg)
+    else:
+        logger.info(msg)
     return response
 
 
