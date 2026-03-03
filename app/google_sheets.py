@@ -117,6 +117,45 @@ def _col_letter(col_index: int) -> str:
     return chr(ord("A") + col_index)
 
 
+def update_invoice_date(spreadsheet_id: str, new_date: str) -> None:
+    """Update date cells in an existing invoice Google Sheet.
+
+    Scans the header area (first 15 rows) for cells matching date patterns
+    (YYYY-MM-DD or M/D/YYYY) and replaces them with the new date.
+    """
+    import re
+
+    sheets = get_sheets_service()
+    sheet_meta = sheets.spreadsheets().get(
+        spreadsheetId=spreadsheet_id, fields="sheets.properties"
+    ).execute()
+    sheet_title = sheet_meta["sheets"][0]["properties"]["title"]
+
+    all_data = sheets.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{sheet_title}!A1:H15",
+        valueRenderOption="FORMATTED_VALUE",
+    ).execute()
+    grid = all_data.get("values", [])
+
+    date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$|^\d{1,2}/\d{1,2}/\d{2,4}$")
+    updates = []
+    for r, row in enumerate(grid):
+        for c, cell in enumerate(row):
+            if date_pattern.match(str(cell).strip()):
+                updates.append({
+                    "range": f"{sheet_title}!{_col_letter(c)}{r+1}",
+                    "values": [[new_date]],
+                })
+
+    if updates:
+        sheets.spreadsheets().values().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"valueInputOption": "USER_ENTERED", "data": updates},
+        ).execute()
+        logger.info("Updated %d date cell(s) in sheet %s", len(updates), spreadsheet_id)
+
+
 def create_invoice_sheet(
     invoice_number: str,
     project_name: str,

@@ -13,6 +13,7 @@ export function updateInvoice(
   id: string,
   data: {
     invoice_number?: string
+    invoice_date?: string
     sent_status?: string
     paid_status?: string
     paid_at?: string

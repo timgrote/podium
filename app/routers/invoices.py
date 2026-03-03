@@ -341,7 +341,7 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
             invoice_number=invoice["invoice_number"],
             project_name=project["name"],
             project_id=p_dict.get("job_code") or project_id,
-            invoice_date=str(invoice.get("created_at") or "")[:10],
+            invoice_date=invoice.get("invoice_date") or str(invoice.get("created_at") or "")[:10],
             company_email=pm_email,
             client_name=client_display,
             tasks=sheet_tasks,
@@ -506,6 +506,16 @@ def update_invoice(
         db.execute(f"UPDATE invoices SET {set_clause} WHERE id = %s", values)
 
     db.commit()
+
+    # Update Google Sheet date if invoice_date changed and sheet exists
+    existing_dict = dict(existing)
+    if "invoice_date" in updates and existing_dict.get("data_path"):
+        try:
+            from ..google_sheets import update_invoice_date
+            spreadsheet_id = _extract_spreadsheet_id(existing_dict["data_path"])
+            update_invoice_date(spreadsheet_id, updates["invoice_date"])
+        except Exception as e:
+            logger.warning("Failed to update sheet date: %s", e)
 
     row = db.execute("SELECT * FROM invoices WHERE id = %s", (invoice_id,)).fetchone()
     return dict(row)

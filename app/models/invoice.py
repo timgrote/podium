@@ -12,6 +12,7 @@ class InvoiceCreate(BaseModel):
 
 class InvoiceUpdate(BaseModel):
     invoice_number: str | None = None
+    invoice_date: str | None = None
     sent_status: str | None = None
     paid_status: str | None = None
     paid_at: str | None = None

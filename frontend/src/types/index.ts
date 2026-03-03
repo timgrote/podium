@@ -70,6 +70,7 @@ export interface Invoice {
   description: string | null
   data_path: string | null
   pdf_path: string | null
+  invoice_date: string | null
   sent_status: 'unsent' | 'sent'
   paid_status: 'unpaid' | 'partial' | 'paid'
   total_due: number

@@ -180,6 +180,7 @@ CREATE TABLE invoices (
     description TEXT,                       -- mainly for list invoices
     data_path TEXT,                         -- excel/google sheet (URL)
     pdf_path TEXT,                          -- generated PDF
+    invoice_date TEXT,                      -- user-editable date shown on invoice
     sent_status TEXT DEFAULT 'unsent',      -- unsent, sent
     paid_status TEXT DEFAULT 'unpaid',      -- unpaid, partial, paid
     total_due NUMERIC(12,2) DEFAULT 0,
