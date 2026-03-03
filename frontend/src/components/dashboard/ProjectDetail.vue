@@ -353,6 +353,7 @@ async function genInvoiceSheet(invoiceId: string) {
       inv.pdf_path = null
     }
     toast.success('Google Sheet generated')
+    if (result.data_path) window.open(result.data_path, '_blank')
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -367,6 +368,7 @@ async function exportInvoicePdf(invoiceId: string) {
     const inv = props.project.invoices.find(i => i.id === invoiceId)
     if (inv) inv.pdf_path = result.pdf_path
     toast.success('PDF exported')
+    if (result.pdf_path) window.open(result.pdf_path, '_blank')
     emit('refreshProject')
   } catch (e) {
     toast.error(String(e))
