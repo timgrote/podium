@@ -3,7 +3,8 @@ import time
 import traceback
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -19,6 +20,19 @@ logging.basicConfig(
 logger = logging.getLogger("conductor")
 
 app = FastAPI(title="Conductor API", version="1.0.0")
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    logger.warning(f"HTTPException {exc.status_code} {request.method} {request.url.path}: {exc.detail}\n{''.join(tb)}")
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.warning(f"Validation error {request.method} {request.url.path}: {exc.errors()}")
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 @app.exception_handler(Exception)
