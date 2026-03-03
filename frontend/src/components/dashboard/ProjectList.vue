@@ -21,6 +21,7 @@ const emit = defineEmits<{
   'update:clientFilter': [value: string]
   createProject: []
   editProject: [project: ProjectSummary]
+  refreshProject: []
   deleteProject: [project: ProjectSummary]
   createContract: [projectId: string]
   editContract: [contractId: string]
@@ -94,6 +95,7 @@ function toggleExpand(id: string) {
         <ProjectDetail
           :project="project"
           @edit-project="emit('editProject', project)"
+          @refresh-project="emit('refreshProject')"
           @delete-project="emit('deleteProject', project)"
           @create-contract="emit('createContract', $event)"
           @edit-contract="emit('editContract', $event)"

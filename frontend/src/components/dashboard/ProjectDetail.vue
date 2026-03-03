@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   editProject: []
+  refreshProject: []
   deleteProject: []
   createContract: [projectId: string]
   editContract: [contractId: string]
@@ -347,7 +348,10 @@ async function genInvoiceSheet(invoiceId: string) {
   try {
     const result = await generateSheet(invoiceId)
     const inv = props.project.invoices.find(i => i.id === invoiceId)
-    if (inv) inv.data_path = result.data_path
+    if (inv) {
+      inv.data_path = result.data_path
+      inv.pdf_path = null
+    }
     toast.success('Google Sheet generated')
   } catch (e) {
     toast.error(String(e))
@@ -359,9 +363,11 @@ async function genInvoiceSheet(invoiceId: string) {
 async function exportInvoicePdf(invoiceId: string) {
   invoiceBusy.value[invoiceId] = 'pdf'
   try {
-    await exportInvoicePdfApi(invoiceId)
+    const result = await exportInvoicePdfApi(invoiceId)
+    const inv = props.project.invoices.find(i => i.id === invoiceId)
+    if (inv) inv.pdf_path = result.pdf_path
     toast.success('PDF exported')
-    emit('editProject')
+    emit('refreshProject')
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -377,7 +383,7 @@ async function genProposalDoc(proposalId: string) {
   try {
     await generateDoc(proposalId)
     toast.success('Google Doc generated')
-    emit('editProject') // triggers project reload in parent
+    emit('refreshProject')
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -390,7 +396,7 @@ async function exportPdf(proposalId: string) {
   try {
     await exportProposalPdf(proposalId)
     toast.success('PDF exported')
-    emit('editProject')
+    emit('refreshProject')
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -403,7 +409,7 @@ async function sendProposalEmail(proposalId: string) {
   try {
     const result = await sendProposal(proposalId)
     toast.success(`Proposal sent to ${result.sent_to?.join(', ') || 'client'}`)
-    emit('editProject')
+    emit('refreshProject')
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -611,6 +617,7 @@ function formatPercent(value: number): string {
                 <i class="pi" :class="invoiceBusy[invoice.id] === 'gen' ? 'pi-spin pi-spinner' : 'pi-file-excel'" />
               </button>
               <button
+                v-if="invoice.data_path && invoice.data_path.includes('google.com') && !invoice.pdf_path"
                 class="btn-icon"
                 title="Export PDF"
                 :disabled="!!invoiceBusy[invoice.id]"
@@ -618,6 +625,15 @@ function formatPercent(value: number): string {
               >
                 <i class="pi" :class="invoiceBusy[invoice.id] === 'pdf' ? 'pi-spin pi-spinner' : 'pi-file-pdf'" />
               </button>
+              <a
+                v-if="invoice.pdf_path"
+                class="btn-icon"
+                title="View PDF"
+                :href="invoice.pdf_path"
+                target="_blank"
+              >
+                <i class="pi pi-file-pdf" />
+              </a>
               <button class="btn-icon" title="Actions" @click="emit('invoiceActions', invoice.id)">
                 <i class="pi pi-ellipsis-h" />
               </button>

@@ -207,6 +207,7 @@ onMounted(async () => {
       @update:client-filter="clientFilter = $event"
       @create-project="openCreateProject"
       @edit-project="openEditProject"
+      @refresh-project="loadProjects"
       @delete-project="openDeleteProject"
       @create-contract="openCreateContract"
       @edit-contract="openEditContract"

@@ -355,7 +355,7 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
         )
         now = datetime.now().isoformat()
         db.execute(
-            "UPDATE invoices SET data_path = %s, updated_at = %s WHERE id = %s",
+            "UPDATE invoices SET data_path = %s, pdf_path = NULL, updated_at = %s WHERE id = %s",
             (sheet_url, now, invoice_id),
         )
         db.commit()
