@@ -152,6 +152,14 @@ export interface ContactNote {
   created_at: string | null
 }
 
+export interface ProjectContact {
+  contact_id: string
+  name: string
+  email: string | null
+  phone: string | null
+  role: string | null
+}
+
 export interface ProjectSummary {
   id: string
   project_number: string | null

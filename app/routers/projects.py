@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
-from ..models.project import ProjectCreate, ProjectDetail, ProjectNoteCreate, ProjectNoteResponse, ProjectSummary, ProjectUpdate
+from ..models.project import ProjectContactAdd, ProjectContactResponse, ProjectCreate, ProjectDetail, ProjectNoteCreate, ProjectNoteResponse, ProjectSummary, ProjectUpdate
 from ..utils import generate_id, next_invoice_number, next_project_number
 
 router = APIRouter()
@@ -105,6 +105,83 @@ def list_projects(db=Depends(get_db)):
             proposals=proposals,
         ))
     return projects
+
+
+# --- Project Contacts (before /{project_id} to avoid route shadowing) ---
+
+
+@router.get("/{project_id}/contacts", response_model=list[ProjectContactResponse])
+def list_project_contacts(project_id: str, db=Depends(get_db)):
+    rows = db.execute(
+        "SELECT pc.contact_id, pc.role, c.name, c.email, c.phone "
+        "FROM project_contacts pc "
+        "JOIN contacts c ON pc.contact_id = c.id "
+        "WHERE pc.project_id = %s AND c.deleted_at IS NULL "
+        "ORDER BY c.name",
+        (project_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@router.post("/{project_id}/contacts", response_model=ProjectContactResponse, status_code=201)
+def add_project_contact(project_id: str, data: ProjectContactAdd, db=Depends(get_db)):
+    # Verify project exists
+    proj = db.execute(
+        "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
+    ).fetchone()
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Verify contact exists
+    contact = db.execute(
+        "SELECT id, name, email, phone FROM contacts WHERE id = %s AND deleted_at IS NULL",
+        (data.contact_id,),
+    ).fetchone()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    # Check for duplicate
+    existing = db.execute(
+        "SELECT 1 FROM project_contacts WHERE project_id = %s AND contact_id = %s",
+        (project_id, data.contact_id),
+    ).fetchone()
+    if existing:
+        # Update role if already linked
+        db.execute(
+            "UPDATE project_contacts SET role = %s WHERE project_id = %s AND contact_id = %s",
+            (data.role, project_id, data.contact_id),
+        )
+    else:
+        db.execute(
+            "INSERT INTO project_contacts (project_id, contact_id, role) VALUES (%s, %s, %s)",
+            (project_id, data.contact_id, data.role),
+        )
+    db.commit()
+
+    return ProjectContactResponse(
+        contact_id=data.contact_id,
+        name=contact["name"],
+        email=contact["email"],
+        phone=contact["phone"],
+        role=data.role,
+    )
+
+
+@router.delete("/{project_id}/contacts/{contact_id}")
+def remove_project_contact(project_id: str, contact_id: str, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT 1 FROM project_contacts WHERE project_id = %s AND contact_id = %s",
+        (project_id, contact_id),
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contact not linked to project")
+
+    db.execute(
+        "DELETE FROM project_contacts WHERE project_id = %s AND contact_id = %s",
+        (project_id, contact_id),
+    )
+    db.commit()
+    return {"success": True}
 
 
 # --- Project Notes (before /{project_id} to avoid route shadowing) ---

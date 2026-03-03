@@ -85,3 +85,16 @@ class ProjectDetail(ProjectSummary):
     current_invoice_id: str | None = None
     created_at: datetime | str | None = None
     updated_at: datetime | str | None = None
+
+
+class ProjectContactAdd(BaseModel):
+    contact_id: str
+    role: str | None = None
+
+
+class ProjectContactResponse(BaseModel):
+    contact_id: str
+    name: str
+    email: str | None = None
+    phone: str | None = None
+    role: str | None = None

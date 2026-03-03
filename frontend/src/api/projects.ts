@@ -1,4 +1,4 @@
-import type { ProjectDetail, ProjectNote, ProjectSummary } from '../types'
+import type { ProjectContact, ProjectDetail, ProjectNote, ProjectSummary } from '../types'
 import { apiFetch } from './client'
 
 export function getProjects(): Promise<ProjectSummary[]> {
@@ -66,4 +66,27 @@ export function deleteProjectNote(
   noteId: string,
 ): Promise<{ success: boolean }> {
   return apiFetch(`/projects/notes/${noteId}`, { method: 'DELETE' })
+}
+
+export function getProjectContacts(projectId: string): Promise<ProjectContact[]> {
+  return apiFetch(`/projects/${projectId}/contacts`)
+}
+
+export function addProjectContact(
+  projectId: string,
+  data: { contact_id: string; role?: string },
+): Promise<ProjectContact> {
+  return apiFetch(`/projects/${projectId}/contacts`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function removeProjectContact(
+  projectId: string,
+  contactId: string,
+): Promise<{ success: boolean }> {
+  return apiFetch(`/projects/${projectId}/contacts/${contactId}`, {
+    method: 'DELETE',
+  })
 }
