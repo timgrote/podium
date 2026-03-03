@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
-import { sendInvoice, createNextInvoice, deleteInvoice, generateSheet } from '../../api/invoices'
+import { sendInvoice, createNextInvoice, deleteInvoice, generateSheet, updateInvoice } from '../../api/invoices'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -18,6 +18,8 @@ const emit = defineEmits<{
 const toast = useToast()
 const acting = ref(false)
 const confirmDelete = ref(false)
+const showMarkPaid = ref(false)
+const paidDate = ref(new Date().toISOString().slice(0, 10))
 
 async function doAction(action: string) {
   acting.value = true
@@ -35,6 +37,14 @@ async function doAction(action: string) {
         await generateSheet(props.invoiceId, { force: true })
         toast.success('Google Sheet recreated')
         break
+      case 'mark-paid':
+        await updateInvoice(props.invoiceId, {
+          sent_status: 'sent',
+          paid_status: 'paid',
+          paid_at: paidDate.value,
+        })
+        toast.success('Invoice marked as paid')
+        break
       case 'delete':
         await deleteInvoice(props.invoiceId)
         toast.success('Invoice deleted')
@@ -49,6 +59,7 @@ async function doAction(action: string) {
   } finally {
     acting.value = false
     confirmDelete.value = false
+    showMarkPaid.value = false
   }
 }
 </script>
@@ -73,6 +84,22 @@ async function doAction(action: string) {
         <i class="pi pi-refresh" />
         <span>Recreate Google Sheet</span>
       </button>
+      <div class="mark-paid-section">
+        <button v-if="!showMarkPaid" class="action-btn success" :disabled="acting" @click="showMarkPaid = true">
+          <i class="pi pi-dollar" />
+          <span>Mark Paid</span>
+        </button>
+        <div v-else class="mark-paid-form">
+          <label class="date-label">Paid Date</label>
+          <div class="mark-paid-row">
+            <input v-model="paidDate" type="date" class="date-input" />
+            <button class="btn btn-sm btn-success" :disabled="acting" @click="doAction('mark-paid')">
+              {{ acting ? 'Saving...' : 'Confirm' }}
+            </button>
+            <button class="btn btn-sm" :disabled="acting" @click="showMarkPaid = false">Cancel</button>
+          </div>
+        </div>
+      </div>
       <div class="delete-section">
         <button v-if="!confirmDelete" class="action-btn danger" :disabled="acting" @click="confirmDelete = true">
           <i class="pi pi-trash" />
@@ -101,8 +128,18 @@ async function doAction(action: string) {
 .action-btn:hover { background: var(--p-content-hover-background); border-color: var(--p-primary-color); }
 .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .action-btn i { font-size: 1.125rem; color: var(--p-primary-color); width: 1.5rem; }
+.action-btn.success i { color: var(--p-green-600); }
+.action-btn.success:hover { border-color: var(--p-green-400); }
 .action-btn.danger i { color: var(--p-red-600); }
 .action-btn.danger:hover { border-color: var(--p-red-400); }
+.mark-paid-section { margin-top: 0.25rem; }
+.mark-paid-form { padding: 0.75rem; border: 1px solid var(--p-green-200); border-radius: 0.375rem; background: color-mix(in srgb, var(--p-green-50) 50%, transparent); }
+.date-label { font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; margin-bottom: 0.25rem; display: block; }
+.mark-paid-row { display: flex; align-items: center; gap: 0.5rem; }
+.date-input { padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; background: var(--p-form-field-background); color: var(--p-text-color); flex: 1; }
+.btn-success { color: #fff; background: var(--p-green-600); border-color: var(--p-green-600); }
+.btn-success:hover { background: var(--p-green-700); }
+.btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
 .delete-section { margin-top: 0.5rem; border-top: 1px solid var(--p-content-border-color); padding-top: 0.75rem; }
 .confirm-row { display: flex; align-items: center; gap: 0.5rem; }
 .confirm-text { font-size: 0.875rem; color: var(--p-red-600); font-weight: 500; }
@@ -111,4 +148,5 @@ async function doAction(action: string) {
 .btn-danger { color: #fff; background: var(--p-red-600); border-color: var(--p-red-600); }
 .btn-danger:hover { background: var(--p-red-700); }
 .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+:root.p-dark .mark-paid-form { background: color-mix(in srgb, var(--p-green-500) 10%, transparent); border-color: color-mix(in srgb, var(--p-green-400) 30%, transparent); }
 </style>

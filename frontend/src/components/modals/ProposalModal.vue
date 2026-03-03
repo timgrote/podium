@@ -22,6 +22,16 @@ const loading = ref(false)
 const generateGoogleDoc = ref(true)
 const dataPath = ref<string | null>(null)
 
+function parseProposalDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr.slice(0, 10)
+  // Try parsing human-readable like "March 03, 2026"
+  const parsed = new Date(dateStr)
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10)
+  return ''
+}
+
 const form = ref({
   engineer_key: '',
   engineer_name: '',
@@ -51,7 +61,7 @@ watch(visible, async (val) => {
         engineer_key: p.engineer_key || '',
         engineer_name: p.engineer_name || '',
         contact_method: p.contact_method || '',
-        proposal_date: p.proposal_date || '',
+        proposal_date: parseProposalDate(p.proposal_date),
         status: p.status || 'draft',
       }
       tasks.value = p.tasks.map((t) => ({
@@ -68,7 +78,7 @@ watch(visible, async (val) => {
         engineer_key: Object.keys(engineers.value)[0] || '',
         engineer_name: '',
         contact_method: '',
-        proposal_date: '',
+        proposal_date: new Date().toISOString().slice(0, 10),
         status: 'draft',
       }
       // Pre-populate with default tasks
@@ -205,7 +215,7 @@ async function save() {
       <div class="field-group">
         <div class="field">
           <label>Proposal Date</label>
-          <input v-model="form.proposal_date" type="text" placeholder="February 20, 2026" />
+          <input v-model="form.proposal_date" type="date" />
         </div>
         <div class="field">
           <label>Status</label>

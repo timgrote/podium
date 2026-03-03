@@ -549,8 +549,8 @@ function formatPercent(value: number): string {
               Signed {{ formatDate(contract.signed_at) }}
             </span>
             <div class="sub-card-actions">
-              <button class="btn-icon" title="Create Invoice" @click="emit('createInvoice', contract.id)">
-                <i class="pi pi-file" />
+              <button class="btn-icon btn-icon-green" title="Create Invoice" @click="emit('createInvoice', contract.id)">
+                <i class="pi pi-dollar" />
               </button>
               <button class="btn-icon" title="Edit" @click="emit('editContract', contract.id)">
                 <i class="pi pi-pencil" />
@@ -1540,6 +1540,8 @@ function formatPercent(value: number): string {
   border-radius: 0.25rem;
   font-size: 0.875rem;
 }
+.btn-icon-green { color: var(--p-green-600); }
+.btn-icon-green:hover { color: var(--p-green-700); }
 
 .btn-icon:hover {
   background: var(--p-content-hover-background);

@@ -24,6 +24,8 @@ const invoiceNumber = ref('')
 const invoiceType = ref('')
 const invoiceDate = ref('')
 const description = ref('')
+const status = ref<'draft' | 'sent' | 'paid'>('draft')
+const paidDate = ref('')
 const lineItems = ref<(InvoiceLineItem & { editQuantity: number })[]>([])
 
 watch(visible, async (val) => {
@@ -35,6 +37,8 @@ watch(visible, async (val) => {
     invoiceType.value = inv.type
     invoiceDate.value = inv.invoice_date || (inv.created_at ? inv.created_at.slice(0, 10) : '')
     description.value = inv.description || ''
+    status.value = inv.paid_status === 'paid' ? 'paid' : inv.sent_status === 'sent' ? 'sent' : 'draft'
+    paidDate.value = inv.paid_at ? inv.paid_at.slice(0, 10) : ''
     lineItems.value = (inv.line_items || []).map((li) => ({
       ...li,
       editQuantity: li.quantity,
@@ -44,6 +48,19 @@ watch(visible, async (val) => {
     visible.value = false
   } finally {
     loading.value = false
+  }
+})
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+watch(status, (val) => {
+  if (val === 'paid' && !paidDate.value) {
+    paidDate.value = todayStr()
+  }
+  if (val !== 'paid') {
+    paidDate.value = ''
   }
 })
 
@@ -71,6 +88,9 @@ async function save() {
     await updateInvoice(props.invoiceId, {
       invoice_date: invoiceDate.value || undefined,
       description: description.value || undefined,
+      sent_status: status.value === 'draft' ? 'draft' : 'sent',
+      paid_status: status.value === 'paid' ? 'paid' : 'unpaid',
+      paid_at: status.value === 'paid' ? paidDate.value || undefined : undefined,
       line_items: lineItems.value.map((li) => ({
         quantity: li.editQuantity,
         unit_price: li.unit_price,
@@ -97,9 +117,23 @@ async function save() {
   >
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else class="form">
-      <div class="field">
-        <label>Invoice Date</label>
-        <input v-model="invoiceDate" type="date" />
+      <div class="field-row">
+        <div class="field">
+          <label>Invoice Date</label>
+          <input v-model="invoiceDate" type="date" />
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select v-model="status">
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+        <div v-if="status === 'paid'" class="field">
+          <label>Paid Date</label>
+          <input v-model="paidDate" type="date" />
+        </div>
       </div>
       <div v-if="invoiceType === 'list'" class="field">
         <label>Description</label>
@@ -148,7 +182,9 @@ async function save() {
 .form { display: flex; flex-direction: column; gap: 0.75rem; }
 .field { display: flex; flex-direction: column; gap: 0.25rem; }
 .field label { font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; }
-.field textarea, .field input[type="date"] { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; background: var(--p-form-field-background); color: var(--p-text-color); }
+.field-row { display: flex; gap: 0.75rem; }
+.field-row .field { flex: 1; }
+.field textarea, .field input[type="date"], .field select { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; background: var(--p-form-field-background); color: var(--p-text-color); width: 100%; box-sizing: border-box; }
 .task-grid { display: flex; flex-direction: column; gap: 0.25rem; }
 .task-header, .task-row { display: grid; grid-template-columns: 1fr 5.5rem 5.5rem 4.5rem 5rem 5.5rem; gap: 0.5rem; align-items: center; padding: 0.375rem 0; }
 .task-header { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--p-text-muted-color); font-weight: 600; border-bottom: 1px solid var(--p-content-border-color); }

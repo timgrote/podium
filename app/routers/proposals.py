@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _format_proposal_date(date_str: str | None) -> str:
+    """Convert ISO date (YYYY-MM-DD) to human-readable format, or return as-is."""
+    if not date_str:
+        return datetime.now().strftime("%B %d, %Y")
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%B %d, %Y")
+    except ValueError:
+        return date_str
+
+
 # ---------------------------------------------------------------------------
 # Defaults (fixed route before parameterized ones)
 # ---------------------------------------------------------------------------
@@ -150,7 +160,7 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
     engineer = ENGINEERS.get(data.engineer_key or "tim", ENGINEERS["tim"])
     engineer_key = data.engineer_key or "tim"
 
-    proposal_date = data.proposal_date or datetime.now().strftime("%B %d, %Y")
+    proposal_date = _format_proposal_date(data.proposal_date)
 
     # --- Create proposal ---
     proposal_id = generate_id("prop-")
@@ -250,7 +260,7 @@ def create_proposal(data: ProposalCreate, db=Depends(get_db)):
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (proposal_id, data.project_id, data.client_company, data.client_contact_email,
          total_fee, data.engineer_key, data.engineer_name, data.engineer_title,
-         data.contact_method, data.proposal_date,
+         data.contact_method, _format_proposal_date(data.proposal_date),
          data.status, data.data_path, data.pdf_path, now, now),
     )
 
@@ -286,6 +296,9 @@ def update_proposal(
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
     if not updates:
         return _get_proposal_with_tasks(db, proposal_id)
+
+    if "proposal_date" in updates:
+        updates["proposal_date"] = _format_proposal_date(updates["proposal_date"])
 
     updates["updated_at"] = datetime.now().isoformat()
     set_clause = ", ".join(f"{k} = %s" for k in updates)
