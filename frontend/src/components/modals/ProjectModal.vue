@@ -38,7 +38,7 @@ const form = ref({
   client_email: '',
   client_pm_id: '',
   location: '',
-  status: 'proposal',
+  status: 'lead',
   pm_id: '',
   client_project_number: '',
   data_path: '',
@@ -112,7 +112,7 @@ watch(visible, async (val) => {
       client_email: '',
       client_pm_id: '',
       location: '',
-      status: 'proposal',
+      status: 'lead',
       pm_id: '',
       client_project_number: '',
       data_path: '',
@@ -295,12 +295,10 @@ async function save() {
         <div class="field">
           <label>Status</label>
           <select v-model="form.status">
-            <option value="proposal">Proposal</option>
-            <option value="contract">Contract</option>
-            <option value="in_process">In Process</option>
-            <option value="invoiced">Invoiced</option>
-            <option value="paid">Paid</option>
+            <option value="lead">Lead</option>
+            <option value="active">Active</option>
             <option value="complete">Complete</option>
+            <option value="archive">Archive</option>
           </select>
         </div>
       </div>

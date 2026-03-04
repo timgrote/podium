@@ -33,12 +33,10 @@ const invoicedUnsent = computed(() =>
 )
 
 const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
-  proposal: { icon: 'pi-file-edit', color: 'var(--p-violet-500)', label: 'Proposal' },
-  contract: { icon: 'pi-file-check', color: 'var(--p-primary-color)', label: 'Contract' },
-  in_process: { icon: 'pi-spinner', color: 'var(--p-cyan-500)', label: 'In Process' },
-  invoiced: { icon: 'pi-send', color: 'var(--p-amber-500)', label: 'Invoiced' },
-  paid: { icon: 'pi-dollar', color: 'var(--p-green-600)', label: 'Paid' },
-  complete: { icon: 'pi-check-circle', color: 'var(--p-surface-500)', label: 'Complete' },
+  lead: { icon: 'pi-star', color: 'var(--p-amber-500)', label: 'Lead' },
+  active: { icon: 'pi-play', color: 'var(--p-green-600)', label: 'Active' },
+  complete: { icon: 'pi-check-circle', color: 'var(--p-primary-color)', label: 'Complete' },
+  archive: { icon: 'pi-box', color: 'var(--p-surface-500)', label: 'Archive' },
 }
 
 const defaultStatus = { icon: 'pi-circle', color: 'var(--p-surface-500)', label: 'Unknown' }

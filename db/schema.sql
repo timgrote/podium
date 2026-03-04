@@ -61,7 +61,7 @@ CREATE TABLE projects (
     location TEXT,                           -- e.g., 'Austin, TX'
     project_number TEXT,                    -- user-facing identifier, e.g., '26-001' (auto-incremented)
     job_code TEXT,                          -- editable shorthand, e.g., 'rvi-absal'
-    status TEXT DEFAULT 'proposal',         -- proposal, contract, invoiced, paid, complete
+    status TEXT DEFAULT 'lead',             -- lead, active, complete, archive
     data_path TEXT,                         -- relative folder path, e.g., 'TBG/HeronLakes'
     notes TEXT,                             -- markdown
     current_invoice_id TEXT,                -- active/working invoice (FK added after invoices table)
