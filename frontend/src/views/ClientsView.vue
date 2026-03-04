@@ -212,7 +212,7 @@ onMounted(async () => {
             <th>Email</th>
             <th>Phone</th>
             <th>Role</th>
-            <th>Client</th>
+            <th>Company</th>
             <th class="col-actions"></th>
           </tr>
         </thead>

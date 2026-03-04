@@ -116,7 +116,7 @@ async function save() {
         <textarea v-model="form.notes" rows="3" placeholder="Notes about this contact" />
       </div>
       <div class="field">
-        <label>Client</label>
+        <label>Company</label>
         <select v-model="form.client_id">
           <option value="">-- None --</option>
           <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
