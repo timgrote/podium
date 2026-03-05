@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("")
+def list_invoices(db=Depends(get_db)):
+    """List all invoices with project and client info for financial reporting."""
+    rows = db.execute("SELECT * FROM v_invoices ORDER BY created_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
 # --- Lookup by invoice_number (used by frontend) ---
 
 @router.get("/by-number/{invoice_number}")

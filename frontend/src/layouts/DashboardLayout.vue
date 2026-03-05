@@ -22,6 +22,7 @@ const navItems = [
   { label: 'Dashboard', icon: 'pi pi-home', route: '/dashboard' },
   { label: 'My Tasks', icon: 'pi pi-check-square', route: '/my-tasks' },
   { label: 'Clients', icon: 'pi pi-users', route: '/clients' },
+  { label: 'Financial', icon: 'pi pi-dollar', route: '/financial' },
 ]
 
 function userInitials(): string {

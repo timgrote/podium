@@ -81,6 +81,26 @@ export interface Invoice {
   updated_at: string | null
 }
 
+export interface InvoiceListItem {
+  id: string
+  invoice_number: string
+  project_id: string
+  contract_id: string | null
+  type: 'task' | 'list'
+  invoice_date: string | null
+  sent_status: 'unsent' | 'sent'
+  paid_status: 'unpaid' | 'partial' | 'paid'
+  total_due: number
+  sent_at: string | null
+  paid_at: string | null
+  created_at: string | null
+  project_name: string
+  job_code: string | null
+  client_id: string | null
+  client_name: string | null
+  client_email: string | null
+}
+
 export interface ProposalTask {
   id: string
   proposal_id: string

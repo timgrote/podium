@@ -411,6 +411,8 @@ CREATE VIEW v_invoices AS
 SELECT
     i.*,
     p.name AS project_name,
+    p.job_code,
+    p.client_id,
     c.name AS client_name,
     c.accounting_email AS client_email
 FROM invoices i

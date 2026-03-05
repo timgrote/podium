@@ -1,5 +1,9 @@
-import type { Invoice } from '../types'
+import type { Invoice, InvoiceListItem } from '../types'
 import { apiFetch } from './client'
+
+export function getInvoices(): Promise<InvoiceListItem[]> {
+  return apiFetch('/invoices')
+}
 
 export function getInvoice(id: string): Promise<Invoice> {
   return apiFetch(`/invoices/${id}`)

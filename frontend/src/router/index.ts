@@ -29,6 +29,11 @@ const router = createRouter({
       meta: { layout: 'dashboard' },
     },
     {
+      path: '/financial',
+      component: () => import('../views/FinancialView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
       path: '/profile',
       component: () => import('../views/ProfileView.vue'),
       meta: { layout: 'dashboard' },

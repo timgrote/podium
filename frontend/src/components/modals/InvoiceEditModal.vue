@@ -88,7 +88,7 @@ async function save() {
     await updateInvoice(props.invoiceId, {
       invoice_date: invoiceDate.value || undefined,
       description: description.value || undefined,
-      sent_status: status.value === 'draft' ? 'draft' : 'sent',
+      sent_status: status.value === 'draft' ? 'unsent' : 'sent',
       paid_status: status.value === 'paid' ? 'paid' : 'unpaid',
       paid_at: status.value === 'paid' ? paidDate.value || undefined : undefined,
       line_items: lineItems.value.map((li) => ({
