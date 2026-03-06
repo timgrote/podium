@@ -231,6 +231,16 @@ def delete_contract_task(
 
 # --- Invoice from Contract ---
 
+@router.get("/{contract_id}/next-invoice-number")
+def get_next_invoice_number(contract_id: str, db=Depends(get_db)):
+    contract = db.execute(
+        "SELECT project_id FROM contracts WHERE id = %s AND deleted_at IS NULL", (contract_id,)
+    ).fetchone()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    return {"invoice_number": next_invoice_number(db, contract["project_id"])}
+
+
 @router.post("/{contract_id}/invoices")
 def create_invoice_from_contract(
     contract_id: str,
@@ -296,10 +306,11 @@ def create_invoice_from_contract(
         total_due += current_billing
 
     # Create invoice
+    invoice_date = data.invoice_date or now[:10]
     db.execute(
         "INSERT INTO invoices (id, invoice_number, project_id, contract_id, previous_invoice_id, "
-        "type, total_due, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, 'task', %s, %s, %s)",
-        (inv_id, invoice_number, project_id, contract_id, previous_invoice_id, total_due, now, now),
+        "type, total_due, invoice_date, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, 'task', %s, %s, %s, %s)",
+        (inv_id, invoice_number, project_id, contract_id, previous_invoice_id, total_due, invoice_date, now, now),
     )
 
     # Create line items

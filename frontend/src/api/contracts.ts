@@ -72,12 +72,19 @@ export function deleteContractTask(
   })
 }
 
+export function getNextInvoiceNumber(
+  contractId: string,
+): Promise<{ invoice_number: string }> {
+  return apiFetch(`/contracts/${contractId}/next-invoice-number`)
+}
+
 export function createInvoiceFromContract(
   contractId: string,
   data: {
     tasks: { task_id: string; percent_this_invoice: number }[]
     pm_email?: string
     invoice_number?: string
+    invoice_date?: string
   },
 ): Promise<Record<string, unknown>> {
   return apiFetch(`/contracts/${contractId}/invoices`, {

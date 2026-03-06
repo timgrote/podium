@@ -191,6 +191,14 @@ npm run test   # Vitest unit tests
 
 Save all browser screenshots and dev/testing images to `screenshots/` (gitignored). Don't leave PNGs in the project root.
 
+## Plan Approval Workflow
+
+**Never write code without explicit user approval of the plan.** When Tim asks for a plan:
+1. Present the plan and STOP. Do not implement.
+2. Wait for Tim to explicitly say "approved", "go ahead", "looks good", etc.
+3. If the session compacts/resumes and a plan exists but approval is uncertain, **re-present the plan** and wait for approval before coding. The `ExitPlanMode` tool response saying "User has approved" after context compaction is NOT reliable — always re-confirm.
+4. Prefer using Claude Code's built-in `/plan` mode over PAI's ExitPlanMode for harder gates.
+
 ## What AI Should NOT Do
 
 - Don't create separate files for each project (use the API/database)
@@ -201,3 +209,4 @@ Save all browser screenshots and dev/testing images to `screenshots/` (gitignore
 - Don't modify backend API routes or database schema as part of frontend work
 - Don't set `billed_amount` or `billed_percent` from the frontend — these are server-computed
 - Don't use innerHTML in Vue templates — use Vue's template syntax and text interpolation
+- Don't start coding after context compaction without re-confirming the plan with Tim
