@@ -85,6 +85,7 @@ agents/
 tie-proposals/
 tie_proposals
 service-account.json
+google-creds.json
 
 # Script output
 scripts/invoice_extraction_report.json
