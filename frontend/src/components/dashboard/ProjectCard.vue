@@ -20,13 +20,20 @@ const pmInitials = computed(() => {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?'
 })
 
+function parseLocalDate(dateStr: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const parts = dateStr.split('-').map(Number)
+    return new Date(parts[0]!, parts[1]! - 1, parts[2]!)
+  }
+  return new Date(dateStr)
+}
+
 const deadlineInfo = computed(() => {
   const dl = props.project.next_task_deadline
   if (!dl) return null
   const now = new Date()
   now.setHours(0, 0, 0, 0)
-  const due = new Date(dl)
-  due.setHours(0, 0, 0, 0)
+  const due = parseLocalDate(dl)
   const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   const isComplete = props.project.status === 'complete' || props.project.status === 'archive'
   if (isComplete) return null

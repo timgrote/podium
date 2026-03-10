@@ -301,6 +301,7 @@ async function submitNewTask() {
     showNewTaskForm.value = false
     toast.success('Task created')
     await loadTasks()
+    emit('refreshProject')
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -313,6 +314,7 @@ async function toggleTaskDone(taskId: string, currentStatus: string) {
   try {
     await updateTask(taskId, { status: newStatus })
     await loadTasks()
+    emit('refreshProject')
     if (newStatus === 'done') {
       showCompletedTasks.value = true
     }
@@ -326,9 +328,23 @@ function openTaskDetail(taskId: string) {
   taskModalVisible.value = true
 }
 
+async function inlineDateChange(taskId: string, event: Event) {
+  const input = event.target as HTMLInputElement
+  const newDate = input.value || null
+  try {
+    await updateTask(taskId, { due_date: newDate })
+    await loadTasks()
+    emit('refreshProject')
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
 function isOverdue(dateStr: string | null): boolean {
   if (!dateStr) return false
-  return new Date(dateStr) < new Date()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return parseLocalDate(dateStr) < today
 }
 
 function getInitials(assignees: Task['assignees']): string[] {
@@ -431,9 +447,17 @@ function formatCurrency(value: number): string {
   }).format(value)
 }
 
+function parseLocalDate(dateStr: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const parts = dateStr.split('-').map(Number)
+    return new Date(parts[0]!, parts[1]! - 1, parts[2]!)
+  }
+  return new Date(dateStr)
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString()
+  return parseLocalDate(dateStr).toLocaleDateString()
 }
 
 async function handlePasteImage(event: ClipboardEvent, targetRef: typeof newNote) {
@@ -790,9 +814,11 @@ function formatPercent(value: number): string {
                   <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
                 </span>
                 <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
-                <span v-if="task.due_date" class="task-due" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }">
-                  {{ formatDate(task.due_date) }}
-                </span>
+                <label class="task-due-inline" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }" @click.stop>
+                  <span v-if="task.due_date">{{ formatDate(task.due_date) }}</span>
+                  <span v-else class="no-date-hint"><i class="pi pi-calendar" /></span>
+                  <input type="date" class="inline-date-input" :value="task.due_date || ''" @change="inlineDateChange(task.id, $event)" />
+                </label>
               </div>
               <!-- Subtasks -->
               <div v-if="task.subtasks?.length" class="subtask-group">
@@ -807,9 +833,11 @@ function formatPercent(value: number): string {
                   </span>
                   <span class="task-title">{{ sub.title }}</span>
                   <span class="task-status-label">{{ sub.status.replace('_', ' ') }}</span>
-                  <span v-if="sub.due_date" class="task-due" :class="{ overdue: isOverdue(sub.due_date) && sub.status !== 'done' }">
-                    {{ formatDate(sub.due_date) }}
-                  </span>
+                  <label class="task-due-inline" :class="{ overdue: isOverdue(sub.due_date) && sub.status !== 'done' }" @click.stop>
+                    <span v-if="sub.due_date">{{ formatDate(sub.due_date) }}</span>
+                    <span v-else class="no-date-hint"><i class="pi pi-calendar" /></span>
+                    <input type="date" class="inline-date-input" :value="sub.due_date || ''" @change="inlineDateChange(sub.id, $event)" />
+                  </label>
                 </div>
               </div>
             </template>
@@ -854,8 +882,8 @@ function formatPercent(value: number): string {
         v-model:visible="taskModalVisible"
         :task-id="selectedTaskId"
         :project-id="project.id"
-        @saved="loadTasks"
-        @deleted="loadTasks"
+        @saved="loadTasks(); emit('refreshProject')"
+        @deleted="loadTasks(); emit('refreshProject')"
       />
     </div>
 
@@ -1255,14 +1283,44 @@ function formatPercent(value: number): string {
   letter-spacing: 0.05em;
 }
 
-.task-due {
+.task-due-inline {
+  position: relative;
   font-size: 0.75rem;
   color: var(--p-text-muted-color);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
 }
 
-.task-due.overdue {
+.task-due-inline:hover {
+  color: var(--p-primary-color);
+}
+
+.task-due-inline.overdue {
   color: var(--p-red-600);
   font-weight: 600;
+}
+
+.task-due-inline.overdue:hover {
+  color: var(--p-red-700);
+}
+
+.inline-date-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.no-date-hint {
+  color: var(--p-surface-400);
+  font-size: 0.75rem;
+}
+
+.no-date-hint:hover {
+  color: var(--p-primary-color);
 }
 
 .subtask-group {
