@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
 import { sendInvoice, createNextInvoice, deleteInvoice, generateSheet, updateInvoice } from '../../api/invoices'
+import { todayStr } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -19,7 +20,7 @@ const toast = useToast()
 const acting = ref(false)
 const confirmDelete = ref(false)
 const showMarkPaid = ref(false)
-const paidDate = ref(new Date().toISOString().slice(0, 10))
+const paidDate = ref(todayStr())
 
 async function doAction(action: string) {
   acting.value = true

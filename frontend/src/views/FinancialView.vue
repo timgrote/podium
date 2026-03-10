@@ -4,6 +4,7 @@ import { useInvoices } from '../composables/useInvoices'
 import { useToast } from '../composables/useToast'
 import InvoiceEditModal from '../components/modals/InvoiceEditModal.vue'
 import InvoiceActionsModal from '../components/modals/InvoiceActionsModal.vue'
+import { formatDate as formatDateUtil } from '../utils/dates'
 
 const toast = useToast()
 const {
@@ -38,11 +39,7 @@ function formatCurrency(value: number): string {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  return formatDateUtil(dateStr)
 }
 
 function openEdit(invoiceId: string) {

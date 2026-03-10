@@ -6,6 +6,7 @@ import { getProjects } from '../api/projects'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import TaskDetailModal from '../components/modals/TaskDetailModal.vue'
+import { formatDateShort, isOverdue as isDateOverdue, todayStr } from '../utils/dates'
 
 const { user } = useAuth()
 const toast = useToast()
@@ -21,7 +22,6 @@ const showCompleted = ref(false)
 const showQuickAdd = ref(false)
 const quickAddTitle = ref('')
 const quickAddProjectId = ref('')
-const todayStr = () => new Date().toISOString().split('T')[0]
 const quickAddDueDate = ref(todayStr())
 const quickAddSubmitting = ref(false)
 const projects = ref<ProjectSummary[]>([])
@@ -93,13 +93,12 @@ function openTask(task: MyTask | Task, projectId?: string) {
 
 function isOverdue(task: MyTask | Task): boolean {
   if (!task.due_date || task.status === 'done' || task.status === 'canceled') return false
-  return new Date(task.due_date) < new Date(new Date().toDateString())
+  return isDateOverdue(task.due_date)
 }
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return formatDateShort(dateStr)
 }
 
 function statusLabel(status: string): string {

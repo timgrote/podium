@@ -4,6 +4,7 @@ import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
 import { getContract, createInvoiceFromContract, getNextInvoiceNumber } from '../../api/contracts'
 import type { ContractTask } from '../../types'
+import { todayStr } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -23,9 +24,6 @@ const invoiceNumber = ref('')
 const invoiceDate = ref('')
 const tasks = ref<(ContractTask & { cumulativePercent: number })[]>([])
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 watch(visible, async (val) => {
   if (!val || !props.contractId) return

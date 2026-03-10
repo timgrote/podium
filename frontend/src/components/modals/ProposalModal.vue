@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
 import { getProposal, createProposal, updateProposal, getProposalDefaults, generateDoc } from '../../api/proposals'
+import { todayStr } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -78,7 +79,7 @@ watch(visible, async (val) => {
         engineer_key: Object.keys(engineers.value)[0] || '',
         engineer_name: '',
         contact_method: '',
-        proposal_date: new Date().toISOString().slice(0, 10),
+        proposal_date: todayStr(),
         status: 'draft',
       }
       // Pre-populate with default tasks

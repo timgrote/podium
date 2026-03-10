@@ -7,6 +7,7 @@ import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/pr
 import { uploadImage } from '../../api/tasks'
 import type { ProjectNote } from '../../types'
 import RichText from '../RichText.vue'
+import { formatDateTime } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -88,7 +89,7 @@ async function handleNotePaste(event: ClipboardEvent) {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString()
+  return formatDateTime(dateStr)
 }
 </script>
 

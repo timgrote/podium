@@ -4,6 +4,7 @@ import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
 import { getInvoice, updateInvoice } from '../../api/invoices'
 import type { InvoiceLineItem } from '../../types'
+import { todayStr } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -51,9 +52,6 @@ watch(visible, async (val) => {
   }
 })
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 watch(status, (val) => {
   if (val === 'paid' && !paidDate.value) {

@@ -7,6 +7,7 @@ import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 import RichText from '../RichText.vue'
+import { formatDateTime } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -215,10 +216,7 @@ async function handleNotePaste(event: ClipboardEvent) {
   }
 }
 
-function formatDateTime(dateStr: string | null): string {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString()
-}
+
 </script>
 
 <template>

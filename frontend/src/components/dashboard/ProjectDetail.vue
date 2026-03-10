@@ -14,6 +14,7 @@ import { uploadImage } from '../../api/tasks'
 import type { Employee } from '../../types'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
+import { formatDate, formatDateTime, isOverdue, todayStr } from '../../utils/dates'
 
 const props = defineProps<{
   project: ProjectSummary
@@ -77,7 +78,6 @@ const tasks = ref<Task[]>([])
 const tasksLoading = ref(false)
 const showNewTaskForm = ref(false)
 const newTaskTitle = ref('')
-const todayStr = () => new Date().toISOString().split('T')[0]
 const newTaskDueDate = ref(todayStr())
 const newTaskDescription = ref('')
 const newTaskSaving = ref(false)
@@ -340,12 +340,6 @@ async function inlineDateChange(taskId: string, event: Event) {
   }
 }
 
-function isOverdue(dateStr: string | null): boolean {
-  if (!dateStr) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return parseLocalDate(dateStr) < today
-}
 
 function getInitials(assignees: Task['assignees']): string[] {
   if (!assignees) return []
@@ -447,18 +441,6 @@ function formatCurrency(value: number): string {
   }).format(value)
 }
 
-function parseLocalDate(dateStr: string): Date {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const parts = dateStr.split('-').map(Number)
-    return new Date(parts[0]!, parts[1]! - 1, parts[2]!)
-  }
-  return new Date(dateStr)
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-'
-  return parseLocalDate(dateStr).toLocaleDateString()
-}
 
 async function handlePasteImage(event: ClipboardEvent, targetRef: typeof newNote) {
   const items = event.clipboardData?.files
@@ -491,10 +473,7 @@ function onTaskDescPaste(event: ClipboardEvent) {
   handlePasteImage(event, newTaskDescription)
 }
 
-function formatDateTime(dateStr: string | null): string {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString()
-}
+
 
 function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`

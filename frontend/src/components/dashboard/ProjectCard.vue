@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ProjectSummary } from '../../types'
+import { parseLocalDate, formatDateShort } from '../../utils/dates'
 
 const props = defineProps<{
   project: ProjectSummary
@@ -20,14 +21,6 @@ const pmInitials = computed(() => {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?'
 })
 
-function parseLocalDate(dateStr: string): Date {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const parts = dateStr.split('-').map(Number)
-    return new Date(parts[0]!, parts[1]! - 1, parts[2]!)
-  }
-  return new Date(dateStr)
-}
-
 const deadlineInfo = computed(() => {
   const dl = props.project.next_task_deadline
   if (!dl) return null
@@ -39,7 +32,7 @@ const deadlineInfo = computed(() => {
   if (isComplete) return null
   if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, severity: 'overdue' as const }
   if (diffDays <= 14) return { label: `Due in ${diffDays}d`, severity: 'soon' as const }
-  return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), severity: 'normal' as const }
+  return { label: formatDateShort(dl), severity: 'normal' as const }
 })
 
 const invoicedSent = computed(() =>
