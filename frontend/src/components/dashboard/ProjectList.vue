@@ -10,6 +10,7 @@ defineProps<{
   statusFilter: string
   pmFilter: string
   clientFilter: string
+  sortField: string
   uniqueStatuses: string[]
   uniquePMs: string[]
 }>()
@@ -19,6 +20,7 @@ const emit = defineEmits<{
   'update:statusFilter': [value: string]
   'update:pmFilter': [value: string]
   'update:clientFilter': [value: string]
+  'update:sortField': [value: string]
   createProject: []
   editProject: [project: ProjectSummary]
   refreshProject: []
@@ -76,6 +78,15 @@ function toggleExpand(id: string) {
         >
           <option value="">All PMs</option>
           <option v-for="pm in uniquePMs" :key="pm" :value="pm">{{ pm }}</option>
+        </select>
+        <select
+          :value="sortField"
+          @change="emit('update:sortField', ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="next_task_deadline">Deadline</option>
+          <option value="project_name">Job name</option>
+          <option value="last_activity">Last touched</option>
+          <option value="job_code">Job code</option>
         </select>
       </div>
       <button class="btn btn-primary" @click="emit('createProject')">

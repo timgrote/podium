@@ -20,6 +20,21 @@ const pmInitials = computed(() => {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?'
 })
 
+const deadlineInfo = computed(() => {
+  const dl = props.project.next_task_deadline
+  if (!dl) return null
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const due = new Date(dl)
+  due.setHours(0, 0, 0, 0)
+  const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  const isComplete = props.project.status === 'complete' || props.project.status === 'archive'
+  if (isComplete) return null
+  if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, severity: 'overdue' as const }
+  if (diffDays <= 14) return { label: `Due in ${diffDays}d`, severity: 'soon' as const }
+  return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), severity: 'normal' as const }
+})
+
 const invoicedSent = computed(() =>
   props.project.invoices
     ?.filter(i => i.sent_status === 'sent')
@@ -74,6 +89,7 @@ function formatCurrency(value: number): string {
           :title="(statusConfig[project.status] || defaultStatus).label"
         />
         <span class="project-name">{{ project.project_name }}</span>
+        <span v-if="deadlineInfo" class="deadline-badge" :class="deadlineInfo.severity">{{ deadlineInfo.label }}</span>
       </div>
       <div class="project-financials">
         <span class="financial" title="Contract value">{{ formatCurrency(project.total_contracted) }}</span>
@@ -158,6 +174,29 @@ function formatCurrency(value: number): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.deadline-badge {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 1rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.deadline-badge.overdue {
+  background: var(--p-red-50, #fef2f2);
+  color: var(--p-red-600, #dc2626);
+}
+
+.deadline-badge.soon {
+  background: var(--p-amber-50, #fffbeb);
+  color: var(--p-amber-600, #d97706);
+}
+
+.deadline-badge.normal {
+  color: var(--p-text-muted-color);
 }
 
 .project-financials {

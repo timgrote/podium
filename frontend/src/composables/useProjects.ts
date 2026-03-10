@@ -9,8 +9,8 @@ const searchQuery = ref('')
 const statusFilter = ref('')
 const pmFilter = ref('')
 const clientFilter = ref('')
-const sortField = ref<'id' | 'project_name' | 'status' | 'total_contracted'>('id')
-const sortOrder = ref<'asc' | 'desc'>('desc')
+const sortField = ref<'next_task_deadline' | 'project_name' | 'last_activity' | 'job_code' | 'id'>('next_task_deadline')
+const sortOrder = ref<'asc' | 'desc'>('asc')
 
 export function useProjects() {
   async function load() {
@@ -54,9 +54,17 @@ export function useProjects() {
 
     const field = sortField.value
     const order = sortOrder.value === 'asc' ? 1 : -1
+    const isDateField = field === 'next_task_deadline' || field === 'last_activity'
     result = [...result].sort((a, b) => {
-      const aVal = a[field] ?? ''
-      const bVal = b[field] ?? ''
+      const aVal = a[field]
+      const bVal = b[field]
+      // Null-last: projects without values sort to end regardless of order
+      if (aVal == null && bVal == null) return 0
+      if (aVal == null) return 1
+      if (bVal == null) return -1
+      if (isDateField) {
+        return (new Date(aVal).getTime() - new Date(bVal).getTime()) * order
+      }
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return (aVal - bVal) * order
       }

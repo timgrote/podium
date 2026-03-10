@@ -25,10 +25,17 @@ const {
   statusFilter,
   pmFilter,
   clientFilter,
+  sortField,
+  sortOrder,
   uniqueStatuses,
   uniquePMs,
   load: loadProjects,
 } = useProjects()
+
+function onSortChange(field: string) {
+  sortField.value = field as typeof sortField.value
+  sortOrder.value = field === 'last_activity' ? 'desc' : 'asc'
+}
 const { load: loadClients } = useClients()
 const toast = useToast()
 
@@ -199,12 +206,14 @@ onMounted(async () => {
       :status-filter="statusFilter"
       :pm-filter="pmFilter"
       :client-filter="clientFilter"
+      :sort-field="sortField"
       :unique-statuses="uniqueStatuses"
       :unique-p-ms="uniquePMs"
       @update:search-query="searchQuery = $event"
       @update:status-filter="statusFilter = $event"
       @update:pm-filter="pmFilter = $event"
       @update:client-filter="clientFilter = $event"
+      @update:sort-field="onSortChange"
       @create-project="openCreateProject"
       @edit-project="openEditProject"
       @refresh-project="loadProjects"

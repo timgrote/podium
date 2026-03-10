@@ -58,6 +58,8 @@ class ProjectSummary(BaseModel):
     total_invoiced: float = 0
     total_paid: float = 0
     total_outstanding: float = 0
+    next_task_deadline: str | None = None
+    last_activity: str | None = None
     contracts: list[dict] = []
     invoices: list[dict] = []
     proposals: list[dict] = []

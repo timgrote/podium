@@ -200,6 +200,8 @@ export interface ProjectSummary {
   client_project_number: string | null
   location: string | null
   data_path: string | null
+  next_task_deadline: string | null
+  last_activity: string | null
   total_contracted: number
   total_invoiced: number
   total_paid: number
