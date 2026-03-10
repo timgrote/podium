@@ -175,7 +175,7 @@ async function reloadCompany() {
     const settings = await getCompanySettings()
     company.value = settings
     if (settings.company_name) {
-      document.title = `${settings.company_name} — Dashboard`
+      document.title = `${settings.company_name} — Projects`
     }
   } catch { /* non-critical */ }
 }
@@ -191,7 +191,7 @@ onMounted(async () => {
     <div class="dashboard-header">
       <div class="dashboard-title">
         <img v-if="company.logo_url" :src="company.logo_url" alt="" class="company-logo" />
-        <h1>{{ company.company_name || 'Dashboard' }}</h1>
+        <h1>{{ company.company_name || 'Projects' }}</h1>
       </div>
       <button class="btn-settings" @click="showSettingsModal = true">
         <i class="pi pi-cog" />

@@ -328,6 +328,14 @@ function openTaskDetail(taskId: string) {
   taskModalVisible.value = true
 }
 
+function openDatePicker(event: MouseEvent) {
+  const el = event.currentTarget as HTMLElement
+  const input = el.querySelector('input[type="date"]') as HTMLInputElement | null
+  if (input) {
+    try { input.showPicker() } catch { input.focus(); input.click() }
+  }
+}
+
 async function inlineDateChange(taskId: string, event: Event) {
   const input = event.target as HTMLInputElement
   const newDate = input.value || null
@@ -793,11 +801,11 @@ function formatPercent(value: number): string {
                   <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
                 </span>
                 <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
-                <label class="task-due-inline" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }" @click.stop>
+                <span class="task-due-inline" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }" @click.stop="openDatePicker">
                   <span v-if="task.due_date">{{ formatDate(task.due_date) }}</span>
                   <span v-else class="no-date-hint"><i class="pi pi-calendar" /></span>
                   <input type="date" class="inline-date-input" :value="task.due_date || ''" @change="inlineDateChange(task.id, $event)" />
-                </label>
+                </span>
               </div>
               <!-- Subtasks -->
               <div v-if="task.subtasks?.length" class="subtask-group">
@@ -812,11 +820,11 @@ function formatPercent(value: number): string {
                   </span>
                   <span class="task-title">{{ sub.title }}</span>
                   <span class="task-status-label">{{ sub.status.replace('_', ' ') }}</span>
-                  <label class="task-due-inline" :class="{ overdue: isOverdue(sub.due_date) && sub.status !== 'done' }" @click.stop>
+                  <span class="task-due-inline" :class="{ overdue: isOverdue(sub.due_date) && sub.status !== 'done' }" @click.stop="openDatePicker">
                     <span v-if="sub.due_date">{{ formatDate(sub.due_date) }}</span>
                     <span v-else class="no-date-hint"><i class="pi pi-calendar" /></span>
                     <input type="date" class="inline-date-input" :value="sub.due_date || ''" @change="inlineDateChange(sub.id, $event)" />
-                  </label>
+                  </span>
                 </div>
               </div>
             </template>
