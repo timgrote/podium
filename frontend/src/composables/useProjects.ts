@@ -9,7 +9,7 @@ const searchQuery = ref('')
 const statusFilter = ref('')
 const pmFilter = ref('')
 const clientFilter = ref('')
-const sortField = ref<'next_task_deadline' | 'project_name' | 'last_activity' | 'job_code' | 'id'>('next_task_deadline')
+const sortField = ref<'next_task_deadline' | 'project_name' | 'client_name' | 'status' | 'last_activity' | 'job_code' | 'total_contracted' | 'total_invoiced' | 'total_outstanding' | 'id'>('next_task_deadline')
 const sortOrder = ref<'asc' | 'desc'>('asc')
 
 export function useProjects() {
@@ -101,6 +101,16 @@ export function useProjects() {
     return [...statuses].sort()
   })
 
+  function toggleSort(field: string) {
+    if (sortField.value === field) {
+      sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+    } else {
+      sortField.value = field as typeof sortField.value
+      const descFirst = ['next_task_deadline', 'last_activity', 'total_contracted', 'total_invoiced', 'total_outstanding']
+      sortOrder.value = descFirst.includes(field) ? 'desc' : 'asc'
+    }
+  }
+
   return {
     projects,
     loading,
@@ -116,5 +126,6 @@ export function useProjects() {
     uniquePMs,
     uniqueStatuses,
     load,
+    toggleSort,
   }
 }

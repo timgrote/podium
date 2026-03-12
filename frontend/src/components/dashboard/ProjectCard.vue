@@ -35,18 +35,6 @@ const deadlineInfo = computed(() => {
   return { label: formatDateShort(dl), severity: 'normal' as const }
 })
 
-const invoicedSent = computed(() =>
-  props.project.invoices
-    ?.filter(i => i.sent_status === 'sent')
-    .reduce((sum, i) => sum + (Number(i.total_due) || 0), 0) ?? 0
-)
-
-const invoicedUnsent = computed(() =>
-  props.project.invoices
-    ?.filter(i => i.sent_status === 'unsent')
-    .reduce((sum, i) => sum + (Number(i.total_due) || 0), 0) ?? 0
-)
-
 const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
   lead: { icon: 'pi-star', color: 'var(--p-amber-500)', label: 'Lead' },
   active: { icon: 'pi-play', color: 'var(--p-green-600)', label: 'Active' },
@@ -57,19 +45,17 @@ const statusConfig: Record<string, { icon: string; color: string; label: string 
 const defaultStatus = { icon: 'pi-circle', color: 'var(--p-surface-500)', label: 'Unknown' }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
+  if (Math.abs(value) >= 1000) {
+    return '$' + (value / 1000).toFixed(value % 1000 === 0 ? 0 : 1) + 'k'
+  }
+  return '$' + value.toFixed(0)
 }
 </script>
 
 <template>
   <div class="project-card" :class="{ expanded }">
     <div class="project-row" @click="emit('toggle')">
-      <div class="project-info">
+      <div class="col-pm">
         <img
           v-if="project.pm_avatar_url"
           :src="project.pm_avatar_url"
@@ -82,6 +68,8 @@ function formatCurrency(value: number): string {
           class="pm-avatar-initials"
           :title="project.pm_name"
         >{{ pmInitials }}</span>
+      </div>
+      <div class="col-project">
         <i
           class="pi status-icon"
           :class="(statusConfig[project.status] || defaultStatus).icon"
@@ -89,12 +77,17 @@ function formatCurrency(value: number): string {
           :title="(statusConfig[project.status] || defaultStatus).label"
         />
         <span class="project-name">{{ project.project_name }}</span>
+      </div>
+      <div class="col-deadline">
         <span v-if="deadlineInfo" class="deadline-badge" :class="deadlineInfo.severity">{{ deadlineInfo.label }}</span>
       </div>
-      <div class="project-financials">
-        <span class="financial" title="Contract value">{{ formatCurrency(project.total_contracted) }}</span>
-        <span class="financial invoiced-sent" title="Invoiced (sent)">{{ formatCurrency(invoicedSent) }}</span>
-        <span class="financial invoiced-unsent" title="Invoiced (unsent)">{{ formatCurrency(invoicedUnsent) }}</span>
+      <div class="col-financial">
+        <span class="financial">{{ formatCurrency(project.total_contracted) }}</span>
+      </div>
+      <div class="col-financial">
+        <span class="financial">{{ formatCurrency(project.total_invoiced) }}</span>
+      </div>
+      <div class="col-edit">
         <button class="btn-edit" title="Edit project" @click.stop="emit('edit')">
           <i class="pi pi-pencil" />
         </button>
@@ -126,19 +119,16 @@ function formatCurrency(value: number): string {
 .project-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0.875rem 1rem;
   cursor: pointer;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-.project-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex: 1;
-  min-width: 0;
-}
+.col-pm { width: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.col-project { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.5rem; overflow: hidden; }
+.col-deadline { width: 6.5rem; flex-shrink: 0; }
+.col-financial { width: 5rem; flex-shrink: 0; text-align: right; }
+.col-edit { width: 1.5rem; flex-shrink: 0; display: flex; justify-content: center; }
 
 .pm-avatar {
   width: 24px;
@@ -171,9 +161,6 @@ function formatCurrency(value: number): string {
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--p-text-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .deadline-badge {
@@ -199,27 +186,10 @@ function formatCurrency(value: number): string {
   color: var(--p-text-muted-color);
 }
 
-.project-financials {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-shrink: 0;
-}
-
 .financial {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--p-text-muted-color);
-  min-width: 5rem;
-  text-align: right;
-}
-
-.financial.invoiced-sent {
-  color: var(--p-green-600);
-}
-
-.financial.invoiced-unsent {
-  color: var(--p-amber-600);
 }
 
 .btn-edit {

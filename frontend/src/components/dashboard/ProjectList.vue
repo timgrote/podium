@@ -4,13 +4,14 @@ import type { ProjectSummary } from '../../types'
 import ProjectCard from './ProjectCard.vue'
 import ProjectDetail from './ProjectDetail.vue'
 
-defineProps<{
+const props = defineProps<{
   projects: ProjectSummary[]
   searchQuery: string
   statusFilter: string
   pmFilter: string
   clientFilter: string
   sortField: string
+  sortOrder: string
   uniqueStatuses: string[]
   uniquePMs: string[]
 }>()
@@ -20,7 +21,7 @@ const emit = defineEmits<{
   'update:statusFilter': [value: string]
   'update:pmFilter': [value: string]
   'update:clientFilter': [value: string]
-  'update:sortField': [value: string]
+  toggleSort: [field: string]
   createProject: []
   editProject: [project: ProjectSummary]
   refreshProject: []
@@ -79,19 +80,31 @@ function toggleExpand(id: string) {
           <option value="">All PMs</option>
           <option v-for="pm in uniquePMs" :key="pm" :value="pm">{{ pm }}</option>
         </select>
-        <select
-          :value="sortField"
-          @change="emit('update:sortField', ($event.target as HTMLSelectElement).value)"
-        >
-          <option value="next_task_deadline">Deadline</option>
-          <option value="project_name">Job name</option>
-          <option value="last_activity">Last touched</option>
-          <option value="job_code">Job code</option>
-        </select>
       </div>
       <button class="btn btn-primary" @click="emit('createProject')">
         <i class="pi pi-plus" /> New Project
       </button>
+    </div>
+
+    <div class="column-headers">
+      <div class="col-pm"></div>
+      <div class="col-project sortable" @click="emit('toggleSort', 'project_name')">
+        Project
+        <i v-if="sortField === 'project_name'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
+      <div class="col-deadline sortable" @click="emit('toggleSort', 'next_task_deadline')">
+        Deadline
+        <i v-if="sortField === 'next_task_deadline'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
+      <div class="col-financial sortable" @click="emit('toggleSort', 'total_contracted')">
+        Contracted
+        <i v-if="sortField === 'total_contracted'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
+      <div class="col-financial sortable" @click="emit('toggleSort', 'total_invoiced')">
+        Invoiced
+        <i v-if="sortField === 'total_invoiced'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
+      <div class="col-edit"></div>
     </div>
 
     <div class="cards">
@@ -196,6 +209,41 @@ function toggleExpand(id: string) {
   color: var(--p-text-color);
   cursor: pointer;
 }
+
+.column-headers {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.column-headers .sortable {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.column-headers .sortable:hover {
+  color: var(--p-text-color);
+}
+
+.column-headers .sortable .pi {
+  font-size: 0.625rem;
+}
+
+.col-pm { width: 28px; flex-shrink: 0; }
+.col-project { flex: 1; min-width: 0; }
+.col-deadline { width: 6.5rem; flex-shrink: 0; }
+.col-financial { width: 5rem; flex-shrink: 0; text-align: right; justify-content: flex-end; }
+.col-edit { width: 1.5rem; flex-shrink: 0; }
 
 .cards {
   display: flex;

@@ -5,7 +5,6 @@ import { useProjects } from '../composables/useProjects'
 import { useClients } from '../composables/useClients'
 import { getCompanySettings } from '../api/company'
 import { useToast } from '../composables/useToast'
-import StatsBar from '../components/dashboard/StatsBar.vue'
 import ProjectList from '../components/dashboard/ProjectList.vue'
 import ProjectModal from '../components/modals/ProjectModal.vue'
 import ContractModal from '../components/modals/ContractModal.vue'
@@ -20,7 +19,6 @@ import ErrorModal from '../components/modals/ErrorModal.vue'
 
 const {
   filtered,
-  stats,
   searchQuery,
   statusFilter,
   pmFilter,
@@ -30,12 +28,8 @@ const {
   uniqueStatuses,
   uniquePMs,
   load: loadProjects,
+  toggleSort,
 } = useProjects()
-
-function onSortChange(field: string) {
-  sortField.value = field as typeof sortField.value
-  sortOrder.value = field === 'last_activity' ? 'desc' : 'asc'
-}
 const { load: loadClients } = useClients()
 const toast = useToast()
 
@@ -198,8 +192,6 @@ onMounted(async () => {
       </button>
     </div>
 
-    <StatsBar v-bind="stats" />
-
     <ProjectList
       :projects="filtered"
       :search-query="searchQuery"
@@ -207,13 +199,14 @@ onMounted(async () => {
       :pm-filter="pmFilter"
       :client-filter="clientFilter"
       :sort-field="sortField"
+      :sort-order="sortOrder"
       :unique-statuses="uniqueStatuses"
       :unique-p-ms="uniquePMs"
       @update:search-query="searchQuery = $event"
       @update:status-filter="statusFilter = $event"
       @update:pm-filter="pmFilter = $event"
       @update:client-filter="clientFilter = $event"
-      @update:sort-field="onSortChange"
+      @toggle-sort="toggleSort"
       @create-project="openCreateProject"
       @edit-project="openEditProject"
       @refresh-project="loadProjects"
