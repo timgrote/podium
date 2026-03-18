@@ -47,6 +47,12 @@ const emit = defineEmits<{
 }>()
 
 const expandedId = ref<string | null>(props.initialExpandedId || null)
+const cardRefs = ref<Record<string, HTMLElement>>({})
+
+function setCardRef(id: string, el: any) {
+  if (el?.$el) cardRefs.value[id] = el.$el
+  else if (el) cardRefs.value[id] = el
+}
 
 // Watch for external changes to initialExpandedId (route changes)
 watch(() => props.initialExpandedId, (newId) => {
@@ -54,6 +60,19 @@ watch(() => props.initialExpandedId, (newId) => {
     expandedId.value = newId
   }
 })
+
+// Scroll to deep-linked project once it renders in the list
+if (props.initialExpandedId) {
+  const targetId = props.initialExpandedId
+  watch(() => props.projects.length, (len) => {
+    if (len > 0) {
+      setTimeout(() => {
+        const el = cardRefs.value[targetId]
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 200)
+    }
+  }, { once: true })
+}
 
 function toggleExpand(id: string) {
   const newId = expandedId.value === id ? null : id
@@ -127,6 +146,7 @@ function toggleExpand(id: string) {
       <ProjectCard
         v-for="project in projects"
         :key="project.id"
+        :ref="(el: any) => setCardRef(project.id, el)"
         :project="project"
         :expanded="expandedId === project.id"
         @toggle="toggleExpand(project.id)"
