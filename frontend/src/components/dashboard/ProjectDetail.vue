@@ -16,6 +16,8 @@ import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 import { formatDate, formatDateTime, isOverdue, todayStr } from '../../utils/dates'
 import { copyLink } from '../../utils/clipboard'
+import { getTimeEntries, getTimeSummary, type TimeEntry, type TimeSummary } from '../../api/timeEntries'
+import LogTimeModal from '../modals/LogTimeModal.vue'
 
 const props = defineProps<{
   project: ProjectSummary
@@ -46,7 +48,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const { user } = useAuth()
-const validTabs = ['financial', 'tasks', 'team', 'notes'] as const
+const validTabs = ['financial', 'tasks', 'team', 'notes', 'time'] as const
 type Tab = typeof validTabs[number]
 const activeTab = ref<Tab>(
   props.initialTab && validTabs.includes(props.initialTab as Tab) ? props.initialTab as Tab : 'tasks'
@@ -131,6 +133,17 @@ const availableContacts = computed(() => {
   return allContacts.value.filter(c => !linked.has(c.id))
 })
 
+// Time tracking state
+const timeEntries = ref<TimeEntry[]>([])
+const timeSummary = ref<TimeSummary | null>(null)
+const timeLoading = ref(false)
+const showLogTimeModal = ref(false)
+
+// All contract tasks across all contracts for this project
+const allContractTasks = computed(() => {
+  return props.project.contracts?.flatMap(c => c.tasks || []) || []
+})
+
 const activeTasks = computed(() =>
   tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled')
 )
@@ -151,6 +164,16 @@ const totalTaskCount = computed(() => {
 watch(() => props.project.id, async () => {
   await Promise.all([loadNotes(), loadTasks(), loadEmployees(), loadTeam()])
 }, { immediate: true })
+
+// Lazy-load time data when tab is activated
+let timeLoaded = false
+watch(activeTab, (tab) => {
+  if (tab === 'time' && !timeLoaded) {
+    timeLoaded = true
+    loadTime()
+  }
+})
+watch(() => props.project.id, () => { timeLoaded = false })
 
 // Deep-link: auto-open task modal when autoOpenTaskId is set
 watch(() => props.autoOpenTaskId, (taskId) => {
@@ -200,6 +223,22 @@ async function loadTeam() {
     console.error('Failed to load team:', e)
   } finally {
     teamLoading.value = false
+  }
+}
+
+async function loadTime() {
+  timeLoading.value = true
+  try {
+    const [entries, summary] = await Promise.all([
+      getTimeEntries({ project_id: props.project.id }),
+      getTimeSummary(props.project.id),
+    ])
+    timeEntries.value = entries
+    timeSummary.value = summary
+  } catch (e) {
+    console.error('Failed to load time entries:', e)
+  } finally {
+    timeLoading.value = false
   }
 }
 
@@ -586,6 +625,13 @@ function formatPercent(value: number): string {
         @click="activeTab = 'notes'"
       >
         Notes <span v-if="notes.length" class="tab-count">({{ notes.length }})</span>
+      </button>
+      <button
+        class="tab"
+        :class="{ active: activeTab === 'time' }"
+        @click="activeTab = 'time'"
+      >
+        Time <span v-if="timeSummary && timeSummary.total_hours > 0" class="tab-count">({{ Number(timeSummary.total_hours).toFixed(1) }}h)</span>
       </button>
       <button
         class="tab"
@@ -996,6 +1042,69 @@ function formatPercent(value: number): string {
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-if="activeTab === 'time'" class="tab-content">
+      <div class="section-header">
+        <h4>Time Tracking</h4>
+        <button class="btn btn-sm btn-primary" @click="showLogTimeModal = true">
+          <i class="pi pi-plus" /> Log Time
+        </button>
+      </div>
+
+      <div v-if="timeLoading" class="loading">Loading...</div>
+
+      <template v-else>
+        <!-- Summary -->
+        <div v-if="timeSummary && timeSummary.total_hours > 0" class="time-summary">
+          <div class="time-total">
+            <span class="time-total-hours">{{ Number(timeSummary.total_hours).toFixed(1) }}</span>
+            <span class="time-total-label">total hours</span>
+          </div>
+
+          <div v-if="timeSummary.by_employee.length" class="time-breakdown">
+            <h5>By Employee</h5>
+            <div v-for="row in timeSummary.by_employee" :key="row.employee_id" class="breakdown-row">
+              <span class="breakdown-name">{{ row.employee_name }}</span>
+              <span class="breakdown-hours">{{ Number(row.total_hours).toFixed(1) }}h</span>
+            </div>
+          </div>
+
+          <div v-if="timeSummary.by_task.filter(t => t.task_name).length" class="time-breakdown">
+            <h5>By Contract Task</h5>
+            <div v-for="row in timeSummary.by_task.filter(t => t.task_name)" :key="row.contract_task_id || 'none'" class="breakdown-row">
+              <span class="breakdown-name">{{ row.task_name }}</span>
+              <span class="breakdown-hours">{{ Number(row.total_hours).toFixed(1) }}h</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent entries -->
+        <div v-if="timeEntries.length" class="time-entries-section">
+          <h5>Recent Entries</h5>
+          <div class="time-entries-list">
+            <div v-for="entry in timeEntries.slice(0, 20)" :key="entry.id" class="time-entry-row">
+              <span class="te-date">{{ entry.date }}</span>
+              <span class="te-employee">{{ entry.employee_name }}</span>
+              <span v-if="entry.contract_task_name" class="te-task">{{ entry.contract_task_name }}</span>
+              <span v-if="entry.description" class="te-desc">{{ entry.description }}</span>
+              <span class="te-hours">{{ Number(entry.hours).toFixed(1) }}h</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!timeSummary || timeSummary.total_hours === 0" class="empty">
+          No time logged yet
+        </div>
+      </template>
+
+      <LogTimeModal
+        v-model:visible="showLogTimeModal"
+        :project-id="project.id"
+        :project-name="project.project_name"
+        :contract-tasks="allContractTasks"
+        @saved="loadTime"
+      />
     </div>
 
     <div v-if="activeTab === 'notes'" class="tab-content">
@@ -1797,5 +1906,123 @@ function formatPercent(value: number): string {
 
 .btn-copy-link:hover {
   color: var(--p-primary-color);
+}
+
+/* Time tracking tab */
+.time-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.time-total {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.time-total-hours {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--p-primary-color);
+}
+
+.time-total-label {
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+}
+
+.time-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.time-breakdown h5 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.25rem 0;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.breakdown-row:last-child { border-bottom: none; }
+
+.breakdown-name {
+  font-size: 0.875rem;
+}
+
+.breakdown-hours {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--p-primary-color);
+}
+
+.time-entries-section h5 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem 0;
+}
+
+.time-entries-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.time-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--p-content-border-color);
+  font-size: 0.8125rem;
+}
+
+.time-entry-row:last-child { border-bottom: none; }
+
+.te-date {
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  min-width: 80px;
+}
+
+.te-employee {
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.te-task {
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.25rem;
+}
+
+.te-desc {
+  flex: 1;
+  color: var(--p-text-muted-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.te-hours {
+  font-weight: 600;
+  color: var(--p-primary-color);
+  margin-left: auto;
 }
 </style>

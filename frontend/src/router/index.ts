@@ -58,6 +58,11 @@ const router = createRouter({
       meta: { layout: 'dashboard' },
     },
     {
+      path: '/timesheet',
+      component: () => import('../views/TimesheetView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
       path: '/clients',
       component: () => import('../views/ClientsView.vue'),
       meta: { layout: 'dashboard' },
