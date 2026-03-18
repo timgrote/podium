@@ -22,6 +22,7 @@ const route = useRoute()
 const router = useRouter()
 
 const {
+  projects: allProjects,
   filtered,
   searchQuery,
   statusFilter,
@@ -37,8 +38,14 @@ const {
 const { load: loadClients } = useClients()
 const toast = useToast()
 
-// Route-derived state
-const routeProjectId = computed(() => (route.params.projectId as string) || null)
+// Route-derived state — projectId param is now a project_number (e.g. "26-042")
+const routeProjectNumber = computed(() => (route.params.projectId as string) || null)
+const routeProjectId = computed(() => {
+  if (!routeProjectNumber.value) return null
+  const match = allProjects.value.find(p => p.project_number === routeProjectNumber.value)
+  return match?.id || null
+})
+const routeTab = computed(() => (route.query.tab as string) || null)
 const routeEntityId = computed(() => (route.params.entityId as string) || null)
 const routeEntityType = computed(() => {
   const path = route.path
@@ -48,6 +55,11 @@ const routeEntityType = computed(() => {
   if (path.includes('/proposals/')) return 'proposal'
   return null
 })
+
+function projectNumber(projectId: string): string {
+  const p = allProjects.value.find(proj => proj.id === projectId)
+  return p?.project_number || projectId
+}
 
 // Modal state
 const showProjectModal = ref(false)
@@ -211,7 +223,7 @@ async function reloadCompany() {
 // URL sync: when project is toggled in ProjectList
 function onProjectToggled(projectId: string | null) {
   if (projectId) {
-    router.push(`/projects/${projectId}`)
+    router.push(`/projects/${projectNumber(projectId)}`)
   } else {
     router.push('/projects')
   }
@@ -219,31 +231,31 @@ function onProjectToggled(projectId: string | null) {
 
 // URL sync: when a task/contract/invoice/proposal is clicked in ProjectDetail
 function onEntityClicked(projectId: string, entityType: string, entityId: string) {
-  router.push(`/projects/${projectId}/${entityType}s/${entityId}`)
+  router.push(`/projects/${projectNumber(projectId)}/${entityType}s/${entityId}`)
 }
 
 // URL sync: when modals close, update URL to remove entity
 watch(showContractModal, (v) => {
   if (!v && routeEntityType.value === 'contract') {
-    router.replace(routeProjectId.value ? `/projects/${routeProjectId.value}` : '/projects')
+    router.replace(routeProjectNumber.value ? `/projects/${routeProjectNumber.value}` : '/projects')
   }
 })
 
 watch(showInvoiceEditModal, (v) => {
   if (!v && routeEntityType.value === 'invoice') {
-    router.replace(routeProjectId.value ? `/projects/${routeProjectId.value}` : '/projects')
+    router.replace(routeProjectNumber.value ? `/projects/${routeProjectNumber.value}` : '/projects')
   }
 })
 
 watch(showProposalModal, (v) => {
   if (!v && routeEntityType.value === 'proposal') {
-    router.replace(routeProjectId.value ? `/projects/${routeProjectId.value}` : '/projects')
+    router.replace(routeProjectNumber.value ? `/projects/${routeProjectNumber.value}` : '/projects')
   }
 })
 
 function onTaskModalClose(projectId: string) {
   if (routeEntityType.value === 'task') {
-    router.replace(`/projects/${projectId}`)
+    router.replace(`/projects/${projectNumber(projectId)}`)
   }
 }
 
@@ -280,6 +292,7 @@ onMounted(async () => {
       :auto-open-task-id="routeEntityType === 'task' ? routeEntityId : null"
       :auto-open-entity-type="routeEntityType !== 'task' ? routeEntityType : null"
       :auto-open-entity-id="routeEntityType !== 'task' ? routeEntityId : null"
+      :initial-tab="routeTab"
       @update:search-query="searchQuery = $event"
       @update:status-filter="statusFilter = $event"
       @update:pm-filter="pmFilter = $event"

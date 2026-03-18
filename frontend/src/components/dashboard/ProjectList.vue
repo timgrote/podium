@@ -18,6 +18,7 @@ const props = defineProps<{
   autoOpenTaskId?: string | null
   autoOpenEntityType?: string | null
   autoOpenEntityId?: string | null
+  initialTab?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -47,12 +48,6 @@ const emit = defineEmits<{
 }>()
 
 const expandedId = ref<string | null>(props.initialExpandedId || null)
-const cardRefs = ref<Record<string, HTMLElement>>({})
-
-function setCardRef(id: string, el: any) {
-  if (el?.$el) cardRefs.value[id] = el.$el
-  else if (el) cardRefs.value[id] = el
-}
 
 // Watch for external changes to initialExpandedId (route changes)
 watch(() => props.initialExpandedId, (newId) => {
@@ -63,13 +58,19 @@ watch(() => props.initialExpandedId, (newId) => {
 
 // Scroll to deep-linked project once it renders in the list
 if (props.initialExpandedId) {
-  const targetId = props.initialExpandedId
   watch(() => props.projects.length, (len) => {
-    if (len > 0) {
-      setTimeout(() => {
-        const el = cardRefs.value[targetId]
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 200)
+    if (len > 0 && expandedId.value) {
+      // Poll for the expanded card to appear in DOM (rendered by v-for + v-if)
+      const poll = setInterval(() => {
+        const el = document.querySelector('.project-card.expanded')
+        if (el) {
+          clearInterval(poll)
+          const rect = el.getBoundingClientRect()
+          window.scrollTo({ top: window.scrollY + rect.top, behavior: 'instant' })
+        }
+      }, 50)
+      // Safety: stop polling after 2s
+      setTimeout(() => clearInterval(poll), 2000)
     }
   }, { once: true })
 }
@@ -146,7 +147,6 @@ function toggleExpand(id: string) {
       <ProjectCard
         v-for="project in projects"
         :key="project.id"
-        :ref="(el: any) => setCardRef(project.id, el)"
         :project="project"
         :expanded="expandedId === project.id"
         @toggle="toggleExpand(project.id)"
@@ -157,6 +157,7 @@ function toggleExpand(id: string) {
           :auto-open-task-id="expandedId === project.id ? autoOpenTaskId : null"
           :auto-open-entity-type="expandedId === project.id ? autoOpenEntityType : null"
           :auto-open-entity-id="expandedId === project.id ? autoOpenEntityId : null"
+          :initial-tab="expandedId === project.id ? initialTab : null"
           @edit-project="emit('editProject', project)"
           @refresh-project="emit('refreshProject')"
           @delete-project="emit('deleteProject', project)"

@@ -22,6 +22,7 @@ const props = defineProps<{
   autoOpenTaskId?: string | null
   autoOpenEntityType?: string | null
   autoOpenEntityId?: string | null
+  initialTab?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -45,7 +46,11 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const { user } = useAuth()
-const activeTab = ref<'financial' | 'tasks' | 'team' | 'notes'>('tasks')
+const validTabs = ['financial', 'tasks', 'team', 'notes'] as const
+type Tab = typeof validTabs[number]
+const activeTab = ref<Tab>(
+  props.initialTab && validTabs.includes(props.initialTab as Tab) ? props.initialTab as Tab : 'tasks'
+)
 
 // Dropbox base path from user settings (default: D:/Dropbox/TIE)
 const DEFAULT_DROPBOX_PATH = 'D:/Dropbox/TIE'
@@ -554,6 +559,9 @@ function formatPercent(value: number): string {
         </a>
       </div>
       <div class="detail-actions">
+        <button class="btn-copy-link-project" title="Copy link to project" @click="copyLink(`/projects/${project.project_number}${activeTab !== 'tasks' ? '?tab=' + activeTab : ''}`)">
+          <i class="pi pi-link" /> Copy Link
+        </button>
       </div>
     </div>
 
@@ -846,7 +854,7 @@ function formatPercent(value: number): string {
                   <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
                 </span>
                 <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
-                <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/projects/${project.id}/tasks/${task.id}`)">
+                <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/projects/${project.project_number}/tasks/${task.id}`)">
                   <i class="pi pi-link" />
                 </button>
                 <span class="task-due-inline" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }" @click.stop="openDatePicker">
@@ -1752,6 +1760,24 @@ function formatPercent(value: number): string {
 
 .btn-link:hover {
   text-decoration: underline;
+}
+
+.btn-copy-link-project {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+}
+
+.btn-copy-link-project:hover {
+  color: var(--p-primary-color);
+  border-color: var(--p-primary-color);
 }
 
 .btn-copy-link {
