@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
+from ..events import event_bus
 from ..models.project import ProjectContactAdd, ProjectContactResponse, ProjectCreate, ProjectDetail, ProjectNoteCreate, ProjectNoteResponse, ProjectSummary, ProjectUpdate
 from ..utils import generate_id, next_invoice_number, next_project_number
 
@@ -237,8 +238,12 @@ def delete_project_note(note_id: str, db=Depends(get_db)):
     if not existing:
         raise HTTPException(status_code=404, detail="Note not found")
 
+    note_row = db.execute("SELECT project_id FROM project_notes WHERE id = %s", (note_id,)).fetchone()
+    project_id = note_row["project_id"] if note_row else None
     db.execute("DELETE FROM project_notes WHERE id = %s", (note_id,))
     db.commit()
+    if project_id:
+        event_bus.publish(project_id, "note_deleted", note_id)
     return {"success": True}
 
 
@@ -273,6 +278,7 @@ def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db
         (note_id, project_id, data.author_id, data.content, now),
     )
     db.commit()
+    event_bus.publish(project_id, "note_added", note_id)
 
     row = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
@@ -458,6 +464,7 @@ def update_project(project_id: str, data: ProjectUpdate, db=Depends(get_db)):
     values = list(updates.values()) + [project_id]
     db.execute(f"UPDATE projects SET {set_clause} WHERE id = %s", values)
     db.commit()
+    event_bus.publish(project_id, "project_updated", project_id)
     return get_project(project_id, db)
 
 

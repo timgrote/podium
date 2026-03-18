@@ -23,8 +23,8 @@ async function handleSubmit() {
     } else {
       await signup(email.value, password.value)
     }
-    const raw = (route.query.redirect as string) || '/dashboard'
-    const redirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/dashboard'
+    const raw = (route.query.redirect as string) || '/projects'
+    const redirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/projects'
     router.push(redirect)
   } catch (e) {
     if (e instanceof ApiError) {

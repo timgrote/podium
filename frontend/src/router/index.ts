@@ -6,7 +6,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/dashboard',
+      redirect: '/projects',
     },
     {
       path: '/login',
@@ -15,11 +15,45 @@ const router = createRouter({
     },
     {
       path: '/dashboard',
+      redirect: '/projects',
+    },
+    {
+      path: '/projects',
+      component: () => import('../views/DashboardView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/projects/:projectId',
+      component: () => import('../views/DashboardView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/projects/:projectId/tasks/:entityId',
+      component: () => import('../views/DashboardView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/projects/:projectId/contracts/:entityId',
+      component: () => import('../views/DashboardView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/projects/:projectId/invoices/:entityId',
+      component: () => import('../views/DashboardView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/projects/:projectId/proposals/:entityId',
       component: () => import('../views/DashboardView.vue'),
       meta: { layout: 'dashboard' },
     },
     {
       path: '/my-tasks',
+      component: () => import('../views/MyTasksView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/my-tasks/:taskId',
       component: () => import('../views/MyTasksView.vue'),
       meta: { layout: 'dashboard' },
     },
@@ -48,7 +82,7 @@ router.beforeEach(async (to) => {
 
   if (to.meta.public) {
     if (isAuthenticated.value && to.path === '/login') {
-      return '/dashboard'
+      return '/projects'
     }
     return true
   }

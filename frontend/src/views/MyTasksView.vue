@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { MyTask, Task, ProjectSummary } from '../types'
 import { getMyTasks, createTask, updateTask } from '../api/tasks'
 import { getProjects } from '../api/projects'
@@ -7,7 +8,10 @@ import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import TaskDetailModal from '../components/modals/TaskDetailModal.vue'
 import { formatDateShort, isOverdue as isDateOverdue, todayStr } from '../utils/dates'
+import { copyLink } from '../utils/clipboard'
 
+const route = useRoute()
+const router = useRouter()
 const { user } = useAuth()
 const toast = useToast()
 const tasks = ref<MyTask[]>([])
@@ -139,6 +143,24 @@ async function submitQuickAdd() {
   }
 }
 
+// Deep-link: open task from URL
+watch([() => route.params.taskId, () => tasks.value.length], ([taskId, len]) => {
+  if (taskId && len > 0) {
+    const task = tasks.value.find(t => t.id === taskId) ||
+      tasks.value.flatMap(t => t.subtasks || []).find(s => s.id === taskId)
+    if (task) {
+      openTask(task)
+    }
+  }
+})
+
+// URL sync: when modal closes
+watch(taskModalVisible, (visible) => {
+  if (!visible && route.params.taskId) {
+    router.replace('/my-tasks')
+  }
+})
+
 onMounted(loadTasks)
 </script>
 
@@ -237,6 +259,9 @@ onMounted(loadTasks)
               >
                 <i class="pi" :class="expandedTasks.has(task.id) ? 'pi-chevron-up' : 'pi-chevron-down'" />
                 <span class="subtask-count">{{ task.subtasks.length }}</span>
+              </button>
+              <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/my-tasks/${task.id}`)">
+                <i class="pi pi-link" />
               </button>
               <span class="spacer" />
               <span
@@ -753,5 +778,24 @@ onMounted(loadTasks)
 .quick-add-submit .pi,
 .quick-add-cancel .pi {
   font-size: 0.75rem;
+}
+
+.btn-copy-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.125rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.task-row:hover .btn-copy-link {
+  opacity: 1;
+}
+
+.btn-copy-link:hover {
+  color: var(--p-primary-color);
 }
 </style>

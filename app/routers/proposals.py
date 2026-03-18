@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from ..config import settings
 from ..database import get_db
 from ..engineers import CHANGES_TASK, ENGINEERS, RATES, load_default_tasks
+from ..events import event_bus
 from ..models.proposal import (
     ProposalCreate,
     ProposalGenerate,
@@ -185,6 +186,7 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
         )
 
     db.commit()
+    event_bus.publish(project_id, "proposal_updated", proposal_id)
 
     # --- Optionally generate Google Doc ---
     result = _get_proposal_with_tasks(db, proposal_id)
@@ -274,6 +276,7 @@ def create_proposal(data: ProposalCreate, db=Depends(get_db)):
             )
 
     db.commit()
+    event_bus.publish(data.project_id, "proposal_updated", proposal_id)
     return _get_proposal_with_tasks(db, proposal_id)
 
 
@@ -305,6 +308,7 @@ def update_proposal(
     values = list(updates.values()) + [proposal_id]
     db.execute(f"UPDATE proposals SET {set_clause} WHERE id = %s", values)
     db.commit()
+    event_bus.publish(existing["project_id"], "proposal_updated", proposal_id)
     return _get_proposal_with_tasks(db, proposal_id)
 
 
@@ -323,6 +327,7 @@ def delete_proposal(proposal_id: str, db=Depends(get_db)):
     now = datetime.now().isoformat()
     db.execute("UPDATE proposals SET deleted_at = %s WHERE id = %s", (now, proposal_id))
     db.commit()
+    event_bus.publish(existing["project_id"], "proposal_updated", proposal_id)
     return {"success": True}
 
 
@@ -544,6 +549,8 @@ def add_proposal_task(
 
     _update_proposal_total(db, proposal_id)
     db.commit()
+    proposal = _get_proposal_dict(db, proposal_id)
+    event_bus.publish(proposal["project_id"], "proposal_updated", proposal_id)
     return _get_proposal_with_tasks(db, proposal_id)
 
 
@@ -571,6 +578,9 @@ def update_proposal_task(
 
     _update_proposal_total(db, proposal_id)
     db.commit()
+    proposal_row = db.execute("SELECT project_id FROM proposals WHERE id = %s", (proposal_id,)).fetchone()
+    if proposal_row:
+        event_bus.publish(proposal_row["project_id"], "proposal_updated", proposal_id)
     return _get_proposal_with_tasks(db, proposal_id)
 
 
@@ -590,6 +600,9 @@ def delete_proposal_task(
     db.execute("DELETE FROM proposal_tasks WHERE id = %s", (task_id,))
     _update_proposal_total(db, proposal_id)
     db.commit()
+    proposal_row = db.execute("SELECT project_id FROM proposals WHERE id = %s", (proposal_id,)).fetchone()
+    if proposal_row:
+        event_bus.publish(proposal_row["project_id"], "proposal_updated", proposal_id)
     return {"success": True}
 
 
@@ -642,6 +655,8 @@ def promote_to_contract(
     )
 
     db.commit()
+    event_bus.publish(project_id, "proposal_updated", proposal_id)
+    event_bus.publish(project_id, "contract_updated", contract_id)
 
     contract = db.execute("SELECT * FROM contracts WHERE id = %s", (contract_id,)).fetchone()
     result = dict(contract)

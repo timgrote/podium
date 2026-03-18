@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import type { ProjectSummary, ProjectNote, Task, ProjectContact, Contact } from '../../types'
 import { getProjectNotes, addProjectNote, deleteProjectNote, getProjectContacts, addProjectContact, removeProjectContact } from '../../api/projects'
 import { getContacts, createContact } from '../../api/contacts'
@@ -15,9 +15,13 @@ import type { Employee } from '../../types'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 import { formatDate, formatDateTime, isOverdue, todayStr } from '../../utils/dates'
+import { copyLink } from '../../utils/clipboard'
 
 const props = defineProps<{
   project: ProjectSummary
+  autoOpenTaskId?: string | null
+  autoOpenEntityType?: string | null
+  autoOpenEntityId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -35,6 +39,8 @@ const emit = defineEmits<{
   editProposal: [proposalId: string]
   deleteProposal: [proposalId: string]
   promoteProposal: [proposalId: string]
+  entityClicked: [entityType: string, entityId: string]
+  taskModalClosed: []
 }>()
 
 const toast = useToast()
@@ -140,6 +146,38 @@ const totalTaskCount = computed(() => {
 watch(() => props.project.id, async () => {
   await Promise.all([loadNotes(), loadTasks(), loadEmployees(), loadTeam()])
 }, { immediate: true })
+
+// Deep-link: auto-open task modal when autoOpenTaskId is set
+watch(() => props.autoOpenTaskId, (taskId) => {
+  if (taskId && tasks.value.length > 0) {
+    openTaskDetail(taskId)
+  }
+})
+
+// Wait for tasks to load before opening deep-linked task
+watch(() => tasks.value.length, (len) => {
+  if (len > 0 && props.autoOpenTaskId) {
+    openTaskDetail(props.autoOpenTaskId)
+  }
+})
+
+// SSE live updates
+import { useProjectUpdates } from '../../composables/useProjectUpdates'
+
+const projectIdRef = computed(() => props.project.id)
+const { disconnect: disconnectSSE } = useProjectUpdates(projectIdRef, (eventType) => {
+  if (eventType.startsWith('task_')) {
+    loadTasks()
+  } else if (eventType === 'note_added' || eventType === 'note_deleted') {
+    loadNotes()
+  } else if (eventType === 'project_updated' || eventType === 'contract_updated' || eventType === 'invoice_updated' || eventType === 'proposal_updated') {
+    emit('refreshProject')
+  }
+})
+
+onBeforeUnmount(() => {
+  disconnectSSE()
+})
 
 async function loadEmployees() {
   try {
@@ -326,7 +364,14 @@ async function toggleTaskDone(taskId: string, currentStatus: string) {
 function openTaskDetail(taskId: string) {
   selectedTaskId.value = taskId
   taskModalVisible.value = true
+  emit('entityClicked', 'task', taskId)
 }
+
+watch(taskModalVisible, (visible) => {
+  if (!visible) {
+    emit('taskModalClosed')
+  }
+})
 
 function openDatePicker(event: MouseEvent) {
   const el = event.currentTarget as HTMLElement
@@ -801,6 +846,9 @@ function formatPercent(value: number): string {
                   <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
                 </span>
                 <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
+                <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/projects/${project.id}/tasks/${task.id}`)">
+                  <i class="pi pi-link" />
+                </button>
                 <span class="task-due-inline" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }" @click.stop="openDatePicker">
                   <span v-if="task.due_date">{{ formatDate(task.due_date) }}</span>
                   <span v-else class="no-date-hint"><i class="pi pi-calendar" /></span>
@@ -1704,5 +1752,24 @@ function formatPercent(value: number): string {
 
 .btn-link:hover {
   text-decoration: underline;
+}
+
+.btn-copy-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.125rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.task-item:hover .btn-copy-link {
+  opacity: 1;
+}
+
+.btn-copy-link:hover {
+  color: var(--p-primary-color);
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { ProjectSummary, CompanySettings } from '../types'
 import { useProjects } from '../composables/useProjects'
 import { useClients } from '../composables/useClients'
@@ -17,6 +18,9 @@ import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import CompanySettingsModal from '../components/modals/CompanySettingsModal.vue'
 import ErrorModal from '../components/modals/ErrorModal.vue'
 
+const route = useRoute()
+const router = useRouter()
+
 const {
   filtered,
   searchQuery,
@@ -32,6 +36,18 @@ const {
 } = useProjects()
 const { load: loadClients } = useClients()
 const toast = useToast()
+
+// Route-derived state
+const routeProjectId = computed(() => (route.params.projectId as string) || null)
+const routeEntityId = computed(() => (route.params.entityId as string) || null)
+const routeEntityType = computed(() => {
+  const path = route.path
+  if (path.includes('/tasks/')) return 'task'
+  if (path.includes('/contracts/')) return 'contract'
+  if (path.includes('/invoices/')) return 'invoice'
+  if (path.includes('/proposals/')) return 'proposal'
+  return null
+})
 
 // Modal state
 const showProjectModal = ref(false)
@@ -57,6 +73,24 @@ const showSettingsModal = ref(false)
 const showErrorModal = ref(false)
 const errorMessage = ref('')
 const company = ref<CompanySettings>({})
+const projectsLoaded = ref(false)
+
+// Deep-link: open entity modal when route + projects are ready
+watch([routeEntityType, routeEntityId, () => projectsLoaded.value], ([type, id, loaded]) => {
+  if (!type || !id || !loaded) return
+  if (type === 'task') {
+    // TaskDetailModal is opened via ProjectDetail's autoOpenTaskId prop
+    // (handled in ProjectDetail component)
+    return
+  }
+  if (type === 'contract') {
+    openEditContract(id)
+  } else if (type === 'invoice') {
+    openEditInvoice(id)
+  } else if (type === 'proposal') {
+    openEditProposal(id)
+  }
+}, { immediate: true })
 
 
 function openCreateProject() {
@@ -174,8 +208,48 @@ async function reloadCompany() {
   } catch { /* non-critical */ }
 }
 
+// URL sync: when project is toggled in ProjectList
+function onProjectToggled(projectId: string | null) {
+  if (projectId) {
+    router.push(`/projects/${projectId}`)
+  } else {
+    router.push('/projects')
+  }
+}
+
+// URL sync: when a task/contract/invoice/proposal is clicked in ProjectDetail
+function onEntityClicked(projectId: string, entityType: string, entityId: string) {
+  router.push(`/projects/${projectId}/${entityType}s/${entityId}`)
+}
+
+// URL sync: when modals close, update URL to remove entity
+watch(showContractModal, (v) => {
+  if (!v && routeEntityType.value === 'contract') {
+    router.replace(routeProjectId.value ? `/projects/${routeProjectId.value}` : '/projects')
+  }
+})
+
+watch(showInvoiceEditModal, (v) => {
+  if (!v && routeEntityType.value === 'invoice') {
+    router.replace(routeProjectId.value ? `/projects/${routeProjectId.value}` : '/projects')
+  }
+})
+
+watch(showProposalModal, (v) => {
+  if (!v && routeEntityType.value === 'proposal') {
+    router.replace(routeProjectId.value ? `/projects/${routeProjectId.value}` : '/projects')
+  }
+})
+
+function onTaskModalClose(projectId: string) {
+  if (routeEntityType.value === 'task') {
+    router.replace(`/projects/${projectId}`)
+  }
+}
+
 onMounted(async () => {
   await Promise.all([loadProjects(), loadClients()])
+  projectsLoaded.value = true
   reloadCompany()
 })
 </script>
@@ -202,6 +276,10 @@ onMounted(async () => {
       :sort-order="sortOrder"
       :unique-statuses="uniqueStatuses"
       :unique-p-ms="uniquePMs"
+      :initial-expanded-id="routeProjectId"
+      :auto-open-task-id="routeEntityType === 'task' ? routeEntityId : null"
+      :auto-open-entity-type="routeEntityType !== 'task' ? routeEntityType : null"
+      :auto-open-entity-id="routeEntityType !== 'task' ? routeEntityId : null"
       @update:search-query="searchQuery = $event"
       @update:status-filter="statusFilter = $event"
       @update:pm-filter="pmFilter = $event"
@@ -222,8 +300,9 @@ onMounted(async () => {
       @edit-proposal="openEditProposal"
       @delete-proposal="openDeleteProposal"
       @promote-proposal="openPromoteProposal"
-
-
+      @project-toggled="onProjectToggled"
+      @entity-clicked="onEntityClicked"
+      @task-modal-closed="onTaskModalClose"
     />
 
     <!-- Modals -->

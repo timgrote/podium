@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
+from ..events import event_bus
 from ..models.invoice import InvoiceUpdate
 from ..utils import generate_id, next_invoice_number
 
@@ -111,6 +112,7 @@ def export_invoice_pdf(invoice_id: str, db=Depends(get_db)):
         (drive_url, now, invoice_id),
     )
     db.commit()
+    event_bus.publish(invoice["project_id"], "invoice_updated", invoice_id)
 
     return {"success": True, "pdf_path": drive_url}
 
@@ -176,6 +178,7 @@ def finalize_invoice(invoice_id: str, db=Depends(get_db)):
         (drive_url, now, invoice_id),
     )
     db.commit()
+    event_bus.publish(invoice["project_id"], "invoice_updated", invoice_id)
 
     logger.info("Finalized invoice %s: total=$%.2f, pdf=%s", invoice["invoice_number"], total_due, drive_url)
     return {"success": True, "total_due": total_due, "pdf_path": drive_url}
@@ -267,6 +270,7 @@ def send_invoice(invoice_id: str, db=Depends(get_db)):
         (now, drive_url, now, invoice_id),
     )
     db.commit()
+    event_bus.publish(invoice["project_id"], "invoice_updated", invoice_id)
 
     return {"success": True, "sent_to": to_emails, "pdf_path": drive_url}
 
@@ -366,6 +370,7 @@ def generate_sheet_for_invoice(invoice_id: str, force: bool = False, db=Depends(
             (sheet_url, now, invoice_id),
         )
         db.commit()
+        event_bus.publish(invoice["project_id"], "invoice_updated", invoice_id)
         return {"success": True, "data_path": sheet_url}
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Google credentials not configured")
@@ -444,6 +449,7 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
         (new_inv_id, now, project_id),
     )
     db.commit()
+    event_bus.publish(project_id, "invoice_updated", new_inv_id)
 
     new_invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (new_inv_id,)).fetchone()
     logger.info("Created next invoice %s (chain from %s)", new_invoice_number, invoice["invoice_number"])
@@ -513,6 +519,7 @@ def update_invoice(
         db.execute(f"UPDATE invoices SET {set_clause} WHERE id = %s", values)
 
     db.commit()
+    event_bus.publish(existing["project_id"], "invoice_updated", invoice_id)
 
     # Update Google Sheet date if invoice_date changed and sheet exists
     existing_dict = dict(existing)
@@ -551,4 +558,6 @@ def delete_invoice(invoice_id: str, db=Depends(get_db)):
         )
 
     db.commit()
+    if inv.get("project_id"):
+        event_bus.publish(inv["project_id"], "invoice_updated", invoice_id)
     return {"success": True}

@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routers import auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, uploads
+from .routers import auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, uploads, updates
 
 _log_file = Path(__file__).resolve().parent.parent / "conductor.log"
 logging.basicConfig(
@@ -78,6 +78,7 @@ app.include_router(employees.router, prefix="/api/employees", tags=["employees"]
 app.include_router(tasks.router, prefix="/api", tags=["tasks"])
 app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 app.include_router(uploads.router, prefix="/api/uploads", tags=["uploads"])
+app.include_router(updates.router, prefix="/api/updates", tags=["updates"])
 
 # --- Static files (Vue SPA) ---
 static_root = Path(__file__).resolve().parent.parent

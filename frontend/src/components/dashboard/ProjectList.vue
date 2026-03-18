@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { ProjectSummary } from '../../types'
 import ProjectCard from './ProjectCard.vue'
 import ProjectDetail from './ProjectDetail.vue'
@@ -14,6 +14,10 @@ const props = defineProps<{
   sortOrder: string
   uniqueStatuses: string[]
   uniquePMs: string[]
+  initialExpandedId?: string | null
+  autoOpenTaskId?: string | null
+  autoOpenEntityType?: string | null
+  autoOpenEntityId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -37,12 +41,24 @@ const emit = defineEmits<{
   editProposal: [proposalId: string]
   deleteProposal: [proposalId: string]
   promoteProposal: [proposalId: string]
+  projectToggled: [projectId: string | null]
+  entityClicked: [projectId: string, entityType: string, entityId: string]
+  taskModalClosed: [projectId: string]
 }>()
 
-const expandedId = ref<string | null>(null)
+const expandedId = ref<string | null>(props.initialExpandedId || null)
+
+// Watch for external changes to initialExpandedId (route changes)
+watch(() => props.initialExpandedId, (newId) => {
+  if (newId !== undefined) {
+    expandedId.value = newId
+  }
+})
 
 function toggleExpand(id: string) {
-  expandedId.value = expandedId.value === id ? null : id
+  const newId = expandedId.value === id ? null : id
+  expandedId.value = newId
+  emit('projectToggled', newId)
 }
 </script>
 
@@ -118,6 +134,9 @@ function toggleExpand(id: string) {
       >
         <ProjectDetail
           :project="project"
+          :auto-open-task-id="expandedId === project.id ? autoOpenTaskId : null"
+          :auto-open-entity-type="expandedId === project.id ? autoOpenEntityType : null"
+          :auto-open-entity-id="expandedId === project.id ? autoOpenEntityId : null"
           @edit-project="emit('editProject', project)"
           @refresh-project="emit('refreshProject')"
           @delete-project="emit('deleteProject', project)"
@@ -132,6 +151,8 @@ function toggleExpand(id: string) {
           @edit-proposal="emit('editProposal', $event)"
           @delete-proposal="emit('deleteProposal', $event)"
           @promote-proposal="emit('promoteProposal', $event)"
+          @entity-clicked="(type: string, id: string) => emit('entityClicked', project.id, type, id)"
+          @task-modal-closed="emit('taskModalClosed', project.id)"
         />
       </ProjectCard>
       <div v-if="projects.length === 0" class="empty-state">

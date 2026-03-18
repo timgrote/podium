@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
+from ..events import event_bus
 from ..models.task import TaskCreate, TaskNoteCreate, TaskNoteResponse, TaskResponse, TaskUpdate
 from ..utils import generate_id
 
@@ -108,6 +109,7 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
         _set_assignees(db, task_id, data.assignee_ids)
 
     db.commit()
+    event_bus.publish(project_id, "task_created", task_id)
 
     row = db.execute("SELECT * FROM project_tasks WHERE id = %s", (task_id,)).fetchone()
     return _build_task_response(db, row)
@@ -157,6 +159,9 @@ def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db)):
         (note_id, task_id, data.author_id, data.content, now),
     )
     db.commit()
+    task_row = db.execute("SELECT project_id FROM project_tasks WHERE id = %s", (task_id,)).fetchone()
+    if task_row:
+        event_bus.publish(task_row["project_id"], "task_updated", task_id)
 
     # Fetch with author name
     row = db.execute(
@@ -173,13 +178,17 @@ def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db)):
 @router.delete("/tasks/notes/{note_id}")
 def delete_note(note_id: str, db=Depends(get_db)):
     existing = db.execute(
-        "SELECT id FROM project_task_notes WHERE id = %s", (note_id,)
+        "SELECT n.id, n.task_id, t.project_id FROM project_task_notes n "
+        "JOIN project_tasks t ON n.task_id = t.id WHERE n.id = %s", (note_id,)
     ).fetchone()
     if not existing:
         raise HTTPException(status_code=404, detail="Note not found")
 
+    task_id = existing["task_id"]
+    project_id = existing["project_id"]
     db.execute("DELETE FROM project_task_notes WHERE id = %s", (note_id,))
     db.commit()
+    event_bus.publish(project_id, "task_updated", task_id)
     return {"success": True}
 
 
@@ -231,6 +240,8 @@ def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db)):
         _set_assignees(db, task_id, data.assignee_ids)
 
     db.commit()
+    project_id = existing["project_id"]
+    event_bus.publish(project_id, "task_updated", task_id)
 
     row = db.execute("SELECT * FROM project_tasks WHERE id = %s", (task_id,)).fetchone()
     return _build_task_response(db, row)
@@ -252,4 +263,6 @@ def delete_task(task_id: str, db=Depends(get_db)):
     )
     db.execute("UPDATE project_tasks SET deleted_at = %s WHERE id = %s", (now, task_id))
     db.commit()
+    project_id = existing["project_id"]
+    event_bus.publish(project_id, "task_deleted", task_id)
     return {"success": True}

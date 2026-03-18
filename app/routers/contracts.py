@@ -5,6 +5,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
+from ..events import event_bus
 from ..models.contract import ContractCreate, ContractTaskCreate, ContractTaskUpdate, ContractUpdate
 from ..models.invoice import InvoiceFromContract
 from ..utils import generate_id, next_invoice_number
@@ -85,6 +86,7 @@ def create_contract(data: ContractCreate, db=Depends(get_db)):
             )
 
     db.commit()
+    event_bus.publish(data.project_id, "contract_updated", contract_id)
     return get_contract(contract_id, db)
 
 
@@ -129,6 +131,7 @@ def update_contract(contract_id: str, data: ContractUpdate, db=Depends(get_db)):
         _update_contract_total(db, contract_id)
 
     db.commit()
+    event_bus.publish(existing["project_id"], "contract_updated", contract_id)
     return get_contract(contract_id, db)
 
 
@@ -143,6 +146,7 @@ def delete_contract(contract_id: str, db=Depends(get_db)):
     now = datetime.now().isoformat()
     db.execute("UPDATE contracts SET deleted_at = %s WHERE id = %s", (now, contract_id))
     db.commit()
+    event_bus.publish(existing["project_id"], "contract_updated", contract_id)
     return {"success": True}
 
 
@@ -178,6 +182,7 @@ def add_contract_task(
     # Update contract total
     _update_contract_total(db, contract_id)
     db.commit()
+    event_bus.publish(contract["project_id"], "contract_updated", contract_id)
 
     return get_contract(contract_id, db)
 
@@ -207,6 +212,9 @@ def update_contract_task(
 
     _update_contract_total(db, contract_id)
     db.commit()
+    contract = db.execute("SELECT project_id FROM contracts WHERE id = %s", (contract_id,)).fetchone()
+    if contract:
+        event_bus.publish(contract["project_id"], "contract_updated", contract_id)
     return get_contract(contract_id, db)
 
 
@@ -226,6 +234,9 @@ def delete_contract_task(
     db.execute("DELETE FROM contract_tasks WHERE id = %s", (task_id,))
     _update_contract_total(db, contract_id)
     db.commit()
+    contract = db.execute("SELECT project_id FROM contracts WHERE id = %s", (contract_id,)).fetchone()
+    if contract:
+        event_bus.publish(contract["project_id"], "contract_updated", contract_id)
     return {"success": True}
 
 
@@ -328,6 +339,7 @@ def create_invoice_from_contract(
     db.execute("UPDATE projects SET current_invoice_id = %s WHERE id = %s", (inv_id, project_id))
 
     db.commit()
+    event_bus.publish(project_id, "invoice_updated", inv_id)
 
     invoice = db.execute("SELECT * FROM invoices WHERE id = %s", (inv_id,)).fetchone()
     return dict(invoice)
