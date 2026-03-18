@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
-import { getProjectNotes, addProjectNote, deleteProjectNote } from '../../api/projects'
+import { getProjectNotes, addProjectNote, updateProjectNote, deleteProjectNote } from '../../api/projects'
 import { uploadImage } from '../../api/tasks'
 import type { ProjectNote } from '../../types'
 import RichText from '../RichText.vue'
@@ -22,6 +22,8 @@ const loading = ref(false)
 const newNote = ref('')
 const saving = ref(false)
 const imageUploading = ref(false)
+const editingNoteId = ref<string | null>(null)
+const editContent = ref('')
 
 watch(visible, async (val) => {
   if (!val || !props.projectId) return
@@ -51,6 +53,29 @@ async function addNote() {
     toast.error(String(e))
   } finally {
     saving.value = false
+  }
+}
+
+function startEdit(note: ProjectNote) {
+  editingNoteId.value = note.id
+  editContent.value = note.content
+}
+
+function cancelEdit() {
+  editingNoteId.value = null
+  editContent.value = ''
+}
+
+async function saveEdit(noteId: string) {
+  if (!editContent.value.trim()) return
+  try {
+    await updateProjectNote(noteId, { content: editContent.value })
+    editingNoteId.value = null
+    editContent.value = ''
+    toast.success('Note updated')
+    await loadNotes()
+  } catch (e) {
+    toast.error(String(e))
   }
 }
 
@@ -117,9 +142,17 @@ function formatDate(dateStr: string | null): string {
             <img v-if="note.author_avatar_url" :src="note.author_avatar_url" class="note-avatar" />
             <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
             <span class="note-date">{{ formatDate(note.created_at) }}</span>
+            <button v-if="editingNoteId !== note.id" class="btn-edit" @click="startEdit(note)">edit</button>
             <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
           </div>
-          <RichText :content="note.content" class="note-content" />
+          <div v-if="editingNoteId === note.id" class="note-edit">
+            <textarea v-model="editContent" rows="3" />
+            <div class="note-edit-actions">
+              <button class="btn btn-primary btn-sm" @click="saveEdit(note.id)">Save</button>
+              <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
+            </div>
+          </div>
+          <RichText v-else :content="note.content" class="note-content" />
         </div>
       </div>
     </div>
@@ -137,7 +170,12 @@ function formatDate(dateStr: string | null): string {
 .note-author { font-weight: 600; font-size: 0.8125rem; }
 .note-date { font-size: 0.75rem; color: var(--p-text-muted-color); }
 .note-content { font-size: 0.875rem; color: var(--p-text-muted-color); white-space: pre-wrap; }
-.btn-remove { background: none; border: none; color: var(--p-red-600); cursor: pointer; font-size: 1rem; margin-left: auto; padding: 0 0.25rem; }
+.btn-edit { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; font-size: 0.75rem; margin-left: auto; padding: 0 0.25rem; }
+.btn-edit:hover { color: var(--p-primary-color); }
+.btn-remove { background: none; border: none; color: var(--p-red-600); cursor: pointer; font-size: 1rem; padding: 0 0.25rem; }
+.note-edit { display: flex; flex-direction: column; gap: 0.5rem; }
+.note-edit textarea { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; resize: vertical; background: var(--p-form-field-background); color: var(--p-text-color); }
+.note-edit-actions { display: flex; gap: 0.5rem; }
 .empty { text-align: center; color: var(--p-text-muted-color); font-size: 0.875rem; padding: 1rem; }
 .loading { text-align: center; color: var(--p-text-muted-color); padding: 1rem; }
 .btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; color: var(--p-text-color); }

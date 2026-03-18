@@ -230,6 +230,33 @@ def get_project_note(note_id: str, db=Depends(get_db)):
     return dict(row)
 
 
+@router.patch("/notes/{note_id}", response_model=ProjectNoteResponse)
+def update_project_note(note_id: str, data: ProjectNoteCreate, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT id, project_id FROM project_notes WHERE id = %s", (note_id,)
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    db.execute(
+        "UPDATE project_notes SET content = %s WHERE id = %s",
+        (data.content, note_id),
+    )
+    db.commit()
+    event_bus.publish(existing["project_id"], "note_updated", note_id)
+
+    row = db.execute(
+        "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
+        "e.first_name || ' ' || e.last_name AS author_name, "
+        "e.avatar_url AS author_avatar_url "
+        "FROM project_notes n "
+        "LEFT JOIN employees e ON n.author_id = e.id "
+        "WHERE n.id = %s",
+        (note_id,),
+    ).fetchone()
+    return dict(row)
+
+
 @router.delete("/notes/{note_id}")
 def delete_project_note(note_id: str, db=Depends(get_db)):
     existing = db.execute(

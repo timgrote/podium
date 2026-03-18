@@ -62,6 +62,16 @@ export function addProjectNote(
   })
 }
 
+export function updateProjectNote(
+  noteId: string,
+  data: { content: string },
+): Promise<ProjectNote> {
+  return apiFetch(`/projects/notes/${noteId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
 export function deleteProjectNote(
   noteId: string,
 ): Promise<{ success: boolean }> {
