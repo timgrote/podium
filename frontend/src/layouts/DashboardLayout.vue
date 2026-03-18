@@ -305,6 +305,7 @@ function handleLogout() {
   flex: 1;
   padding: 1.5rem;
   margin-left: 240px;
+  height: 100vh;
   overflow-y: auto;
   transition: margin-left 0.2s;
 }

@@ -48,32 +48,26 @@ const emit = defineEmits<{
 }>()
 
 const expandedId = ref<string | null>(props.initialExpandedId || null)
+let hasScrolled = false
 
-// Watch for external changes to initialExpandedId (route changes)
+// Watch for initialExpandedId becoming available (resolves after projects load)
 watch(() => props.initialExpandedId, (newId) => {
-  if (newId !== undefined) {
+  if (newId) {
     expandedId.value = newId
-  }
-})
-
-// Scroll to deep-linked project once it renders in the list
-if (props.initialExpandedId) {
-  watch(() => props.projects.length, (len) => {
-    if (len > 0 && expandedId.value) {
-      // Poll for the expanded card to appear in DOM (rendered by v-for + v-if)
+    if (!hasScrolled) {
+      hasScrolled = true
+      // Poll for the expanded card to appear in DOM
       const poll = setInterval(() => {
         const el = document.querySelector('.project-card.expanded')
         if (el) {
           clearInterval(poll)
-          const rect = el.getBoundingClientRect()
-          window.scrollTo({ top: window.scrollY + rect.top, behavior: 'instant' })
+          el.scrollIntoView({ block: 'start' })
         }
       }, 50)
-      // Safety: stop polling after 2s
       setTimeout(() => clearInterval(poll), 2000)
     }
-  }, { once: true })
-}
+  }
+}, { immediate: true })
 
 function toggleExpand(id: string) {
   const newId = expandedId.value === id ? null : id
