@@ -187,14 +187,12 @@ function toggleExpand(id: string) {
 
 .sticky-header {
   position: sticky;
-  top: 0;
+  top: -1.5rem;
   z-index: 5;
-  background: var(--p-surface-0);
+  background: inherit;
+  padding-top: 1.5rem;
   padding-bottom: 0.5rem;
-}
-
-:root.p-dark .sticky-header {
-  background: var(--p-surface-950, #0a0a0a);
+  margin-top: -1.5rem;
 }
 
 .list-toolbar {
