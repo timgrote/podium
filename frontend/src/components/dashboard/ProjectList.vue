@@ -189,8 +189,12 @@ function toggleExpand(id: string) {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--p-content-background);
+  background: var(--p-surface-0);
   padding-bottom: 0.5rem;
+}
+
+:root.p-dark .sticky-header {
+  background: var(--p-surface-950, #0a0a0a);
 }
 
 .list-toolbar {
