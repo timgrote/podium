@@ -189,10 +189,14 @@ function toggleExpand(id: string) {
   position: sticky;
   top: -1.5rem;
   z-index: 5;
-  background: inherit;
+  background: var(--p-surface-50);
   padding-top: 1.5rem;
   padding-bottom: 0.5rem;
   margin-top: -1.5rem;
+}
+
+:root.app-dark .sticky-header {
+  background: var(--p-surface-950);
 }
 
 .list-toolbar {
