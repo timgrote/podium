@@ -6,7 +6,7 @@ import { getTimeEntries, deleteTimeEntry, updateTimeEntry } from '../api/timeEnt
 import { getEmployees } from '../api/employees'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
-import { todayStr, formatDateShort } from '../utils/dates'
+import { todayStr } from '../utils/dates'
 import LogTimeModal from '../components/modals/LogTimeModal.vue'
 
 const { user } = useAuth()
@@ -68,13 +68,6 @@ const weekDateRange = computed(() => {
   return { from: start.dateStr, to: end.dateStr }
 })
 
-const selectedDay = ref('')
-
-// Initialize selectedDay to today
-onMounted(() => {
-  selectedDay.value = todayStr()
-})
-
 const dailyTotals = computed(() => {
   const totals: Record<string, number> = {}
   for (const day of weekDays.value) {
@@ -92,10 +85,41 @@ const weekTotal = computed(() => {
   return Object.values(dailyTotals.value).reduce((sum, h) => sum + h, 0)
 })
 
-const dayEntries = computed(() => {
-  if (!selectedDay.value) return []
-  return entries.value.filter(e => e.date === selectedDay.value)
+interface ProjectGroup {
+  projectId: string
+  projectName: string
+  totalHours: number
+  entries: TimeEntry[]
+}
+
+const projectGroups = computed<ProjectGroup[]>(() => {
+  const map = new Map<string, ProjectGroup>()
+  for (const entry of entries.value) {
+    let group = map.get(entry.project_id)
+    if (!group) {
+      group = {
+        projectId: entry.project_id,
+        projectName: entry.project_name || entry.project_id,
+        totalHours: 0,
+        entries: [],
+      }
+      map.set(entry.project_id, group)
+    }
+    group.totalHours += Number(entry.hours)
+    group.entries.push(entry)
+  }
+  // Sort entries within each group by date
+  for (const group of map.values()) {
+    group.entries.sort((a, b) => a.date.localeCompare(b.date))
+  }
+  // Sort groups by total hours descending
+  return [...map.values()].sort((a, b) => b.totalHours - a.totalHours)
 })
+
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
 
 const effectiveEmployeeId = computed(() => {
   return selectedEmployeeId.value || user.value?.id || ''
@@ -157,13 +181,6 @@ function cancelEdit() {
 }
 
 watch([effectiveEmployeeId, weekOffset], loadEntries)
-watch(weekOffset, () => {
-  // Keep selectedDay within the new week if it's out of range
-  const range = weekDateRange.value
-  if (selectedDay.value < range.from || selectedDay.value > range.to) {
-    selectedDay.value = range.from
-  }
-})
 
 onMounted(async () => {
   await loadEmployees()
@@ -192,65 +209,72 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Week summary bar -->
+    <!-- Week total summary -->
+    <div class="week-summary">
+      <span class="week-summary-hours">{{ weekTotal.toFixed(1) }}h</span>
+      <span class="week-summary-label">logged this week</span>
+    </div>
+
+    <!-- Week navigation bar -->
     <div class="week-bar">
       <button class="week-nav" @click="weekOffset--">
         <i class="pi pi-chevron-left" />
       </button>
       <div class="week-days">
-        <button
+        <div
           v-for="day in weekDays"
           :key="day.dateStr"
           class="day-cell"
-          :class="{ today: day.isToday, selected: selectedDay === day.dateStr, 'has-hours': (dailyTotals[day.dateStr] || 0) > 0 }"
-          @click="selectedDay = day.dateStr"
+          :class="{ today: day.isToday, 'has-hours': (dailyTotals[day.dateStr] || 0) > 0 }"
         >
           <span class="day-label">{{ day.label }}</span>
           <span class="day-date">{{ day.date.getDate() }}</span>
           <span class="day-hours">{{ (dailyTotals[day.dateStr] || 0).toFixed(1) }}h</span>
-        </button>
+        </div>
       </div>
       <button class="week-nav" @click="weekOffset++">
         <i class="pi pi-chevron-right" />
       </button>
-      <div class="week-total">
-        <span class="week-total-label">Week</span>
-        <span class="week-total-hours">{{ weekTotal.toFixed(1) }}h</span>
-      </div>
     </div>
 
-    <!-- Day entries -->
+    <!-- Weekly entries by project -->
     <div v-if="loading" class="loading">Loading...</div>
 
-    <div v-else-if="dayEntries.length === 0" class="empty-state">
-      <p>No time logged for {{ formatDateShort(selectedDay) }}</p>
+    <div v-else-if="projectGroups.length === 0" class="empty-state">
+      <p>No time logged this week</p>
     </div>
 
-    <div v-else class="entry-list">
-      <div v-for="entry in dayEntries" :key="entry.id" class="entry-card">
-        <div class="entry-main">
-          <span class="entry-project">{{ entry.project_name || entry.project_id }}</span>
-          <span v-if="entry.contract_task_name" class="entry-task">{{ entry.contract_task_name }}</span>
+    <div v-else class="project-list">
+      <div v-for="group in projectGroups" :key="group.projectId" class="project-group">
+        <div class="project-header">
+          <span class="project-name">{{ group.projectName }}</span>
+          <span class="project-total">{{ group.totalHours.toFixed(1) }}h</span>
         </div>
-        <div v-if="entry.description" class="entry-desc">{{ entry.description }}</div>
-        <div class="entry-footer">
-          <div v-if="editingId === entry.id" class="edit-hours">
-            <input
-              v-model="editHours"
-              type="number"
-              step="0.25"
-              min="0.25"
-              class="edit-hours-input"
-              @keydown.enter="saveEdit(entry)"
-              @keydown.escape="cancelEdit"
-            />
-            <button class="btn-icon" @click="saveEdit(entry)"><i class="pi pi-check" /></button>
-            <button class="btn-icon" @click="cancelEdit"><i class="pi pi-times" /></button>
+        <div class="project-entries">
+          <div v-for="entry in group.entries" :key="entry.id" class="entry-row">
+            <span class="entry-day">{{ dayLabel(entry.date) }}</span>
+            <span v-if="entry.contract_task_name" class="entry-task">{{ entry.contract_task_name }}</span>
+            <span v-if="entry.description" class="entry-desc">{{ entry.description }}</span>
+            <div class="entry-right">
+              <div v-if="editingId === entry.id" class="edit-hours">
+                <input
+                  v-model="editHours"
+                  type="number"
+                  step="0.25"
+                  min="0.25"
+                  class="edit-hours-input"
+                  @keydown.enter="saveEdit(entry)"
+                  @keydown.escape="cancelEdit"
+                />
+                <button class="btn-icon" @click="saveEdit(entry)"><i class="pi pi-check" /></button>
+                <button class="btn-icon" @click="cancelEdit"><i class="pi pi-times" /></button>
+              </div>
+              <span v-else class="entry-hours" @click="startEdit(entry)">{{ Number(entry.hours).toFixed(1) }}h</span>
+              <button v-if="editingId !== entry.id" class="btn-icon btn-delete" @click="handleDelete(entry.id)">
+                <i class="pi pi-trash" />
+              </button>
+            </div>
           </div>
-          <span v-else class="entry-hours" @click="startEdit(entry)">{{ Number(entry.hours).toFixed(1) }}h</span>
-          <button v-if="editingId !== entry.id" class="btn-icon btn-delete" @click="handleDelete(entry.id)">
-            <i class="pi pi-trash" />
-          </button>
         </div>
       </div>
     </div>
@@ -313,6 +337,25 @@ onMounted(async () => {
 .btn-log-time:hover { filter: brightness(1.1); }
 .btn-log-time .pi { font-size: 0.625rem; }
 
+/* Week summary */
+.week-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.week-summary-hours {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--p-text-color);
+}
+
+.week-summary-label {
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+}
+
 /* Week bar */
 .week-bar {
   display: flex;
@@ -353,13 +396,9 @@ onMounted(async () => {
   background: none;
   border: none;
   border-left: 1px solid var(--p-content-border-color);
-  cursor: pointer;
-  transition: background 0.15s;
 }
 
 .day-cell:first-child { border-left: none; }
-.day-cell:hover { background: var(--p-content-hover-background); }
-.day-cell.selected { background: var(--p-highlight-background); }
 .day-cell.today .day-date { color: var(--p-primary-color); font-weight: 700; }
 
 .day-label {
@@ -385,29 +424,6 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.week-total {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border-left: 1px solid var(--p-content-border-color);
-  min-width: 60px;
-}
-
-.week-total-label {
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  color: var(--p-text-muted-color);
-  font-weight: 600;
-}
-
-.week-total-hours {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--p-text-color);
-}
-
 /* Entries */
 .loading {
   text-align: center;
@@ -422,29 +438,59 @@ onMounted(async () => {
   font-size: 0.875rem;
 }
 
-.entry-list {
+.project-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
-.entry-card {
+.project-group {
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  overflow: hidden;
   background: var(--p-content-background);
 }
 
-.entry-main {
+.project-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;
+  background: var(--p-content-hover-background);
+  border-bottom: 1px solid var(--p-content-border-color);
 }
 
-.entry-project {
+.project-name {
   font-weight: 600;
   font-size: 0.875rem;
+}
+
+.project-total {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--p-primary-color);
+}
+
+.project-entries {
+  display: flex;
+  flex-direction: column;
+}
+
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.entry-row:last-child { border-bottom: none; }
+
+.entry-day {
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+  min-width: 6rem;
+  flex-shrink: 0;
 }
 
 .entry-task {
@@ -453,26 +499,33 @@ onMounted(async () => {
   padding: 0.0625rem 0.375rem;
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.25rem;
+  flex-shrink: 0;
 }
 
 .entry-desc {
   font-size: 0.8125rem;
   color: var(--p-text-muted-color);
-  margin-bottom: 0.375rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.entry-footer {
+.entry-right {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .entry-hours {
   font-weight: 700;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   color: var(--p-primary-color);
   cursor: pointer;
-  padding: 0.125rem 0.25rem;
+  padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
 }
 
