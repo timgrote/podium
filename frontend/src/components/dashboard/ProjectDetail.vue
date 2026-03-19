@@ -371,6 +371,7 @@ async function saveEditNote(noteId: string) {
 }
 
 async function removeNote(noteId: string) {
+  if (!confirm('Delete this note?')) return
   try {
     await deleteProjectNote(noteId)
     toast.success('Note deleted')
