@@ -114,6 +114,7 @@ CREATE TABLE contract_tasks (
     name TEXT NOT NULL,
     description TEXT,
     amount NUMERIC(12,2) DEFAULT 0,         -- total fee for this task
+    billing_type TEXT NOT NULL DEFAULT 'fixed', -- 'fixed' or 'time_expense'
     billed_amount NUMERIC(12,2) DEFAULT 0,  -- cumulative amount already billed
     billed_percent NUMERIC(5,2) DEFAULT 0,  -- cumulative percent already billed (0-100)
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -212,6 +213,7 @@ CREATE TABLE invoice_line_items (
     unit_price NUMERIC(12,2) DEFAULT 0,     -- rate per unit (or task fee)
     amount NUMERIC(12,2) DEFAULT 0,         -- current billing (quantity * unit_price, or flat)
     previous_billing NUMERIC(12,2) DEFAULT 0, -- cumulative billing from prior invoices
+    billing_type TEXT NOT NULL DEFAULT 'fixed', -- 'fixed' or 'time_expense'
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

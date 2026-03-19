@@ -21,9 +21,11 @@ class ContractTaskCreate(BaseModel):
     name: str
     description: str | None = None
     amount: float = 0
+    billing_type: str = "fixed"
 
 
 class ContractTaskUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     amount: float | None = None
+    billing_type: str | None = None

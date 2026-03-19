@@ -29,6 +29,7 @@ export interface ContractTask {
   name: string
   description: string | null
   amount: number
+  billing_type: 'fixed' | 'time_expense'
   billed_amount: number
   billed_percent: number
   created_at: string | null
@@ -57,6 +58,7 @@ export interface InvoiceLineItem {
   unit_price: number
   amount: number
   previous_billing: number
+  billing_type: 'fixed' | 'time_expense'
   created_at: string | null
 }
 

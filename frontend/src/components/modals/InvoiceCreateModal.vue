@@ -22,7 +22,7 @@ const saving = ref(false)
 const loading = ref(false)
 const invoiceNumber = ref('')
 const invoiceDate = ref('')
-const tasks = ref<(ContractTask & { cumulativePercent: number })[]>([])
+const tasks = ref<(ContractTask & { cumulativePercent: number; thisAmountInput: number })[]>([])
 
 
 watch(visible, async (val) => {
@@ -38,6 +38,7 @@ watch(visible, async (val) => {
     tasks.value = contract.tasks.map((t) => ({
       ...t,
       cumulativePercent: t.billed_percent,
+      thisAmountInput: 0,
     }))
   } catch (e) {
     emit('error', String(e))
@@ -51,7 +52,10 @@ function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 }
 
-function thisAmount(task: ContractTask & { cumulativePercent: number }): number {
+function thisAmount(task: ContractTask & { cumulativePercent: number; thisAmountInput: number }): number {
+  if (task.billing_type === 'time_expense') {
+    return task.thisAmountInput
+  }
   return (task.amount * task.cumulativePercent / 100) - task.billed_amount
 }
 
@@ -61,11 +65,13 @@ const invoiceTotal = computed(() =>
 
 async function save() {
   const selected = tasks.value
-    .filter((t) => t.cumulativePercent > t.billed_percent)
-    .map((t) => ({
-      task_id: t.id,
-      percent_this_invoice: t.cumulativePercent - t.billed_percent,
-    }))
+    .filter((t) => thisAmount(t) > 0)
+    .map((t) => {
+      if (t.billing_type === 'time_expense') {
+        return { task_id: t.id, amount_this_invoice: t.thisAmountInput }
+      }
+      return { task_id: t.id, percent_this_invoice: t.cumulativePercent - t.billed_percent }
+    })
   if (selected.length === 0) return
 
   saving.value = true
@@ -110,21 +116,37 @@ async function save() {
           <span>Task</span>
           <span>Fee</span>
           <span>Prev Billing</span>
-          <span>Cumulative %</span>
+          <span>Input</span>
           <span>This Amount</span>
         </div>
         <div v-for="task in tasks" :key="task.id" class="task-row">
-          <span class="task-name">{{ task.name }}</span>
+          <span class="task-name">
+            {{ task.name }}
+            <span v-if="task.billing_type === 'time_expense'" class="te-badge">T&amp;E</span>
+          </span>
           <span class="task-fee">{{ formatCurrency(task.amount) }}</span>
           <span class="task-prev">{{ formatCurrency(task.billed_amount) }}</span>
-          <input
-            v-model.number="task.cumulativePercent"
-            type="number"
-            step="1"
-            :min="task.billed_percent"
-            max="100"
-            class="pct-input"
-          />
+          <template v-if="task.billing_type === 'time_expense'">
+            <input
+              v-model.number="task.thisAmountInput"
+              type="number"
+              step="0.01"
+              min="0"
+              class="pct-input"
+              placeholder="$"
+            />
+          </template>
+          <template v-else>
+            <input
+              v-model.number="task.cumulativePercent"
+              type="number"
+              step="1"
+              :min="task.billed_percent"
+              max="100"
+              class="pct-input"
+              placeholder="%"
+            />
+          </template>
           <span class="task-amount">{{ formatCurrency(thisAmount(task)) }}</span>
         </div>
         <div class="total-row">
@@ -153,6 +175,7 @@ async function save() {
 .task-header { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--p-text-muted-color); font-weight: 600; border-bottom: 1px solid var(--p-content-border-color); }
 .task-header span:not(:first-child) { text-align: right; }
 .task-name { font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.te-badge { font-size: 0.625rem; background: var(--p-orange-100); color: var(--p-orange-700); padding: 0.0625rem 0.25rem; border-radius: 0.25rem; margin-left: 0.25rem; font-weight: 600; vertical-align: middle; }
 .task-fee, .task-prev, .task-amount { font-size: 0.8125rem; text-align: right; }
 .total-row { display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 2px solid var(--p-content-border-color); margin-top: 0.25rem; font-weight: 600; font-size: 0.875rem; }
 .total-amount { color: var(--p-text-color); }

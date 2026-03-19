@@ -81,7 +81,7 @@ export function getNextInvoiceNumber(
 export function createInvoiceFromContract(
   contractId: string,
   data: {
-    tasks: { task_id: string; percent_this_invoice: number }[]
+    tasks: { task_id: string; percent_this_invoice?: number; amount_this_invoice?: number }[]
     pm_email?: string
     invoice_number?: string
     invoice_date?: string

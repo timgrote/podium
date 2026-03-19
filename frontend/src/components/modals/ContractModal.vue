@@ -26,7 +26,7 @@ const form = ref({
   notes: '',
 })
 
-const tasks = ref<{ name: string; description: string; amount: number }[]>([])
+const tasks = ref<{ name: string; description: string; amount: number; billing_type: 'fixed' | 'time_expense' }[]>([])
 
 watch(visible, async (val) => {
   if (!val) return
@@ -43,6 +43,7 @@ watch(visible, async (val) => {
         name: t.name,
         description: t.description || '',
         amount: t.amount,
+        billing_type: t.billing_type || 'fixed',
       }))
     } catch (e) {
       emit('error', String(e))
@@ -52,12 +53,12 @@ watch(visible, async (val) => {
     }
   } else {
     form.value = { signed_at: '', file_path: '', notes: '' }
-    tasks.value = [{ name: '', description: '', amount: 0 }]
+    tasks.value = [{ name: '', description: '', amount: 0, billing_type: 'fixed' }]
   }
 })
 
 function addTask() {
-  tasks.value.push({ name: '', description: '', amount: 0 })
+  tasks.value.push({ name: '', description: '', amount: 0, billing_type: 'fixed' })
 }
 
 function removeTask(index: number) {
@@ -134,6 +135,10 @@ async function save() {
             placeholder="Amount"
             class="task-amount"
           />
+          <select v-model="task.billing_type" class="task-type">
+            <option value="fixed">Fixed</option>
+            <option value="time_expense">T&amp;E</option>
+          </select>
           <button class="btn-remove" @click="removeTask(i)">&times;</button>
         </div>
         <div class="task-total">
@@ -162,6 +167,7 @@ async function save() {
 .task-row { display: flex; gap: 0.5rem; margin-bottom: 0.375rem; align-items: center; }
 .task-name { flex: 1; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .task-amount { width: 100px; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; text-align: right; background: var(--p-form-field-background); color: var(--p-text-color); }
+.task-type { width: 70px; padding: 0.375rem 0.25rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.75rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .btn-remove { background: none; border: none; color: var(--p-red-600); cursor: pointer; font-size: 1.25rem; padding: 0 0.25rem; }
 .task-total { text-align: right; font-weight: 600; font-size: 0.875rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--p-content-border-color); }
 .loading { text-align: center; padding: 2rem; color: var(--p-text-muted-color); }

@@ -80,9 +80,10 @@ def create_contract(data: ContractCreate, db=Depends(get_db)):
         for i, task in enumerate(data.tasks):
             task_id = generate_id("ctask-")
             db.execute(
-                "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, created_at, updated_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0), now, now),
+                "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, billing_type, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0),
+                 task.get("billing_type", "fixed"), now, now),
             )
 
     db.commit()
@@ -122,10 +123,11 @@ def update_contract(contract_id: str, data: ContractUpdate, db=Depends(get_db)):
             task_id = generate_id("ctask-")
             db.execute(
                 "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, "
-                "billed_amount, billed_percent, created_at, updated_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "billing_type, billed_amount, billed_percent, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (task_id, contract_id, i + 1, task["name"], task.get("description"),
-                 task.get("amount", 0), task.get("billed_amount", 0), task.get("billed_percent", 0),
+                 task.get("amount", 0), task.get("billing_type", "fixed"),
+                 task.get("billed_amount", 0), task.get("billed_percent", 0),
                  now, now),
             )
         _update_contract_total(db, contract_id)
@@ -174,9 +176,9 @@ def add_contract_task(
     ).fetchone()["max_order"]
 
     db.execute(
-        "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (task_id, contract_id, max_order + 1, data.name, data.description, data.amount, now, now),
+        "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, billing_type, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (task_id, contract_id, max_order + 1, data.name, data.description, data.amount, data.billing_type, now, now),
     )
 
     # Update contract total
@@ -285,7 +287,6 @@ def create_invoice_from_contract(
 
     for task_spec in data.tasks:
         task_id = task_spec["task_id"]
-        percent_this = task_spec["percent_this_invoice"]
 
         task = db.execute(
             "SELECT * FROM contract_tasks WHERE id = %s AND contract_id = %s",
@@ -294,7 +295,16 @@ def create_invoice_from_contract(
         if not task:
             raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
-        current_billing = task["amount"] * percent_this / 100
+        task_amount = float(task["amount"])
+        billing_type = task.get("billing_type", "fixed")
+
+        # Support both percent-driven and amount-driven billing
+        if "amount_this_invoice" in task_spec and task_spec["amount_this_invoice"] is not None:
+            current_billing = float(task_spec["amount_this_invoice"])
+            percent_this = (current_billing / task_amount * 100) if task_amount else 0
+        else:
+            percent_this = task_spec["percent_this_invoice"]
+            current_billing = task_amount * percent_this / 100
 
         # Compute previous billing from active invoices (not stored column)
         prev_row = db.execute(
@@ -309,12 +319,13 @@ def create_invoice_from_contract(
             "task_id": task_id,
             "name": task["name"],
             "description": task["description"],
-            "unit_price": float(task["amount"]),
+            "unit_price": task_amount,
             "quantity": float(percent_this),
             "amount": float(current_billing),
             "previous_billing": previous_billing,
+            "billing_type": billing_type,
         })
-        total_due += current_billing
+        total_due += Decimal(str(current_billing))
 
     # Create invoice
     invoice_date = data.invoice_date or now[:10]
@@ -329,10 +340,11 @@ def create_invoice_from_contract(
         li_id = generate_id("li-")
         db.execute(
             "INSERT INTO invoice_line_items (id, invoice_id, sort_order, name, description, "
-            "quantity, unit_price, amount, previous_billing, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "quantity, unit_price, amount, previous_billing, billing_type, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (li_id, inv_id, i + 1, li["name"], li["description"],
-             li["quantity"], li["unit_price"], li["amount"], li["previous_billing"], now),
+             li["quantity"], li["unit_price"], li["amount"], li["previous_billing"],
+             li.get("billing_type", "fixed"), now),
         )
 
     # Set as current invoice on project

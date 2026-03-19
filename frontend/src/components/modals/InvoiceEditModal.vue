@@ -27,7 +27,7 @@ const invoiceDate = ref('')
 const description = ref('')
 const status = ref<'draft' | 'sent' | 'paid'>('draft')
 const paidDate = ref('')
-const lineItems = ref<(InvoiceLineItem & { editQuantity: number })[]>([])
+const lineItems = ref<(InvoiceLineItem & { editQuantity: number; editAmount: number })[]>([])
 
 watch(visible, async (val) => {
   if (!val || !props.invoiceId) return
@@ -43,6 +43,7 @@ watch(visible, async (val) => {
     lineItems.value = (inv.line_items || []).map((li) => ({
       ...li,
       editQuantity: li.quantity,
+      editAmount: li.amount,
     }))
   } catch (e) {
     emit('error', String(e))
@@ -66,13 +67,14 @@ function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 }
 
-function cumulativePercent(item: InvoiceLineItem & { editQuantity: number }): number {
+function cumulativePercent(item: InvoiceLineItem & { editQuantity: number; editAmount: number }): number {
   if (!item.unit_price) return 0
-  const thisAmount = (item.unit_price * item.editQuantity) / 100
-  return ((item.previous_billing + thisAmount) / item.unit_price) * 100
+  const amt = item.billing_type === 'time_expense' ? item.editAmount : (item.unit_price * item.editQuantity) / 100
+  return ((item.previous_billing + amt) / item.unit_price) * 100
 }
 
-function thisAmount(item: InvoiceLineItem & { editQuantity: number }): number {
+function thisAmount(item: InvoiceLineItem & { editQuantity: number; editAmount: number }): number {
+  if (item.billing_type === 'time_expense') return item.editAmount
   return (item.unit_price * item.editQuantity) / 100
 }
 
@@ -89,11 +91,12 @@ async function save() {
       sent_status: status.value === 'draft' ? 'unsent' : 'sent',
       paid_status: status.value === 'paid' ? 'paid' : 'unpaid',
       paid_at: status.value === 'paid' ? paidDate.value || undefined : undefined,
-      line_items: lineItems.value.map((li) => ({
-        quantity: li.editQuantity,
-        unit_price: li.unit_price,
-        previous_billing: li.previous_billing,
-      })),
+      line_items: lineItems.value.map((li) => {
+        if (li.billing_type === 'time_expense') {
+          return { amount: li.editAmount, unit_price: li.unit_price, previous_billing: li.previous_billing }
+        }
+        return { quantity: li.editQuantity, unit_price: li.unit_price, previous_billing: li.previous_billing }
+      }),
     })
     toast.success('Invoice updated')
     emit('saved')
@@ -143,21 +146,37 @@ async function save() {
           <span>Task</span>
           <span>Fee</span>
           <span>Prev Billing</span>
-          <span>% This Inv</span>
+          <span>Input</span>
           <span>Cumulative %</span>
           <span>This Amount</span>
         </div>
         <div v-for="item in lineItems" :key="item.id" class="task-row">
-          <span class="task-name">{{ item.name }}</span>
+          <span class="task-name">
+            {{ item.name }}
+            <span v-if="item.billing_type === 'time_expense'" class="te-badge">T&amp;E</span>
+          </span>
           <span class="num">{{ formatCurrency(item.unit_price) }}</span>
           <span class="num">{{ formatCurrency(item.previous_billing) }}</span>
-          <input
-            v-model.number="item.editQuantity"
-            type="number"
-            step="1"
-            min="0"
-            class="pct-input"
-          />
+          <template v-if="item.billing_type === 'time_expense'">
+            <input
+              v-model.number="item.editAmount"
+              type="number"
+              step="0.01"
+              min="0"
+              class="pct-input"
+              placeholder="$"
+            />
+          </template>
+          <template v-else>
+            <input
+              v-model.number="item.editQuantity"
+              type="number"
+              step="1"
+              min="0"
+              class="pct-input"
+              placeholder="%"
+            />
+          </template>
           <span class="num cumulative">{{ cumulativePercent(item).toFixed(1) }}%</span>
           <span class="num">{{ formatCurrency(thisAmount(item)) }}</span>
         </div>
@@ -187,6 +206,7 @@ async function save() {
 .task-header, .task-row { display: grid; grid-template-columns: 1fr 5.5rem 5.5rem 4.5rem 5rem 5.5rem; gap: 0.5rem; align-items: center; padding: 0.375rem 0; }
 .task-header { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--p-text-muted-color); font-weight: 600; border-bottom: 1px solid var(--p-content-border-color); }
 .task-name { font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.te-badge { font-size: 0.625rem; background: var(--p-orange-100); color: var(--p-orange-700); padding: 0.0625rem 0.25rem; border-radius: 0.25rem; margin-left: 0.25rem; font-weight: 600; vertical-align: middle; }
 .num { font-size: 0.8125rem; text-align: right; }
 .cumulative { font-weight: 600; color: var(--p-primary-color); }
 .pct-input { width: 100%; padding: 0.25rem 0.375rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; text-align: right; background: var(--p-form-field-background); color: var(--p-text-color); }

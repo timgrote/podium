@@ -421,6 +421,7 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
             "quantity": 0,
             "amount": 0,
             "previous_billing": float(new_previous_billing),
+            "billing_type": li.get("billing_type", "fixed"),
         })
 
     # Billing is computed from active invoices — no stored update needed.
@@ -437,10 +438,11 @@ def create_next_invoice(invoice_id: str, db=Depends(get_db)):
         li_id = generate_id("li-")
         db.execute(
             "INSERT INTO invoice_line_items (id, invoice_id, sort_order, name, description, "
-            "quantity, unit_price, amount, previous_billing, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "quantity, unit_price, amount, previous_billing, billing_type, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (li_id, new_inv_id, i + 1, li["name"], li["description"],
-             li["quantity"], li["unit_price"], li["amount"], li["previous_billing"], now),
+             li["quantity"], li["unit_price"], li["amount"], li["previous_billing"],
+             li.get("billing_type", "fixed"), now),
         )
 
     # Set as current invoice on project
@@ -486,10 +488,17 @@ def update_invoice(
             old_li = dict(old_li)
             if i < len(new_line_items):
                 new_li = new_line_items[i]
-                quantity = new_li.get("quantity", old_li["quantity"])
                 unit_price = new_li.get("unit_price", old_li["unit_price"])
-                amount = unit_price * quantity / 100
+                billing_type = old_li.get("billing_type", "fixed")
                 previous_billing = new_li.get("previous_billing", old_li.get("previous_billing", 0))
+
+                if billing_type == "time_expense" and "amount" in new_li:
+                    amount = new_li["amount"]
+                    quantity = (amount / unit_price * 100) if unit_price else 0
+                else:
+                    quantity = new_li.get("quantity", old_li["quantity"])
+                    amount = unit_price * quantity / 100
+
                 db.execute(
                     "UPDATE invoice_line_items SET quantity = %s, unit_price = %s, amount = %s, "
                     "previous_billing = %s WHERE id = %s",

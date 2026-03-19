@@ -25,7 +25,7 @@ class InvoiceUpdate(BaseModel):
 
 class InvoiceFromContract(BaseModel):
     tasks: list[dict]
-    """Each dict: {"task_id": str, "percent_this_invoice": float}"""
+    """Each dict: {"task_id": str, "percent_this_invoice": float} or {"task_id": str, "amount_this_invoice": float}"""
     pm_email: str | None = None
     invoice_number: str | None = None
     invoice_date: str | None = None
