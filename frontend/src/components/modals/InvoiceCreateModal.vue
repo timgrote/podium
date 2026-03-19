@@ -65,14 +65,12 @@ const invoiceTotal = computed(() =>
 
 async function save() {
   const selected = tasks.value
-    .filter((t) => thisAmount(t) > 0)
     .map((t) => {
       if (t.billing_type === 'time_expense') {
         return { task_id: t.id, amount_this_invoice: t.thisAmountInput }
       }
       return { task_id: t.id, percent_this_invoice: t.cumulativePercent - t.billed_percent }
     })
-  if (selected.length === 0) return
 
   saving.value = true
   try {
@@ -157,7 +155,7 @@ async function save() {
     </div>
     <template #footer>
       <button class="btn" @click="visible = false">Cancel</button>
-      <button class="btn btn-primary" :disabled="saving || invoiceTotal <= 0" @click="save">
+      <button class="btn btn-primary" :disabled="saving" @click="save">
         {{ saving ? 'Creating...' : 'Create Invoice' }}
       </button>
     </template>

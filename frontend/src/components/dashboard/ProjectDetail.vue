@@ -743,7 +743,7 @@ function formatPercent(value: number): string {
                 :href="invoice.data_path"
                 target="_blank"
               >
-                <i class="pi pi-file-excel" />
+                <i class="pi pi-file-excel" style="color: var(--p-green-600)" />
               </a>
               <button
                 v-else
@@ -752,7 +752,7 @@ function formatPercent(value: number): string {
                 :disabled="!!invoiceBusy[invoice.id]"
                 @click="genInvoiceSheet(invoice.id)"
               >
-                <i class="pi" :class="invoiceBusy[invoice.id] === 'gen' ? 'pi-spin pi-spinner' : 'pi-file-excel'" />
+                <i class="pi" :class="invoiceBusy[invoice.id] === 'gen' ? 'pi-spin pi-spinner' : 'pi-file-excel'" :style="invoiceBusy[invoice.id] === 'gen' ? '' : 'color: var(--p-green-600)'" />
               </button>
               <button
                 v-if="invoice.data_path && invoice.data_path.includes('google.com') && !invoice.pdf_path"
@@ -761,7 +761,7 @@ function formatPercent(value: number): string {
                 :disabled="!!invoiceBusy[invoice.id]"
                 @click="exportInvoicePdf(invoice.id)"
               >
-                <i class="pi" :class="invoiceBusy[invoice.id] === 'pdf' ? 'pi-spin pi-spinner' : 'pi-file-pdf'" />
+                <i class="pi" :class="invoiceBusy[invoice.id] === 'pdf' ? 'pi-spin pi-spinner' : 'pi-file-pdf'" :style="invoiceBusy[invoice.id] === 'pdf' ? '' : 'color: var(--p-red-600)'" />
               </button>
               <a
                 v-if="invoice.pdf_path"
@@ -770,7 +770,7 @@ function formatPercent(value: number): string {
                 :href="invoice.pdf_path"
                 target="_blank"
               >
-                <i class="pi pi-file-pdf" />
+                <i class="pi pi-file-pdf" style="color: var(--p-red-600)" />
               </a>
               <button class="btn-icon" title="Actions" @click="emit('invoiceActions', invoice.id)">
                 <i class="pi pi-ellipsis-h" />

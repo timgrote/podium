@@ -6,6 +6,7 @@ import ProjectDetail from './ProjectDetail.vue'
 
 const props = defineProps<{
   projects: ProjectSummary[]
+  pinnedIds: Set<string>
   searchQuery: string
   statusFilter: string
   pmFilter: string
@@ -45,6 +46,8 @@ const emit = defineEmits<{
   projectToggled: [projectId: string | null]
   entityClicked: [projectId: string, entityType: string, entityId: string]
   taskModalClosed: [projectId: string]
+  togglePin: [projectId: string]
+  reorderPinned: [fromId: string, toId: string]
 }>()
 
 const expandedId = ref<string | null>(props.initialExpandedId || null)
@@ -68,6 +71,35 @@ watch(() => props.initialExpandedId, (newId) => {
     }
   }
 }, { immediate: true })
+
+const dragId = ref<string | null>(null)
+const dragOverId = ref<string | null>(null)
+
+function onDragStart(projectId: string, e: DragEvent) {
+  dragId.value = projectId
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+function onDragOver(projectId: string, e: DragEvent) {
+  if (!dragId.value || !props.pinnedIds.has(projectId)) return
+  e.preventDefault()
+  dragOverId.value = projectId
+}
+
+function onDrop(projectId: string) {
+  if (dragId.value && dragId.value !== projectId) {
+    emit('reorderPinned', dragId.value, projectId)
+  }
+  dragId.value = null
+  dragOverId.value = null
+}
+
+function onDragEnd() {
+  dragId.value = null
+  dragOverId.value = null
+}
 
 function toggleExpand(id: string) {
   const newId = expandedId.value === id ? null : id
@@ -135,6 +167,7 @@ function toggleExpand(id: string) {
         Invoiced
         <i v-if="sortField === 'total_invoiced'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
       </div>
+      <div class="col-pin"></div>
       <div class="col-edit"></div>
     </div>
     </div>
@@ -145,8 +178,16 @@ function toggleExpand(id: string) {
         :key="project.id"
         :project="project"
         :expanded="expandedId === project.id"
+        :pinned="pinnedIds.has(project.id)"
+        :class="{ 'drag-over': dragOverId === project.id }"
+        :draggable="pinnedIds.has(project.id)"
+        @dragstart="onDragStart(project.id, $event)"
+        @dragover="onDragOver(project.id, $event)"
+        @drop="onDrop(project.id)"
+        @dragend="onDragEnd"
         @toggle="toggleExpand(project.id)"
         @edit="emit('editProject', project)"
+        @toggle-pin="emit('togglePin', project.id)"
       >
         <ProjectDetail
           :project="project"
@@ -295,6 +336,7 @@ function toggleExpand(id: string) {
 .col-project { flex: 1; min-width: 0; }
 .col-deadline { width: 6.5rem; flex-shrink: 0; }
 .col-financial { width: 5rem; flex-shrink: 0; text-align: right; justify-content: flex-end; }
+.col-pin { width: 1.5rem; flex-shrink: 0; }
 .col-edit { width: 1.5rem; flex-shrink: 0; }
 
 .cards {
@@ -302,6 +344,12 @@ function toggleExpand(id: string) {
   flex-direction: column;
   gap: 0.5rem;
   padding-top: 0.5rem;
+}
+
+.drag-over {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: -2px;
+  border-radius: 0.5rem;
 }
 
 .empty-state {

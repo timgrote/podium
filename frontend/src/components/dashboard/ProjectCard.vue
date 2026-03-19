@@ -6,12 +6,14 @@ import { parseLocalDate, formatDateShort } from '../../utils/dates'
 const props = defineProps<{
   project: ProjectSummary
   expanded: boolean
+  pinned: boolean
 }>()
 
 const emit = defineEmits<{
   toggle: []
   edit: []
   delete: []
+  togglePin: []
 }>()
 
 const pmInitials = computed(() => {
@@ -87,6 +89,11 @@ function formatCurrency(value: number): string {
       <div class="col-financial">
         <span class="financial">{{ formatCurrency(project.total_invoiced) }}</span>
       </div>
+      <div class="col-pin">
+        <button class="btn-pin" :class="{ active: pinned }" :title="pinned ? 'Unpin project' : 'Pin project'" @click.stop="emit('togglePin')">
+          <i class="pi" :class="pinned ? 'pi-thumbtack' : 'pi-thumbtack'" />
+        </button>
+      </div>
       <div class="col-edit">
         <button class="btn-edit" title="Edit project" @click.stop="emit('edit')">
           <i class="pi pi-pencil" />
@@ -128,6 +135,7 @@ function formatCurrency(value: number): string {
 .col-project { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.5rem; overflow: hidden; }
 .col-deadline { width: 6.5rem; flex-shrink: 0; }
 .col-financial { width: 5rem; flex-shrink: 0; text-align: right; }
+.col-pin { width: 1.5rem; flex-shrink: 0; display: flex; justify-content: center; }
 .col-edit { width: 1.5rem; flex-shrink: 0; display: flex; justify-content: center; }
 
 .pm-avatar {
@@ -205,6 +213,31 @@ function formatCurrency(value: number): string {
 .btn-edit:hover {
   background: var(--p-content-hover-background);
   color: var(--p-text-color);
+}
+
+.btn-pin {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: var(--p-surface-400);
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.project-row:hover .btn-pin,
+.btn-pin.active {
+  opacity: 1;
+}
+
+.btn-pin.active {
+  color: var(--p-primary-color);
+}
+
+.btn-pin:hover {
+  color: var(--p-primary-color);
 }
 
 .project-detail-slot {

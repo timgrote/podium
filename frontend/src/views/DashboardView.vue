@@ -32,6 +32,9 @@ const {
   sortOrder,
   uniqueStatuses,
   uniquePMs,
+  pinnedIds,
+  togglePin,
+  reorderPinned,
   load: loadProjects,
   toggleSort,
 } = useProjects()
@@ -280,6 +283,7 @@ onMounted(async () => {
 
     <ProjectList
       :projects="filtered"
+      :pinned-ids="pinnedIds"
       :search-query="searchQuery"
       :status-filter="statusFilter"
       :pm-filter="pmFilter"
@@ -298,6 +302,8 @@ onMounted(async () => {
       @update:pm-filter="pmFilter = $event"
       @update:client-filter="clientFilter = $event"
       @toggle-sort="toggleSort"
+      @toggle-pin="togglePin"
+      @reorder-pinned="reorderPinned"
       @create-project="openCreateProject"
       @edit-project="openEditProject"
       @refresh-project="loadProjects"

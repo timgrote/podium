@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
-import { sendInvoice, createNextInvoice, deleteInvoice, generateSheet, updateInvoice } from '../../api/invoices'
+import { sendInvoice, createNextInvoice, deleteInvoice, generateSheet, updateInvoice, getInvoice } from '../../api/invoices'
 import { todayStr } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -21,6 +21,15 @@ const acting = ref(false)
 const confirmDelete = ref(false)
 const showMarkPaid = ref(false)
 const paidDate = ref(todayStr())
+const isSent = ref(false)
+
+watch(visible, async (val) => {
+  if (!val || !props.invoiceId) return
+  try {
+    const inv = await getInvoice(props.invoiceId)
+    isSent.value = inv.sent_status === 'sent'
+  } catch { /* ignore */ }
+})
 
 async function doAction(action: string) {
   acting.value = true
@@ -37,6 +46,14 @@ async function doAction(action: string) {
       case 'recreate-sheet':
         await generateSheet(props.invoiceId, { force: true })
         toast.success('Google Sheet recreated')
+        break
+      case 'mark-sent':
+        await updateInvoice(props.invoiceId, { sent_status: 'sent' })
+        toast.success('Invoice marked as sent')
+        break
+      case 'mark-unsent':
+        await updateInvoice(props.invoiceId, { sent_status: 'draft' })
+        toast.success('Invoice marked as unsent')
         break
       case 'mark-paid':
         await updateInvoice(props.invoiceId, {
@@ -76,6 +93,14 @@ async function doAction(action: string) {
       <button class="action-btn" :disabled="acting" @click="doAction('send')">
         <i class="pi pi-envelope" />
         <span>Send Invoice</span>
+      </button>
+      <button v-if="!isSent" class="action-btn" :disabled="acting" @click="doAction('mark-sent')">
+        <i class="pi pi-check" />
+        <span>Mark as Sent</span>
+      </button>
+      <button v-else class="action-btn" :disabled="acting" @click="doAction('mark-unsent')">
+        <i class="pi pi-undo" />
+        <span>Mark as Unsent</span>
       </button>
       <button class="action-btn" :disabled="acting" @click="doAction('next')">
         <i class="pi pi-arrow-right" />
