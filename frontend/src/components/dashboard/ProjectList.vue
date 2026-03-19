@@ -78,6 +78,7 @@ function toggleExpand(id: string) {
 
 <template>
   <div class="project-list">
+    <div class="sticky-header">
     <div class="list-toolbar">
       <div class="search-bar">
         <i class="pi pi-search" />
@@ -136,6 +137,7 @@ function toggleExpand(id: string) {
       </div>
       <div class="col-edit"></div>
     </div>
+    </div>
 
     <div class="cards">
       <ProjectCard
@@ -181,7 +183,14 @@ function toggleExpand(id: string) {
 .project-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--p-content-background);
+  padding-bottom: 0.5rem;
 }
 
 .list-toolbar {
@@ -189,6 +198,7 @@ function toggleExpand(id: string) {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  padding-bottom: 0.75rem;
 }
 
 .search-bar {
@@ -285,6 +295,7 @@ function toggleExpand(id: string) {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding-top: 0.5rem;
 }
 
 .empty-state {
