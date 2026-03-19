@@ -70,6 +70,9 @@ function formatCurrency(value: number): string {
           class="pm-avatar-initials"
           :title="project.pm_name"
         >{{ pmInitials }}</span>
+        <button class="btn-pin" :class="{ active: pinned }" :title="pinned ? 'Unpin project' : 'Pin project'" @click.stop="emit('togglePin')">
+          <i class="pi pi-thumbtack" />
+        </button>
       </div>
       <div class="col-project">
         <i
@@ -88,11 +91,6 @@ function formatCurrency(value: number): string {
       </div>
       <div class="col-financial">
         <span class="financial">{{ formatCurrency(project.total_invoiced) }}</span>
-      </div>
-      <div class="col-pin">
-        <button class="btn-pin" :class="{ active: pinned }" :title="pinned ? 'Unpin project' : 'Pin project'" @click.stop="emit('togglePin')">
-          <i class="pi" :class="pinned ? 'pi-thumbtack' : 'pi-thumbtack'" />
-        </button>
       </div>
       <div class="col-edit">
         <button class="btn-edit" title="Edit project" @click.stop="emit('edit')">
@@ -131,11 +129,10 @@ function formatCurrency(value: number): string {
   gap: 0.75rem;
 }
 
-.col-pm { width: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.col-pm { width: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 0.125rem; }
 .col-project { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.5rem; overflow: hidden; }
 .col-deadline { width: 6.5rem; flex-shrink: 0; }
 .col-financial { width: 5rem; flex-shrink: 0; text-align: right; }
-.col-pin { width: 1.5rem; flex-shrink: 0; display: flex; justify-content: center; }
 .col-edit { width: 1.5rem; flex-shrink: 0; display: flex; justify-content: center; }
 
 .pm-avatar {

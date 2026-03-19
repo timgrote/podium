@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { ProjectSummary } from '../../types'
 import ProjectCard from './ProjectCard.vue'
 import ProjectDetail from './ProjectDetail.vue'
@@ -101,6 +101,9 @@ function onDragEnd() {
   dragOverId.value = null
 }
 
+const pinnedProjects = computed(() => props.projects.filter((p) => props.pinnedIds.has(p.id)))
+const unpinnedProjects = computed(() => props.projects.filter((p) => !props.pinnedIds.has(p.id)))
+
 function toggleExpand(id: string) {
   const newId = expandedId.value === id ? null : id
   expandedId.value = newId
@@ -167,24 +170,60 @@ function toggleExpand(id: string) {
         Invoiced
         <i v-if="sortField === 'total_invoiced'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
       </div>
-      <div class="col-pin"></div>
       <div class="col-edit"></div>
     </div>
     </div>
 
-    <div class="cards">
+    <div v-if="pinnedProjects.length > 0" class="pinned-section">
       <ProjectCard
-        v-for="project in projects"
+        v-for="project in pinnedProjects"
         :key="project.id"
         :project="project"
         :expanded="expandedId === project.id"
-        :pinned="pinnedIds.has(project.id)"
+        :pinned="true"
         :class="{ 'drag-over': dragOverId === project.id }"
-        :draggable="pinnedIds.has(project.id)"
+        :draggable="true"
         @dragstart="onDragStart(project.id, $event)"
         @dragover="onDragOver(project.id, $event)"
         @drop="onDrop(project.id)"
         @dragend="onDragEnd"
+        @toggle="toggleExpand(project.id)"
+        @edit="emit('editProject', project)"
+        @toggle-pin="emit('togglePin', project.id)"
+      >
+        <ProjectDetail
+          :project="project"
+          :auto-open-task-id="expandedId === project.id ? autoOpenTaskId : null"
+          :auto-open-entity-type="expandedId === project.id ? autoOpenEntityType : null"
+          :auto-open-entity-id="expandedId === project.id ? autoOpenEntityId : null"
+          :initial-tab="expandedId === project.id ? initialTab : null"
+          @edit-project="emit('editProject', project)"
+          @refresh-project="emit('refreshProject')"
+          @delete-project="emit('deleteProject', project)"
+          @create-contract="emit('createContract', $event)"
+          @edit-contract="emit('editContract', $event)"
+          @delete-contract="emit('deleteContract', $event)"
+          @create-invoice="emit('createInvoice', $event)"
+          @edit-invoice="emit('editInvoice', $event)"
+          @delete-invoice="emit('deleteInvoice', $event)"
+          @invoice-actions="emit('invoiceActions', $event)"
+          @create-proposal="emit('createProposal', $event)"
+          @edit-proposal="emit('editProposal', $event)"
+          @delete-proposal="emit('deleteProposal', $event)"
+          @promote-proposal="emit('promoteProposal', $event)"
+          @entity-clicked="(type: string, id: string) => emit('entityClicked', project.id, type, id)"
+          @task-modal-closed="emit('taskModalClosed', project.id)"
+        />
+      </ProjectCard>
+    </div>
+
+    <div class="cards">
+      <ProjectCard
+        v-for="project in unpinnedProjects"
+        :key="project.id"
+        :project="project"
+        :expanded="expandedId === project.id"
+        :pinned="false"
         @toggle="toggleExpand(project.id)"
         @edit="emit('editProject', project)"
         @toggle-pin="emit('togglePin', project.id)"
@@ -332,11 +371,10 @@ function toggleExpand(id: string) {
   font-size: 0.625rem;
 }
 
-.col-pm { width: 28px; flex-shrink: 0; }
+.col-pm { width: 48px; flex-shrink: 0; }
 .col-project { flex: 1; min-width: 0; }
 .col-deadline { width: 6.5rem; flex-shrink: 0; }
 .col-financial { width: 5rem; flex-shrink: 0; text-align: right; justify-content: flex-end; }
-.col-pin { width: 1.5rem; flex-shrink: 0; }
 .col-edit { width: 1.5rem; flex-shrink: 0; }
 
 .cards {
@@ -344,6 +382,21 @@ function toggleExpand(id: string) {
   flex-direction: column;
   gap: 0.5rem;
   padding-top: 0.5rem;
+}
+
+.pinned-section {
+  position: sticky;
+  top: 5.5rem;
+  z-index: 4;
+  background: var(--p-surface-50);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+:root.app-dark .pinned-section {
+  background: var(--p-surface-950);
 }
 
 .drag-over {
