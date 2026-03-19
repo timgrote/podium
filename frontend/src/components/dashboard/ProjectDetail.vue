@@ -1162,8 +1162,8 @@ function formatPercent(value: number): string {
             <img v-if="note.author_avatar_url" :src="note.author_avatar_url" class="note-avatar" />
             <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
             <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
-            <button v-if="editingNoteId !== note.id" class="btn-edit-note" @click="startEditNote(note)">edit</button>
-            <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
+            <button v-if="editingNoteId !== note.id" class="btn-edit-note" title="Edit note" @click="startEditNote(note)"><i class="pi pi-pencil" /></button>
+            <button class="btn-remove" title="Delete note" @click="removeNote(note.id)">&times;</button>
           </div>
           <div v-if="editingNoteId === note.id" class="note-edit">
             <textarea v-model="editNoteContent" rows="3" class="note-edit-textarea" />
@@ -1949,11 +1949,15 @@ function formatPercent(value: number): string {
   cursor: pointer;
   font-size: 0.75rem;
   margin-left: auto;
-  padding: 0 0.25rem;
+  padding: 0.125rem 0.25rem;
 }
 
 .btn-edit-note:hover {
   color: var(--p-primary-color);
+}
+
+.btn-edit-note .pi {
+  font-size: 0.6875rem;
 }
 
 .note-edit {
