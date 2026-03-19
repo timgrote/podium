@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import type { ProjectSummary, ProjectNote, Task, ProjectContact, Contact } from '../../types'
-import { getProjectNotes, addProjectNote, deleteProjectNote, getProjectContacts, addProjectContact, removeProjectContact } from '../../api/projects'
+import { getProjectNotes, addProjectNote, updateProjectNote, deleteProjectNote, getProjectContacts, addProjectContact, removeProjectContact } from '../../api/projects'
 import { getContacts, createContact } from '../../api/contacts'
 import { getProjectTasks, createTask, updateTask } from '../../api/tasks'
 import { generateDoc, exportProposalPdf, sendProposal } from '../../api/proposals'
@@ -74,6 +74,8 @@ const newNote = ref('')
 const noteSaving = ref(false)
 const noteImageUploading = ref(false)
 const noteSearch = ref('')
+const editingNoteId = ref<string | null>(null)
+const editNoteContent = ref('')
 
 const filteredNotes = computed(() => {
   const sorted = [...notes.value].sort((a, b) => {
@@ -342,6 +344,29 @@ async function submitNote() {
     toast.error(String(e))
   } finally {
     noteSaving.value = false
+  }
+}
+
+function startEditNote(note: ProjectNote) {
+  editingNoteId.value = note.id
+  editNoteContent.value = note.content
+}
+
+function cancelEditNote() {
+  editingNoteId.value = null
+  editNoteContent.value = ''
+}
+
+async function saveEditNote(noteId: string) {
+  if (!editNoteContent.value.trim()) return
+  try {
+    await updateProjectNote(noteId, { content: editNoteContent.value })
+    editingNoteId.value = null
+    editNoteContent.value = ''
+    toast.success('Note updated')
+    await loadNotes()
+  } catch (e) {
+    toast.error(String(e))
   }
 }
 
@@ -1137,9 +1162,17 @@ function formatPercent(value: number): string {
             <img v-if="note.author_avatar_url" :src="note.author_avatar_url" class="note-avatar" />
             <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
             <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
+            <button v-if="editingNoteId !== note.id" class="btn-edit-note" @click="startEditNote(note)">edit</button>
             <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
           </div>
-          <RichText :content="note.content" class="note-body" />
+          <div v-if="editingNoteId === note.id" class="note-edit">
+            <textarea v-model="editNoteContent" rows="3" class="note-edit-textarea" />
+            <div class="note-edit-actions">
+              <button class="btn btn-sm btn-primary" @click="saveEditNote(note.id)">Save</button>
+              <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>
+            </div>
+          </div>
+          <RichText v-else :content="note.content" class="note-body" />
         </div>
       </div>
     </div>
@@ -1906,6 +1939,43 @@ function formatPercent(value: number): string {
 
 .btn-copy-link:hover {
   color: var(--p-primary-color);
+}
+
+/* Note editing */
+.btn-edit-note {
+  background: none;
+  border: none;
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  font-size: 0.75rem;
+  margin-left: auto;
+  padding: 0 0.25rem;
+}
+
+.btn-edit-note:hover {
+  color: var(--p-primary-color);
+}
+
+.note-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.note-edit-textarea {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--p-form-field-border-color);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  resize: vertical;
+  background: var(--p-form-field-background);
+  color: var(--p-text-color);
+  font-family: inherit;
+}
+
+.note-edit-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* Time tracking tab */
