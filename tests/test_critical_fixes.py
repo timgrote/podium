@@ -19,7 +19,7 @@ def _seed_project(db, project_id="TEST01", client_id="c-test1"):
     """Insert a client and project so other entities can reference them."""
     now = datetime.now().isoformat()
     db.execute(
-        "INSERT INTO clients (id, name, email, created_at, updated_at) "
+        "INSERT INTO clients (id, name, accounting_email, created_at, updated_at) "
         "VALUES (%s, 'Test Client', 'test@example.com', %s, %s)",
         (client_id, now, now),
     )
