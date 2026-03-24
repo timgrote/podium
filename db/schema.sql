@@ -23,7 +23,7 @@ CREATE TABLE clients (
     deleted_at TIMESTAMPTZ                  -- soft delete
 );
 
-CREATE INDEX idx_clients_email ON clients(email);
+CREATE INDEX idx_clients_email ON clients(accounting_email);
 CREATE INDEX idx_clients_name ON clients(name);
 
 -- ============================================================================
@@ -54,7 +54,8 @@ CREATE TABLE projects (
     id TEXT PRIMARY KEY,                    -- e.g., 'JBHL21' (user-defined job_id)
     name TEXT NOT NULL,
     client_id TEXT REFERENCES clients(id),
-    client_pm_id TEXT REFERENCES contacts(id),  -- project manager contact
+    pm_id TEXT,                             -- internal PM (employee, FK added after employees table)
+    client_pm_id TEXT REFERENCES contacts(id),  -- client-side project manager contact
     pm_name TEXT,                           -- project manager name (denormalized for convenience)
     pm_email TEXT,                          -- project manager email
     client_project_number TEXT,             -- client's internal project/PO number
@@ -237,6 +238,10 @@ CREATE TABLE employees (
     deleted_at TIMESTAMPTZ
 );
 
+-- Add FK from projects.pm_id to employees (deferred because employees is defined after projects)
+ALTER TABLE projects ADD CONSTRAINT fk_projects_pm_id FOREIGN KEY (pm_id) REFERENCES employees(id);
+CREATE INDEX IF NOT EXISTS idx_projects_pm_id ON projects(pm_id);
+
 -- ============================================================================
 -- SESSIONS
 -- Server-side session tokens for employee authentication
@@ -262,6 +267,24 @@ CREATE TABLE password_resets (
     used_at TIMESTAMPTZ              -- set when token is consumed
 );
 CREATE INDEX idx_password_resets_employee ON password_resets(employee_id);
+
+-- ============================================================================
+-- API KEYS
+-- Long-lived keys for external integrations (Gmail add-on, n8n, etc.)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    employee_id TEXT NOT NULL REFERENCES employees(id),
+    key_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    last_used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ,
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_employee ON api_keys(employee_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 
 -- ============================================================================
 -- USER SETTINGS

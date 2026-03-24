@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routers import auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, time_entries, uploads, updates
+from .routers import api_keys, auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, time_entries, uploads, updates
 
 _log_file = Path(__file__).resolve().parent.parent / "conductor.log"
 logging.basicConfig(
@@ -67,6 +67,7 @@ async def log_api_requests(request: Request, call_next):
 
 # --- API routers ---
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(api_keys.router, prefix="/api/auth", tags=["api-keys"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
 app.include_router(company.router, prefix="/api/company", tags=["company"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])

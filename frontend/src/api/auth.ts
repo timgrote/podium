@@ -1,6 +1,18 @@
 import { apiFetch } from './client'
 import type { Employee } from '../types'
 
+export interface ApiKey {
+  id: string
+  name: string
+  created_at: string | null
+  last_used_at: string | null
+  expires_at: string | null
+}
+
+export interface ApiKeyWithRaw extends ApiKey {
+  raw_key: string
+}
+
 export function login(email: string, password: string): Promise<Employee> {
   return apiFetch('/auth/login', {
     method: 'POST',
@@ -41,4 +53,19 @@ export function uploadAvatar(file: File): Promise<Employee> {
     method: 'POST',
     body: form,
   })
+}
+
+export function getApiKeys(): Promise<ApiKey[]> {
+  return apiFetch('/auth/api-keys')
+}
+
+export function createApiKey(name: string): Promise<ApiKeyWithRaw> {
+  return apiFetch('/auth/api-keys', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export function deleteApiKey(id: string): Promise<void> {
+  return apiFetch(`/auth/api-keys/${id}`, { method: 'DELETE' })
 }

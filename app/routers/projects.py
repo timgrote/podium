@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import require_auth
 from ..database import get_db
 from ..events import event_bus
 from ..models.project import ProjectContactAdd, ProjectContactResponse, ProjectCreate, ProjectDetail, ProjectNoteCreate, ProjectNoteResponse, ProjectSummary, ProjectUpdate
@@ -55,7 +56,7 @@ def _get_proposals_for_project(db, project_id: str) -> list[dict]:
 
 
 @router.get("", response_model=list[ProjectSummary])
-def list_projects(db=Depends(get_db)):
+def list_projects(db=Depends(get_db), employee: dict = Depends(require_auth)):
     rows = db.execute(
         "SELECT * FROM v_project_summary ORDER BY id"
     ).fetchall()
@@ -138,7 +139,7 @@ def list_projects(db=Depends(get_db)):
 
 
 @router.get("/{project_id}/contacts", response_model=list[ProjectContactResponse])
-def list_project_contacts(project_id: str, db=Depends(get_db)):
+def list_project_contacts(project_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     rows = db.execute(
         "SELECT pc.contact_id, pc.role, c.name, c.email, c.phone "
         "FROM project_contacts pc "
@@ -151,7 +152,7 @@ def list_project_contacts(project_id: str, db=Depends(get_db)):
 
 
 @router.post("/{project_id}/contacts", response_model=ProjectContactResponse, status_code=201)
-def add_project_contact(project_id: str, data: ProjectContactAdd, db=Depends(get_db)):
+def add_project_contact(project_id: str, data: ProjectContactAdd, db=Depends(get_db), employee: dict = Depends(require_auth)):
     # Verify project exists
     proj = db.execute(
         "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
@@ -195,7 +196,7 @@ def add_project_contact(project_id: str, data: ProjectContactAdd, db=Depends(get
 
 
 @router.delete("/{project_id}/contacts/{contact_id}")
-def remove_project_contact(project_id: str, contact_id: str, db=Depends(get_db)):
+def remove_project_contact(project_id: str, contact_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT 1 FROM project_contacts WHERE project_id = %s AND contact_id = %s",
         (project_id, contact_id),
@@ -215,7 +216,7 @@ def remove_project_contact(project_id: str, contact_id: str, db=Depends(get_db))
 
 
 @router.get("/notes/{note_id}", response_model=ProjectNoteResponse)
-def get_project_note(note_id: str, db=Depends(get_db)):
+def get_project_note(note_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     row = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
         "e.first_name || ' ' || e.last_name AS author_name, "
@@ -231,7 +232,7 @@ def get_project_note(note_id: str, db=Depends(get_db)):
 
 
 @router.patch("/notes/{note_id}", response_model=ProjectNoteResponse)
-def update_project_note(note_id: str, data: ProjectNoteCreate, db=Depends(get_db)):
+def update_project_note(note_id: str, data: ProjectNoteCreate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT id, project_id FROM project_notes WHERE id = %s", (note_id,)
     ).fetchone()
@@ -258,7 +259,7 @@ def update_project_note(note_id: str, data: ProjectNoteCreate, db=Depends(get_db
 
 
 @router.delete("/notes/{note_id}")
-def delete_project_note(note_id: str, db=Depends(get_db)):
+def delete_project_note(note_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT id FROM project_notes WHERE id = %s", (note_id,)
     ).fetchone()
@@ -275,7 +276,7 @@ def delete_project_note(note_id: str, db=Depends(get_db)):
 
 
 @router.get("/{project_id}/notes", response_model=list[ProjectNoteResponse])
-def list_project_notes(project_id: str, db=Depends(get_db)):
+def list_project_notes(project_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     rows = db.execute(
         "SELECT n.id, n.project_id, n.author_id, n.content, n.created_at, "
         "e.first_name || ' ' || e.last_name AS author_name, "
@@ -290,7 +291,7 @@ def list_project_notes(project_id: str, db=Depends(get_db)):
 
 
 @router.post("/{project_id}/notes", response_model=ProjectNoteResponse, status_code=201)
-def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db)):
+def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
     ).fetchone()
@@ -320,7 +321,7 @@ def add_project_note(project_id: str, data: ProjectNoteCreate, db=Depends(get_db
 
 
 @router.get("/{project_id}", response_model=ProjectDetail)
-def get_project(project_id: str, db=Depends(get_db)):
+def get_project(project_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     row = db.execute(
         "SELECT * FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
     ).fetchone()
@@ -394,7 +395,7 @@ def get_project(project_id: str, db=Depends(get_db)):
 
 
 @router.post("", response_model=ProjectDetail, status_code=201)
-def create_project(data: ProjectCreate, db=Depends(get_db)):
+def create_project(data: ProjectCreate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     now = datetime.now().isoformat()
     project_id = generate_id("proj-")
     project_number = next_project_number(db)
@@ -459,7 +460,7 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
 
 
 @router.patch("/{project_id}", response_model=ProjectDetail)
-def update_project(project_id: str, data: ProjectUpdate, db=Depends(get_db)):
+def update_project(project_id: str, data: ProjectUpdate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT * FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
     ).fetchone()
@@ -500,6 +501,7 @@ def delete_project(
     project_id: str,
     cascade: bool = False,
     db=Depends(get_db),
+    employee: dict = Depends(require_auth),
 ):
     existing = db.execute(
         "SELECT * FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
@@ -537,6 +539,7 @@ def add_invoice_to_project(
     description: str | None = None,
     total_due: float = 0,
     db=Depends(get_db),
+    employee: dict = Depends(require_auth),
 ):
     """Add a standalone (non-contract) invoice to a project."""
     existing = db.execute(

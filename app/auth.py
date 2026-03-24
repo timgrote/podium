@@ -1,9 +1,10 @@
+import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException
 
 from .database import PgConnection, get_db
 
@@ -12,6 +13,10 @@ logger = logging.getLogger(__name__)
 SESSION_COOKIE = "session_token"
 SESSION_DAYS = 30
 RESET_TOKEN_HOURS = 1
+
+
+def hash_api_key(raw_key: str) -> str:
+    return hashlib.sha256(raw_key.encode()).hexdigest()
 
 
 def hash_password(plain: str) -> str:
@@ -35,30 +40,60 @@ def create_session(db: PgConnection, employee_id: str) -> str:
 
 def get_current_employee(
     session_token: str | None = Cookie(None, alias=SESSION_COOKIE),
+    authorization: str | None = Header(None),
     db: PgConnection = Depends(get_db),
 ) -> dict | None:
     if not session_token:
-        return None
-    row = db.execute(
-        "SELECT e.id, e.first_name, e.last_name, e.email, e.avatar_url, e.is_active "
-        "FROM sessions s JOIN employees e ON s.employee_id = e.id "
-        "WHERE s.token = %s AND s.expires_at > NOW() AND e.deleted_at IS NULL "
-        "AND e.is_active = TRUE",
-        (session_token,),
-    ).fetchone()
-    if not row:
-        return None
-    # Sliding expiry: best-effort, don't fail the request if this fails
-    try:
-        new_expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
-        db.execute(
-            "UPDATE sessions SET expires_at = %s WHERE token = %s",
-            (new_expires.isoformat(), session_token),
-        )
-        db.commit()
-    except Exception:
-        logger.warning("Failed to extend session expiry", exc_info=True)
-    return dict(row)
+        pass
+    else:
+        row = db.execute(
+            "SELECT e.id, e.first_name, e.last_name, e.email, e.avatar_url, e.is_active "
+            "FROM sessions s JOIN employees e ON s.employee_id = e.id "
+            "WHERE s.token = %s AND s.expires_at > NOW() AND e.deleted_at IS NULL "
+            "AND e.is_active = TRUE",
+            (session_token,),
+        ).fetchone()
+        if row:
+            # Sliding expiry: best-effort, don't fail the request if this fails
+            try:
+                new_expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+                db.execute(
+                    "UPDATE sessions SET expires_at = %s WHERE token = %s",
+                    (new_expires.isoformat(), session_token),
+                )
+                db.commit()
+            except Exception:
+                logger.warning("Failed to extend session expiry", exc_info=True)
+            return dict(row)
+
+    # Fall back to API key from Authorization: Bearer <key>
+    if authorization and authorization.startswith("Bearer "):
+        raw_key = authorization[7:]
+        key_hash = hash_api_key(raw_key)
+        row = db.execute(
+            "SELECT e.id, e.first_name, e.last_name, e.email, e.avatar_url, e.is_active, ak.id AS api_key_id "
+            "FROM api_keys ak JOIN employees e ON ak.employee_id = e.id "
+            "WHERE ak.key_hash = %s AND ak.deleted_at IS NULL "
+            "AND (ak.expires_at IS NULL OR ak.expires_at > NOW()) "
+            "AND e.deleted_at IS NULL AND e.is_active = TRUE",
+            (key_hash,),
+        ).fetchone()
+        if row:
+            api_key_id = row["api_key_id"]
+            # Update last_used_at (best-effort)
+            try:
+                db.execute(
+                    "UPDATE api_keys SET last_used_at = NOW() WHERE id = %s",
+                    (api_key_id,),
+                )
+                db.commit()
+            except Exception:
+                logger.warning("Failed to update api_key last_used_at", exc_info=True)
+            result = dict(row)
+            del result["api_key_id"]  # Don't leak internal field
+            return result
+
+    return None
 
 
 def require_auth(

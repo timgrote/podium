@@ -15,11 +15,26 @@ from io import BytesIO
 # ---------------------------------------------------------------------------
 # Helper: seed a minimal project + client into the test database
 # ---------------------------------------------------------------------------
+
+def _login(client, db):
+    """Create an employee, log in, return session cookies."""
+    from app.auth import hash_password
+    db.execute(
+        "INSERT INTO employees (id, first_name, last_name, email, password_hash, is_active) "
+        "VALUES (%s, %s, %s, %s, %s, TRUE)",
+        ("emp-fix", "Fix", "User", "fix@example.com", hash_password("password123")),
+    )
+    db.commit()
+    resp = client.post("/api/auth/login", json={"email": "fix@example.com", "password": "password123"})
+    assert resp.status_code == 200
+    return resp.cookies
+
+
 def _seed_project(db, project_id="TEST01", client_id="c-test1"):
     """Insert a client and project so other entities can reference them."""
     now = datetime.now().isoformat()
     db.execute(
-        "INSERT INTO clients (id, name, email, created_at, updated_at) "
+        "INSERT INTO clients (id, name, accounting_email, created_at, updated_at) "
         "VALUES (%s, 'Test Client', 'test@example.com', %s, %s)",
         (client_id, now, now),
     )
@@ -242,11 +257,13 @@ def test_invoice_number_survives_deletion(client, db):
     increments it, so gaps from deletions don't cause collisions.
     """
     _seed_project(db)
+    cookies = _login(client, db)
 
     # Create invoice #1
     resp1 = client.post(
         "/api/projects/TEST01/invoices",
         params={"invoice_type": "list", "total_due": 100},
+        cookies=cookies,
     )
     assert resp1.status_code == 200
     inv1 = resp1.json()
@@ -260,6 +277,7 @@ def test_invoice_number_survives_deletion(client, db):
     resp2 = client.post(
         "/api/projects/TEST01/invoices",
         params={"invoice_type": "list", "total_due": 200},
+        cookies=cookies,
     )
     assert resp2.status_code == 200
     inv2 = resp2.json()
