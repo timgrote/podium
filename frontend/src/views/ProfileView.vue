@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
+import ApiKeySettings from '../components/ApiKeySettings.vue'
 
 const { user, updateAvatar, updateProfile } = useAuth()
 const toast = useToast()
@@ -108,6 +109,7 @@ async function onAvatarChange(event: Event) {
         </div>
       </div>
     </div>
+    <ApiKeySettings />
   </div>
 </template>
 
