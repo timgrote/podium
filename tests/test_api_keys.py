@@ -147,3 +147,48 @@ def test_cannot_delete_other_users_key(client, db):
 
     resp = client.delete(f"/api/auth/api-keys/{key_id}", cookies=cookies2)
     assert resp.status_code == 404
+
+
+def test_create_task_with_api_key(client, db):
+    """API key should authenticate task creation endpoint."""
+    db.execute(
+        "INSERT INTO employees (id, first_name, last_name, email, password_hash, is_active) "
+        "VALUES (%s, %s, %s, %s, %s, TRUE)",
+        ("emp-task1", "Task", "User", "taskuser@example.com", "fakehash"),
+    )
+    db.execute(
+        "INSERT INTO projects (id, name, job_code, status, project_number) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        ("proj-test1", "Test Project", "TEST", "active", "26-999"),
+    )
+    raw_key = "task-creation-key"
+    db.execute(
+        "INSERT INTO api_keys (id, employee_id, key_hash, name) "
+        "VALUES (%s, %s, %s, %s)",
+        ("ak-task1", "emp-task1", _hash_key(raw_key), "Task Key"),
+    )
+    db.commit()
+
+    resp = client.post(
+        "/api/projects/proj-test1/tasks",
+        json={"title": "Task from API key", "status": "todo"},
+        headers={"Authorization": f"Bearer {raw_key}"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["title"] == "Task from API key"
+
+
+def test_create_task_without_auth_rejected(client, db):
+    """Task creation without any auth should return 401."""
+    db.execute(
+        "INSERT INTO projects (id, name, job_code, status, project_number) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        ("proj-test2", "Test Project 2", "TST2", "active", "26-998"),
+    )
+    db.commit()
+
+    resp = client.post(
+        "/api/projects/proj-test2/tasks",
+        json={"title": "Should fail", "status": "todo"},
+    )
+    assert resp.status_code == 401

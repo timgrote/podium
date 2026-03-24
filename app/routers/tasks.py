@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import require_auth
 from ..database import get_db
 from ..events import event_bus
 from ..models.task import TaskCreate, TaskNoteCreate, TaskNoteResponse, TaskResponse, TaskUpdate
@@ -71,7 +72,7 @@ def _set_assignees(db, task_id: str, assignee_ids: list[str]):
 # --- Project-scoped endpoints ---
 
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskResponse])
-def list_project_tasks(project_id: str, db=Depends(get_db)):
+def list_project_tasks(project_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     # Top-level tasks only (no parent)
     rows = db.execute(
         "SELECT * FROM project_tasks "
@@ -83,7 +84,7 @@ def list_project_tasks(project_id: str, db=Depends(get_db)):
 
 
 @router.post("/projects/{project_id}/tasks", response_model=TaskResponse, status_code=201)
-def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
+def create_task(project_id: str, data: TaskCreate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     # Verify project exists
     proj = db.execute(
         "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
@@ -118,7 +119,7 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
 # --- Cross-project "My Tasks" endpoint (before /tasks/{task_id} to avoid shadowing) ---
 
 @router.get("/tasks/my")
-def list_my_tasks(employee_id: str, db=Depends(get_db)):
+def list_my_tasks(employee_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     rows = db.execute(
         "SELECT t.*, p.name AS project_name, p.job_code "
         "FROM project_tasks t "
@@ -144,7 +145,7 @@ def list_my_tasks(employee_id: str, db=Depends(get_db)):
 # --- Task Notes (registered before /tasks/{task_id} to avoid route shadowing) ---
 
 @router.post("/tasks/{task_id}/notes", response_model=TaskNoteResponse, status_code=201)
-def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db)):
+def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT id FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
     ).fetchone()
@@ -176,7 +177,7 @@ def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db)):
 
 
 @router.delete("/tasks/notes/{note_id}")
-def delete_note(note_id: str, db=Depends(get_db)):
+def delete_note(note_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT n.id, n.task_id, t.project_id FROM project_task_notes n "
         "JOIN project_tasks t ON n.task_id = t.id WHERE n.id = %s", (note_id,)
@@ -195,7 +196,7 @@ def delete_note(note_id: str, db=Depends(get_db)):
 # --- Single-task endpoints ---
 
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
-def get_task(task_id: str, db=Depends(get_db)):
+def get_task(task_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     row = db.execute(
         "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
     ).fetchone()
@@ -205,7 +206,7 @@ def get_task(task_id: str, db=Depends(get_db)):
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskResponse)
-def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db)):
+def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
     ).fetchone()
@@ -248,7 +249,7 @@ def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db)):
 
 
 @router.delete("/tasks/{task_id}")
-def delete_task(task_id: str, db=Depends(get_db)):
+def delete_task(task_id: str, db=Depends(get_db), employee: dict = Depends(require_auth)):
     existing = db.execute(
         "SELECT * FROM project_tasks WHERE id = %s AND deleted_at IS NULL", (task_id,)
     ).fetchone()
