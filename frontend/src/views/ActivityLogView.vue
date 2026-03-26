@@ -161,7 +161,7 @@ function consolidateByProject(dayItems: ActivityItem[]): ProjectGroup[] {
     file.sessions++
     // Parse command count from detail string
     const cmdMatch = item.detail?.match(/(\d+) cmds/)
-    if (cmdMatch) file.total_commands += parseInt(cmdMatch[1])
+    if (cmdMatch?.[1]) file.total_commands += parseInt(cmdMatch[1])
     group.total_minutes += item.duration_minutes || 0
   }
 
@@ -275,11 +275,6 @@ async function handleAssign(
   } catch (e) {
     toast.error(String(e))
   }
-}
-
-function formatTime(timestamp: string): string {
-  const d = new Date(timestamp)
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
 function formatDuration(minutes: number): string {
