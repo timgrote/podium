@@ -73,6 +73,11 @@ const router = createRouter({
       meta: { layout: 'dashboard' },
     },
     {
+      path: '/log',
+      component: () => import('../views/ActivityLogView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
       path: '/profile',
       component: () => import('../views/ProfileView.vue'),
       meta: { layout: 'dashboard' },

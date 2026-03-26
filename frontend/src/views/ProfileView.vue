@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
+import { getUserSettings, updateUserSettings } from '../api/auth'
 
 const { user, updateAvatar, updateProfile } = useAuth()
 const toast = useToast()
@@ -14,6 +15,13 @@ const form = ref({
 
 const saving = ref(false)
 const avatarInput = ref<HTMLInputElement>()
+const lokiAlias = ref('')
+const lokiSaving = ref(false)
+
+// Load user settings
+getUserSettings().then((s) => {
+  lokiAlias.value = s.loki_alias || ''
+}).catch(() => {})
 
 watch(
   () => user.value,
@@ -45,6 +53,18 @@ async function save() {
     toast.error(String(e))
   } finally {
     saving.value = false
+  }
+}
+
+async function saveLokiAlias() {
+  lokiSaving.value = true
+  try {
+    await updateUserSettings({ loki_alias: lokiAlias.value })
+    toast.success('Loki alias saved')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    lokiSaving.value = false
   }
 }
 
@@ -107,6 +127,22 @@ async function onAvatarChange(event: Event) {
           </button>
         </div>
       </div>
+
+      <h2 class="section-title">Integrations</h2>
+      <div class="profile-card">
+        <div class="form">
+          <div class="field">
+            <label>Raindrop / Loki Alias</label>
+            <input v-model="lokiAlias" type="text" placeholder="e.g. tim" />
+            <span class="field-hint">Used to match your AutoCAD activity in the Activity Log</span>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" :disabled="lokiSaving" @click="saveLokiAlias">
+              {{ lokiSaving ? 'Saving...' : 'Save' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -121,6 +157,18 @@ async function onAvatarChange(event: Event) {
   font-weight: 600;
   margin-bottom: 1.5rem;
   color: var(--p-text-color);
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 2rem 0 1rem;
+  color: var(--p-text-color);
+}
+
+.field-hint {
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
 }
 
 .profile-card {

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     invoice_template_id: str = "16QHE3DdF0AAQtLgXUZSx8c9T2q3dvTvKwjb90B5yGcI"
     invoice_drive_folder_id: str = ""
 
+    # Loki (Raindrop activity logs)
+    loki_url: str = "https://logging.raindropirrigationsoftware.com"
+
     # Proposal settings
     proposal_template_id: str = "1PnVd8O3VgQKDLx8YpqY30U-JvXMdEleASRC87qPxZf4"
     proposal_drive_folder_id: str = "1no2lFCwH3xzPgNc5cG5Gei1GrO47-R8H"

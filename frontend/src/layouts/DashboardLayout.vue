@@ -24,6 +24,7 @@ const navItems = [
   { label: 'Timesheet', icon: 'pi pi-clock', route: '/timesheet' },
   { label: 'Clients', icon: 'pi pi-users', route: '/clients' },
   { label: 'Financial', icon: 'pi pi-dollar', route: '/financial' },
+  { label: 'Activity', icon: 'pi pi-receipt', route: '/log' },
 ]
 
 function userInitials(): string {
