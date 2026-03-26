@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import type { ProjectSummary } from '../../types'
+import type { ProjectDetail } from '../../types'
 import { getTimeEntries, getTimeSummary, type TimeEntry, type TimeSummary } from '../../api/timeEntries'
 import LogTimeModal from '../modals/LogTimeModal.vue'
 
 const props = defineProps<{
-  project: ProjectSummary
+  project: ProjectDetail
 }>()
 
 const timeEntries = ref<TimeEntry[]>([])

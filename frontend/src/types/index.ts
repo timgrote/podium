@@ -208,9 +208,9 @@ export interface ProjectSummary {
   total_invoiced: number
   total_paid: number
   total_outstanding: number
-  contracts: Contract[]
-  invoices: Invoice[]
-  proposals: Proposal[]
+  contract_count: number
+  invoice_count: number
+  proposal_count: number
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -220,6 +220,9 @@ export interface ProjectDetail extends ProjectSummary {
   current_invoice_id: string | null
   created_at: string | null
   updated_at: string | null
+  contracts: Contract[]
+  invoices: Invoice[]
+  proposals: Proposal[]
 }
 
 export interface TaskNote {

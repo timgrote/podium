@@ -2,7 +2,7 @@
 import { ref, watch, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import type { Task, Employee } from '../../types'
-import { getTask, createTask, updateTask, deleteTask, addTaskNote, deleteTaskNote, uploadImage } from '../../api/tasks'
+import { getTask, createTask, updateTask, deleteTask, addTaskNote, updateTaskNote, deleteTaskNote, uploadImage } from '../../api/tasks'
 import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
@@ -31,6 +31,18 @@ const noteSaving = ref(false)
 const imageUploading = ref(false)
 const showDeleteConfirm = ref(false)
 
+// Title editing
+const editingTitle = ref(false)
+const editTitleValue = ref('')
+
+// Description editing
+const editingDescription = ref(false)
+const editDescriptionValue = ref('')
+
+// Note editing
+const editingNoteId = ref<string | null>(null)
+const editNoteContent = ref('')
+
 const statusOptions = [
   { value: 'todo', label: 'To Do' },
   { value: 'in_progress', label: 'In Progress' },
@@ -57,6 +69,9 @@ watch(visible, async (val) => {
   if (!val || !props.taskId) return
   parentTaskId.value = null
   showDeleteConfirm.value = false
+  editingTitle.value = false
+  editingDescription.value = false
+  editingNoteId.value = null
   loading.value = true
   try {
     const [t, emps] = await Promise.all([
@@ -81,6 +96,65 @@ async function patchField(field: string, value: unknown) {
   } catch (e) {
     toast.error(String(e))
   }
+}
+
+// Title editing
+function startEditTitle() {
+  if (!task.value) return
+  editTitleValue.value = task.value.title
+  editingTitle.value = true
+}
+
+async function saveTitle() {
+  if (!editTitleValue.value.trim()) return
+  await patchField('title', editTitleValue.value.trim())
+  editingTitle.value = false
+}
+
+function cancelEditTitle() {
+  editingTitle.value = false
+}
+
+// Description editing
+function startEditDescription() {
+  if (!task.value) return
+  editDescriptionValue.value = task.value.description || ''
+  editingDescription.value = true
+}
+
+async function saveDescription() {
+  await patchField('description', editDescriptionValue.value.trim() || null)
+  editingDescription.value = false
+}
+
+function cancelEditDescription() {
+  editingDescription.value = false
+}
+
+async function clearDescription() {
+  await patchField('description', null)
+}
+
+// Note editing
+function startEditNote(note: { id: string; content: string }) {
+  editingNoteId.value = note.id
+  editNoteContent.value = note.content
+}
+
+async function saveEditNote(noteId: string) {
+  if (!editNoteContent.value.trim() || !task.value) return
+  try {
+    await updateTaskNote(noteId, { content: editNoteContent.value })
+    task.value = await getTask(task.value.id)
+    editingNoteId.value = null
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+function cancelEditNote() {
+  editingNoteId.value = null
+  editNoteContent.value = ''
 }
 
 function isAssigned(empId: string): boolean {
@@ -222,10 +296,31 @@ async function handleNotePaste(event: ClipboardEvent) {
 <template>
   <Dialog
     v-model:visible="visible"
-    :header="task?.title ?? 'Task'"
     :modal="true"
     :style="{ width: '640px' }"
   >
+    <template #header>
+      <div v-if="editingTitle" class="title-edit">
+        <input
+          v-model="editTitleValue"
+          type="text"
+          class="title-edit-input"
+          @keyup.enter="saveTitle"
+          @keyup.escape="cancelEditTitle"
+        />
+        <div class="title-edit-actions">
+          <button class="btn btn-sm btn-primary" @click="saveTitle">Save</button>
+          <button class="btn btn-sm" @click="cancelEditTitle">Cancel</button>
+        </div>
+      </div>
+      <div v-else class="title-display">
+        <span class="title-text">{{ task?.title ?? 'Task' }}</span>
+        <button v-if="task" class="btn-edit-inline" title="Edit title" @click="startEditTitle">
+          <i class="pi pi-pencil" />
+        </button>
+      </div>
+    </template>
+
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="task" class="task-detail">
       <!-- Back to parent -->
@@ -278,9 +373,25 @@ async function handleNotePaste(event: ClipboardEvent) {
       </div>
 
       <!-- Description -->
-      <div v-if="task.description" class="field">
-        <label>Description</label>
-        <RichText :content="task.description" class="description" />
+      <div class="field">
+        <div class="section-header">
+          <label>Description</label>
+          <template v-if="!editingDescription">
+            <button v-if="task.description" class="btn-edit-inline" title="Edit description" @click="startEditDescription">
+              <i class="pi pi-pencil" />
+            </button>
+            <button v-if="task.description" class="btn-remove-sm" title="Clear description" @click="clearDescription">&times;</button>
+          </template>
+        </div>
+        <div v-if="editingDescription" class="note-edit">
+          <textarea v-model="editDescriptionValue" rows="3" class="note-edit-textarea" @keyup.escape="cancelEditDescription" />
+          <div class="note-edit-actions">
+            <button class="btn btn-sm btn-primary" @click="saveDescription">Save</button>
+            <button class="btn btn-sm" @click="cancelEditDescription">Cancel</button>
+          </div>
+        </div>
+        <RichText v-else-if="task.description" :content="task.description" class="description" />
+        <button v-else class="btn-add-link" @click="startEditDescription">+ Add description</button>
       </div>
 
       <!-- Subtasks -->
@@ -327,9 +438,17 @@ async function handleNotePaste(event: ClipboardEvent) {
             <div class="note-header">
               <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
               <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
+              <button v-if="editingNoteId !== note.id" class="btn-edit-inline" title="Edit note" @click="startEditNote(note)"><i class="pi pi-pencil" /></button>
               <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
             </div>
-            <RichText :content="note.content" class="note-body" />
+            <div v-if="editingNoteId === note.id" class="note-edit">
+              <textarea v-model="editNoteContent" rows="3" class="note-edit-textarea" @keyup.escape="cancelEditNote" />
+              <div class="note-edit-actions">
+                <button class="btn btn-sm btn-primary" @click="saveEditNote(note.id)">Save</button>
+                <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>
+              </div>
+            </div>
+            <RichText v-else :content="note.content" class="note-body" />
           </div>
         </div>
       </div>
@@ -355,6 +474,19 @@ async function handleNotePaste(event: ClipboardEvent) {
 .field label, .section > label { font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem; }
 .field input, .field select { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.title-display { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
+.title-text { font-weight: 700; font-size: 1.125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title-edit { display: flex; flex-direction: column; gap: 0.375rem; flex: 1; }
+.title-edit-input { padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 1rem; font-weight: 600; background: var(--p-form-field-background); color: var(--p-text-color); width: 100%; }
+.title-edit-actions { display: flex; gap: 0.375rem; }
+
+.btn-edit-inline { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; font-size: 0.75rem; padding: 0.125rem 0.25rem; }
+.btn-edit-inline:hover { color: var(--p-primary-color); }
+.btn-edit-inline .pi { font-size: 0.6875rem; }
+
+.btn-add-link { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; font-size: 0.8125rem; padding: 0.25rem 0; text-align: left; }
+.btn-add-link:hover { color: var(--p-primary-color); }
 
 .assignee-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .chip { padding: 0.25rem 0.625rem; border: 1px solid var(--p-content-border-color); border-radius: 9999px; font-size: 0.75rem; cursor: pointer; background: var(--p-content-background); color: var(--p-text-muted-color); transition: all 0.15s; }
@@ -387,6 +519,10 @@ async function handleNotePaste(event: ClipboardEvent) {
 .note-date { font-size: 0.6875rem; color: var(--p-text-muted-color); }
 .note-body { font-size: 0.8125rem; color: var(--p-text-muted-color); white-space: pre-wrap; }
 .btn-remove { background: none; border: none; color: var(--p-red-600); cursor: pointer; font-size: 1rem; margin-left: auto; padding: 0 0.25rem; }
+
+.note-edit { display: flex; flex-direction: column; gap: 0.5rem; }
+.note-edit-textarea { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; resize: vertical; background: var(--p-form-field-background); color: var(--p-text-color); font-family: inherit; }
+.note-edit-actions { display: flex; gap: 0.375rem; }
 
 .delete-section { margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--p-content-border-color); }
 .delete-confirm { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; }

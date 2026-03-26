@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { ProjectSummary } from '../types'
+import type { ProjectDetail, ProjectSummary } from '../types'
 import { useProjects } from '../composables/useProjects'
 import { useProjectUpdates } from '../composables/useProjectUpdates'
 import { useToast } from '../composables/useToast'
 import { getUserSettings } from '../api/auth'
+import { getProject as fetchProjectDetail } from '../api/projects'
 import ProjectHeader from '../components/project/ProjectHeader.vue'
 import ProjectSidebar from '../components/project/ProjectSidebar.vue'
 import type { Section } from '../components/project/ProjectSidebar.vue'
@@ -49,6 +50,23 @@ const project = computed<ProjectSummary | null>(() => {
   return allProjects.value.find(p =>
     p.project_number === routeProjectNumber.value || p.id === routeProjectNumber.value
   ) || null
+})
+
+// Detail data (contracts, invoices, proposals) — fetched separately
+const projectDetail = ref<ProjectDetail | null>(null)
+
+async function loadProjectDetail() {
+  const id = project.value?.id
+  if (!id) { projectDetail.value = null; return }
+  try {
+    projectDetail.value = await fetchProjectDetail(id)
+  } catch (e) {
+    console.error('Failed to load project detail:', e)
+  }
+}
+
+watch(() => project.value?.id, (newId, oldId) => {
+  if (newId && newId !== oldId) loadProjectDetail()
 })
 
 // Active section from query param
@@ -103,6 +121,7 @@ useProjectUpdates(projectIdRef, (eventType) => {
     notesRef.value?.loadNotes?.()
   } else if (eventType === 'project_updated' || eventType === 'contract_updated' || eventType === 'invoice_updated' || eventType === 'proposal_updated') {
     loadProjects()
+    loadProjectDetail()
   }
 })
 
@@ -160,7 +179,7 @@ function openDeleteContract(contractId: string) {
     const { deleteContract } = await import('../api/contracts')
     await deleteContract(contractId)
     toast.success('Contract deleted')
-    await loadProjects()
+    await Promise.all([loadProjects(), loadProjectDetail()])
   }
   showDeleteModal.value = true
 }
@@ -181,7 +200,7 @@ function openDeleteInvoice(invoiceId: string) {
     const { deleteInvoice } = await import('../api/invoices')
     await deleteInvoice(invoiceId)
     toast.success('Invoice deleted')
-    await loadProjects()
+    await Promise.all([loadProjects(), loadProjectDetail()])
   }
   showDeleteModal.value = true
 }
@@ -208,7 +227,7 @@ function openDeleteProposal(proposalId: string) {
     const { deleteProposal } = await import('../api/proposals')
     await deleteProposal(proposalId)
     toast.success('Proposal deleted')
-    await loadProjects()
+    await Promise.all([loadProjects(), loadProjectDetail()])
   }
   showDeleteModal.value = true
 }
@@ -224,7 +243,7 @@ function showError(msg: string) {
 }
 
 async function handleSaved() {
-  await loadProjects()
+  await Promise.all([loadProjects(), loadProjectDetail()])
 }
 
 // URL sync: when modals close, update URL
@@ -263,6 +282,7 @@ onMounted(async () => {
     await loadProjects()
   }
   projectsLoaded.value = true
+  loadProjectDetail()
 })
 </script>
 
@@ -280,69 +300,78 @@ onMounted(async () => {
         :notes-count="notesCount"
         :total-hours="totalHours"
         :team-count="teamCount"
-        :contract-count="project.contracts?.length || 0"
-        :invoice-count="project.invoices?.length || 0"
-        :proposal-count="project.proposals?.length || 0"
+        :contract-count="project.contract_count || 0"
+        :invoice-count="project.invoice_count || 0"
+        :proposal-count="project.proposal_count || 0"
         :folder-href="folderHref"
         @update:active-section="activeSection = $event"
       />
 
       <div class="project-content">
-        <ProjectTasks
-          v-if="activeSection === 'tasks'"
-          ref="tasksRef"
-          :project="project"
-          :auto-open-task-id="routeEntityType === 'task' ? routeEntityId : null"
-          @refresh-project="loadProjects"
-          @entity-clicked="onTaskEntityClicked"
-          @task-modal-closed="onTaskModalClosed"
-        />
+        <div v-show="activeSection === 'tasks'">
+          <ProjectTasks
+            ref="tasksRef"
+            :project="project"
+            :auto-open-task-id="routeEntityType === 'task' ? routeEntityId : null"
+            @refresh-project="loadProjects"
+            @entity-clicked="onTaskEntityClicked"
+            @task-modal-closed="onTaskModalClosed"
+          />
+        </div>
 
-        <ProjectNotes
-          v-if="activeSection === 'notes'"
-          ref="notesRef"
-          :project="project"
-        />
+        <div v-show="activeSection === 'notes'">
+          <ProjectNotes
+            ref="notesRef"
+            :project="project"
+          />
+        </div>
 
-        <ProjectTime
-          v-if="activeSection === 'time'"
-          ref="timeRef"
-          :project="project"
-        />
+        <template v-if="projectDetail">
+          <div v-show="activeSection === 'time'">
+            <ProjectTime
+              ref="timeRef"
+              :project="projectDetail"
+            />
+          </div>
 
-        <ProjectTeam
-          v-if="activeSection === 'team'"
-          ref="teamRef"
-          :project="project"
-        />
+          <div v-show="activeSection === 'contracts'">
+            <ProjectContracts
+              :project="projectDetail"
+              @create-contract="openCreateContract"
+              @edit-contract="openEditContract"
+              @delete-contract="openDeleteContract"
+              @create-invoice="openCreateInvoice"
+            />
+          </div>
 
-        <ProjectContracts
-          v-if="activeSection === 'contracts'"
-          :project="project"
-          @create-contract="openCreateContract"
-          @edit-contract="openEditContract"
-          @delete-contract="openDeleteContract"
-          @create-invoice="openCreateInvoice"
-        />
+          <div v-show="activeSection === 'invoices'">
+            <ProjectInvoices
+              :project="projectDetail"
+              @edit-invoice="openEditInvoice"
+              @delete-invoice="openDeleteInvoice"
+              @invoice-actions="openInvoiceActions"
+              @refresh-project="handleSaved"
+            />
+          </div>
 
-        <ProjectInvoices
-          v-if="activeSection === 'invoices'"
-          :project="project"
-          @edit-invoice="openEditInvoice"
-          @delete-invoice="openDeleteInvoice"
-          @invoice-actions="openInvoiceActions"
-          @refresh-project="loadProjects"
-        />
+          <div v-show="activeSection === 'proposals'">
+            <ProjectProposals
+              :project="projectDetail"
+              @create-proposal="openCreateProposal"
+              @edit-proposal="openEditProposal"
+              @delete-proposal="openDeleteProposal"
+              @promote-proposal="openPromoteProposal"
+              @refresh-project="handleSaved"
+            />
+          </div>
+        </template>
 
-        <ProjectProposals
-          v-if="activeSection === 'proposals'"
-          :project="project"
-          @create-proposal="openCreateProposal"
-          @edit-proposal="openEditProposal"
-          @delete-proposal="openDeleteProposal"
-          @promote-proposal="openPromoteProposal"
-          @refresh-project="loadProjects"
-        />
+        <div v-show="activeSection === 'team'">
+          <ProjectTeam
+            ref="teamRef"
+            :project="project"
+          />
+        </div>
       </div>
     </div>
 

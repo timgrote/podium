@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, onBeforeUnmount } from 'vue'
-import type { ProjectSummary, ProjectNote, Task, ProjectContact, Contact } from '../../types'
+import type { ProjectDetail as ProjectDetailType, ProjectNote, Task, ProjectContact, Contact } from '../../types'
 import { getProjectNotes, addProjectNote, updateProjectNote, deleteProjectNote, getProjectContacts, addProjectContact, removeProjectContact } from '../../api/projects'
 import { getContacts, createContact } from '../../api/contacts'
 import { getProjectTasks, createTask, updateTask } from '../../api/tasks'
@@ -20,7 +20,7 @@ import { getTimeEntries, getTimeSummary, type TimeEntry, type TimeSummary } from
 import LogTimeModal from '../modals/LogTimeModal.vue'
 
 const props = defineProps<{
-  project: ProjectSummary
+  project: ProjectDetailType
   autoOpenTaskId?: string | null
   autoOpenEntityType?: string | null
   autoOpenEntityId?: string | null

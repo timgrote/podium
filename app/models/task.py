@@ -8,6 +8,10 @@ class TaskNoteCreate(BaseModel):
     author_id: str | None = None
 
 
+class TaskNoteUpdate(BaseModel):
+    content: str
+
+
 class TaskNoteResponse(BaseModel):
     id: str
     task_id: str

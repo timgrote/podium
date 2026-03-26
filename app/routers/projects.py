@@ -59,58 +59,18 @@ def list_projects(db=Depends(get_db)):
     rows = db.execute(
         "SELECT * FROM v_project_summary ORDER BY id"
     ).fetchall()
-
-    projects = []
+    result = []
     for r in rows:
         p = dict(r)
-        project_id = p["id"]
-
-        # Get client email
-        client_email = None
-        if p.get("client_id"):
-            client_row = db.execute(
-                "SELECT accounting_email FROM clients WHERE id = %s", (p["client_id"],)
-            ).fetchone()
-            if client_row:
-                client_email = client_row["accounting_email"]
-
-        # Next task deadline: earliest due_date from incomplete tasks
-        next_deadline_row = db.execute(
-            "SELECT MIN(due_date) AS next_deadline FROM project_tasks "
-            "WHERE project_id = %s AND completed_at IS NULL AND due_date IS NOT NULL AND deleted_at IS NULL",
-            (project_id,),
-        ).fetchone()
-        next_task_deadline = None
-        if next_deadline_row and next_deadline_row["next_deadline"]:
-            next_task_deadline = str(next_deadline_row["next_deadline"])
-
-        # Last activity: most recent timestamp across project notes, task notes, and project updated_at
-        last_activity_row = db.execute(
-            "SELECT GREATEST("
-            "  p.updated_at,"
-            "  (SELECT MAX(created_at) FROM project_notes WHERE project_id = p.id),"
-            "  (SELECT MAX(ptn.created_at) FROM project_task_notes ptn "
-            "   JOIN project_tasks pt ON ptn.task_id = pt.id WHERE pt.project_id = p.id)"
-            ") AS last_activity FROM projects p WHERE p.id = %s",
-            (project_id,),
-        ).fetchone()
-        last_activity = None
-        if last_activity_row and last_activity_row["last_activity"]:
-            last_activity = str(last_activity_row["last_activity"])
-
-        contracts = _get_contracts_for_project(db, project_id)
-        invoices = _get_invoices_for_project(db, project_id)
-        proposals = _get_proposals_for_project(db, project_id)
-
-        projects.append(ProjectSummary(
-            id=project_id,
+        result.append(ProjectSummary(
+            id=p["id"],
             project_number=p.get("project_number"),
             job_code=p.get("job_code"),
-            project_name=p.get("project_name") or p.get("name"),
+            project_name=p.get("project_name"),
             status=p["status"],
             client_id=p.get("client_id"),
             client_name=p.get("client_name"),
-            client_email=p.get("client_accounting_email") or client_email,
+            client_email=p.get("client_accounting_email"),
             pm_id=p.get("pm_id"),
             pm_name=p.get("pm_name"),
             pm_email=p.get("pm_email"),
@@ -121,17 +81,17 @@ def list_projects(db=Depends(get_db)):
             client_project_number=p.get("client_project_number"),
             location=p.get("location"),
             data_path=p.get("data_path"),
-            next_task_deadline=next_task_deadline,
-            last_activity=last_activity,
+            next_task_deadline=str(p["next_task_deadline"]) if p.get("next_task_deadline") else None,
+            last_activity=str(p["last_activity"]) if p.get("last_activity") else None,
             total_contracted=p.get("total_contracted", 0),
             total_invoiced=p.get("total_invoiced", 0),
             total_paid=p.get("total_paid", 0),
             total_outstanding=p.get("total_outstanding", 0),
-            contracts=contracts,
-            invoices=invoices,
-            proposals=proposals,
+            contract_count=p.get("contract_count", 0),
+            invoice_count=p.get("invoice_count", 0),
+            proposal_count=p.get("proposal_count", 0),
         ))
-    return projects
+    return result
 
 
 # --- Project Contacts (before /{project_id} to avoid route shadowing) ---
@@ -385,6 +345,9 @@ def get_project(project_id: str, db=Depends(get_db)):
         total_invoiced=summary["total_invoiced"] if summary else 0,
         total_paid=summary["total_paid"] if summary else 0,
         total_outstanding=summary["total_outstanding"] if summary else 0,
+        contract_count=len(contracts),
+        invoice_count=len(invoices),
+        proposal_count=len(proposals),
         contracts=contracts,
         invoices=invoices,
         proposals=proposals,

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { ProjectSummary } from '../../types'
+import type { ProjectDetail } from '../../types'
 import { generateDoc, exportProposalPdf, sendProposal } from '../../api/proposals'
 import { useToast } from '../../composables/useToast'
 
 const props = defineProps<{
-  project: ProjectSummary
+  project: ProjectDetail
 }>()
 
 const emit = defineEmits<{

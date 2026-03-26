@@ -409,7 +409,20 @@ SELECT
     COALESCE(SUM(con.total_amount), 0) AS total_contracted,
     COALESCE((SELECT SUM(i.total_due) FROM invoices i WHERE i.project_id = p.id AND i.deleted_at IS NULL), 0) AS total_invoiced,
     COALESCE((SELECT SUM(i.total_due) FROM invoices i WHERE i.project_id = p.id AND i.deleted_at IS NULL AND i.paid_status = 'paid'), 0) AS total_paid,
-    COALESCE((SELECT SUM(i.total_due) FROM invoices i WHERE i.project_id = p.id AND i.deleted_at IS NULL AND i.paid_status != 'paid'), 0) AS total_outstanding
+    COALESCE((SELECT SUM(i.total_due) FROM invoices i WHERE i.project_id = p.id AND i.deleted_at IS NULL AND i.paid_status != 'paid'), 0) AS total_outstanding,
+    (SELECT MIN(pt.due_date) FROM project_tasks pt
+     WHERE pt.project_id = p.id AND pt.completed_at IS NULL
+     AND pt.due_date IS NOT NULL AND pt.deleted_at IS NULL
+    ) AS next_task_deadline,
+    GREATEST(
+        p.updated_at,
+        (SELECT MAX(pn.created_at) FROM project_notes pn WHERE pn.project_id = p.id),
+        (SELECT MAX(ptn.created_at) FROM project_task_notes ptn
+         JOIN project_tasks pt2 ON ptn.task_id = pt2.id WHERE pt2.project_id = p.id)
+    ) AS last_activity,
+    (SELECT COUNT(*) FROM contracts con2 WHERE con2.project_id = p.id AND con2.deleted_at IS NULL) AS contract_count,
+    (SELECT COUNT(*) FROM invoices inv WHERE inv.project_id = p.id AND inv.deleted_at IS NULL) AS invoice_count,
+    (SELECT COUNT(*) FROM proposals prop WHERE prop.project_id = p.id AND prop.deleted_at IS NULL) AS proposal_count
 FROM projects p
 LEFT JOIN clients c ON p.client_id = c.id
 LEFT JOIN employees e ON p.pm_id = e.id

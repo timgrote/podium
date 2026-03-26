@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { ProjectSummary } from '../../types'
+import type { ProjectDetail } from '../../types'
 import { generateSheet, exportPdf as exportInvoicePdfApi } from '../../api/invoices'
 import { useToast } from '../../composables/useToast'
 import { formatDate } from '../../utils/dates'
 
 const props = defineProps<{
-  project: ProjectSummary
+  project: ProjectDetail
 }>()
 
 const emit = defineEmits<{

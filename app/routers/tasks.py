@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db
 from ..events import event_bus
-from ..models.task import TaskCreate, TaskNoteCreate, TaskNoteResponse, TaskResponse, TaskUpdate
+from ..models.task import TaskCreate, TaskNoteCreate, TaskNoteResponse, TaskNoteUpdate, TaskResponse, TaskUpdate
 from ..utils import generate_id
 
 router = APIRouter()
@@ -164,6 +164,33 @@ def add_note(task_id: str, data: TaskNoteCreate, db=Depends(get_db)):
         event_bus.publish(task_row["project_id"], "task_updated", task_id)
 
     # Fetch with author name
+    row = db.execute(
+        "SELECT n.id, n.task_id, n.author_id, n.content, n.created_at, "
+        "e.first_name || ' ' || e.last_name AS author_name "
+        "FROM project_task_notes n "
+        "LEFT JOIN employees e ON n.author_id = e.id "
+        "WHERE n.id = %s",
+        (note_id,),
+    ).fetchone()
+    return dict(row)
+
+
+@router.patch("/tasks/notes/{note_id}", response_model=TaskNoteResponse)
+def update_note(note_id: str, data: TaskNoteUpdate, db=Depends(get_db)):
+    existing = db.execute(
+        "SELECT n.id, n.task_id, t.project_id FROM project_task_notes n "
+        "JOIN project_tasks t ON n.task_id = t.id WHERE n.id = %s", (note_id,)
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    db.execute(
+        "UPDATE project_task_notes SET content = %s WHERE id = %s",
+        (data.content, note_id),
+    )
+    db.commit()
+    event_bus.publish(existing["project_id"], "task_updated", existing["task_id"])
+
     row = db.execute(
         "SELECT n.id, n.task_id, n.author_id, n.content, n.created_at, "
         "e.first_name || ' ' || e.last_name AS author_name "

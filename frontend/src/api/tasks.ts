@@ -38,6 +38,13 @@ export function addTaskNote(taskId: string, data: { content: string; author_id?:
   })
 }
 
+export function updateTaskNote(noteId: string, data: { content: string }): Promise<TaskNote> {
+  return apiFetch(`/tasks/notes/${noteId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
 export function deleteTaskNote(noteId: string): Promise<void> {
   return apiFetch(`/tasks/notes/${noteId}`, { method: 'DELETE' })
 }
