@@ -163,6 +163,7 @@ Status workflow: `proposal → contract → invoiced → paid → complete`
 - **Contract tasks**: Track `billed_amount` and `billed_percent` for partial billing.
 - **File uploads**: Stored in `uploads/` directory, paths saved in database.
 - **Frontend**: Vue 3 SPA (`frontend/`). The legacy static HTML/JS frontend has been removed.
+- **SPA cleanup rule**: Any composable or component that creates external resources (EventSource, WebSocket, setInterval, AbortController) **must** clean them up with `onScopeDispose()` or `onUnmounted()`. Vue auto-cleans its own watchers/refs on unmount, but raw browser APIs persist and will leak connections across navigations. Browsers limit ~6 concurrent connections per origin — leaked connections cause the app to hang.
 - **Google integration**: Optional Sheets/Drive/Gmail via `app/google_sheets.py`. Check for credentials before using.
 
 ## Vue Frontend (`frontend/`)
