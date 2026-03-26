@@ -1,20 +1,25 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import type { ProjectSummary } from '../../types'
 import { parseLocalDate, formatDateShort } from '../../utils/dates'
 
 const props = defineProps<{
   project: ProjectSummary
-  expanded: boolean
   pinned: boolean
 }>()
 
 const emit = defineEmits<{
-  toggle: []
   edit: []
   delete: []
   togglePin: []
 }>()
+
+const router = useRouter()
+
+function navigateToProject() {
+  router.push(`/projects/${props.project.project_number || props.project.id}`)
+}
 
 const pmInitials = computed(() => {
   const name = props.project.pm_name
@@ -55,8 +60,8 @@ function formatCurrency(value: number): string {
 </script>
 
 <template>
-  <div class="project-card" :class="{ expanded }">
-    <div class="project-row" @click="emit('toggle')">
+  <div class="project-card">
+    <div class="project-row" @click="navigateToProject">
       <div class="col-pm">
         <img
           v-if="project.pm_avatar_url"
@@ -98,9 +103,6 @@ function formatCurrency(value: number): string {
         </button>
       </div>
     </div>
-    <div v-if="expanded" class="project-detail-slot">
-      <slot />
-    </div>
   </div>
 </template>
 
@@ -117,9 +119,6 @@ function formatCurrency(value: number): string {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-.project-card.expanded {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
 
 .project-row {
   display: flex;
@@ -237,8 +236,4 @@ function formatCurrency(value: number): string {
   color: var(--p-primary-color);
 }
 
-.project-detail-slot {
-  border-top: 1px solid var(--p-content-border-color);
-  padding: 1rem;
-}
 </style>

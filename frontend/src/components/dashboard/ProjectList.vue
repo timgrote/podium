@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import type { ProjectSummary } from '../../types'
 import ProjectCard from './ProjectCard.vue'
-import ProjectDetail from './ProjectDetail.vue'
 
 const props = defineProps<{
   projects: ProjectSummary[]
@@ -15,11 +14,6 @@ const props = defineProps<{
   sortOrder: string
   uniqueStatuses: string[]
   uniquePMs: string[]
-  initialExpandedId?: string | null
-  autoOpenTaskId?: string | null
-  autoOpenEntityType?: string | null
-  autoOpenEntityId?: string | null
-  initialTab?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -30,47 +24,10 @@ const emit = defineEmits<{
   toggleSort: [field: string]
   createProject: []
   editProject: [project: ProjectSummary]
-  refreshProject: []
   deleteProject: [project: ProjectSummary]
-  createContract: [projectId: string]
-  editContract: [contractId: string]
-  deleteContract: [contractId: string]
-  createInvoice: [contractId: string]
-  editInvoice: [invoiceId: string]
-  deleteInvoice: [invoiceId: string]
-  invoiceActions: [invoiceId: string]
-  createProposal: [projectId: string]
-  editProposal: [proposalId: string]
-  deleteProposal: [proposalId: string]
-  promoteProposal: [proposalId: string]
-  projectToggled: [projectId: string | null]
-  entityClicked: [projectId: string, entityType: string, entityId: string]
-  taskModalClosed: [projectId: string]
   togglePin: [projectId: string]
   reorderPinned: [fromId: string, toId: string]
 }>()
-
-const expandedId = ref<string | null>(props.initialExpandedId || null)
-let hasScrolled = false
-
-// Watch for initialExpandedId becoming available (resolves after projects load)
-watch(() => props.initialExpandedId, (newId) => {
-  if (newId) {
-    expandedId.value = newId
-    if (!hasScrolled) {
-      hasScrolled = true
-      // Poll for the expanded card to appear in DOM
-      const poll = setInterval(() => {
-        const el = document.querySelector('.project-card.expanded')
-        if (el) {
-          clearInterval(poll)
-          el.scrollIntoView({ block: 'start' })
-        }
-      }, 50)
-      setTimeout(() => clearInterval(poll), 2000)
-    }
-  }
-}, { immediate: true })
 
 const dragId = ref<string | null>(null)
 const dragOverId = ref<string | null>(null)
@@ -103,12 +60,6 @@ function onDragEnd() {
 
 const pinnedProjects = computed(() => props.projects.filter((p) => props.pinnedIds.has(p.id)))
 const unpinnedProjects = computed(() => props.projects.filter((p) => !props.pinnedIds.has(p.id)))
-
-function toggleExpand(id: string) {
-  const newId = expandedId.value === id ? null : id
-  expandedId.value = newId
-  emit('projectToggled', newId)
-}
 </script>
 
 <template>
@@ -179,7 +130,6 @@ function toggleExpand(id: string) {
         v-for="project in pinnedProjects"
         :key="project.id"
         :project="project"
-        :expanded="expandedId === project.id"
         :pinned="true"
         :class="{ 'drag-over': dragOverId === project.id }"
         :draggable="true"
@@ -187,34 +137,9 @@ function toggleExpand(id: string) {
         @dragover="onDragOver(project.id, $event)"
         @drop="onDrop(project.id)"
         @dragend="onDragEnd"
-        @toggle="toggleExpand(project.id)"
         @edit="emit('editProject', project)"
         @toggle-pin="emit('togglePin', project.id)"
-      >
-        <ProjectDetail
-          :project="project"
-          :auto-open-task-id="expandedId === project.id ? autoOpenTaskId : null"
-          :auto-open-entity-type="expandedId === project.id ? autoOpenEntityType : null"
-          :auto-open-entity-id="expandedId === project.id ? autoOpenEntityId : null"
-          :initial-tab="expandedId === project.id ? initialTab : null"
-          @edit-project="emit('editProject', project)"
-          @refresh-project="emit('refreshProject')"
-          @delete-project="emit('deleteProject', project)"
-          @create-contract="emit('createContract', $event)"
-          @edit-contract="emit('editContract', $event)"
-          @delete-contract="emit('deleteContract', $event)"
-          @create-invoice="emit('createInvoice', $event)"
-          @edit-invoice="emit('editInvoice', $event)"
-          @delete-invoice="emit('deleteInvoice', $event)"
-          @invoice-actions="emit('invoiceActions', $event)"
-          @create-proposal="emit('createProposal', $event)"
-          @edit-proposal="emit('editProposal', $event)"
-          @delete-proposal="emit('deleteProposal', $event)"
-          @promote-proposal="emit('promoteProposal', $event)"
-          @entity-clicked="(type: string, id: string) => emit('entityClicked', project.id, type, id)"
-          @task-modal-closed="emit('taskModalClosed', project.id)"
-        />
-      </ProjectCard>
+      />
     </div>
 
     <div class="cards">
@@ -222,36 +147,10 @@ function toggleExpand(id: string) {
         v-for="project in unpinnedProjects"
         :key="project.id"
         :project="project"
-        :expanded="expandedId === project.id"
         :pinned="false"
-        @toggle="toggleExpand(project.id)"
         @edit="emit('editProject', project)"
         @toggle-pin="emit('togglePin', project.id)"
-      >
-        <ProjectDetail
-          :project="project"
-          :auto-open-task-id="expandedId === project.id ? autoOpenTaskId : null"
-          :auto-open-entity-type="expandedId === project.id ? autoOpenEntityType : null"
-          :auto-open-entity-id="expandedId === project.id ? autoOpenEntityId : null"
-          :initial-tab="expandedId === project.id ? initialTab : null"
-          @edit-project="emit('editProject', project)"
-          @refresh-project="emit('refreshProject')"
-          @delete-project="emit('deleteProject', project)"
-          @create-contract="emit('createContract', $event)"
-          @edit-contract="emit('editContract', $event)"
-          @delete-contract="emit('deleteContract', $event)"
-          @create-invoice="emit('createInvoice', $event)"
-          @edit-invoice="emit('editInvoice', $event)"
-          @delete-invoice="emit('deleteInvoice', $event)"
-          @invoice-actions="emit('invoiceActions', $event)"
-          @create-proposal="emit('createProposal', $event)"
-          @edit-proposal="emit('editProposal', $event)"
-          @delete-proposal="emit('deleteProposal', $event)"
-          @promote-proposal="emit('promoteProposal', $event)"
-          @entity-clicked="(type: string, id: string) => emit('entityClicked', project.id, type, id)"
-          @task-modal-closed="emit('taskModalClosed', project.id)"
-        />
-      </ProjectCard>
+      />
       <div v-if="projects.length === 0" class="empty-state">
         No projects found.
       </div>

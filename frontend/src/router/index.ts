@@ -24,27 +24,27 @@ const router = createRouter({
     },
     {
       path: '/projects/:projectId',
-      component: () => import('../views/DashboardView.vue'),
+      component: () => import('../views/ProjectPageView.vue'),
       meta: { layout: 'dashboard' },
     },
     {
       path: '/projects/:projectId/tasks/:entityId',
-      component: () => import('../views/DashboardView.vue'),
+      component: () => import('../views/ProjectPageView.vue'),
       meta: { layout: 'dashboard' },
     },
     {
       path: '/projects/:projectId/contracts/:entityId',
-      component: () => import('../views/DashboardView.vue'),
+      component: () => import('../views/ProjectPageView.vue'),
       meta: { layout: 'dashboard' },
     },
     {
       path: '/projects/:projectId/invoices/:entityId',
-      component: () => import('../views/DashboardView.vue'),
+      component: () => import('../views/ProjectPageView.vue'),
       meta: { layout: 'dashboard' },
     },
     {
       path: '/projects/:projectId/proposals/:entityId',
-      component: () => import('../views/DashboardView.vue'),
+      component: () => import('../views/ProjectPageView.vue'),
       meta: { layout: 'dashboard' },
     },
     {

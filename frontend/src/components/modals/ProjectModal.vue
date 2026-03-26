@@ -15,7 +15,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  saved: []
+  saved: [created?: { id: string; project_number: string | null }]
   error: [msg: string]
   delete: []
 }>()
@@ -168,7 +168,7 @@ async function save() {
       })
       toast.success('Project updated')
     } else {
-      await createProject({
+      const created = await createProject({
         project_name: form.value.project_name,
         job_code: form.value.job_code || undefined,
         client_id: form.value.client_id || undefined,
@@ -181,6 +181,9 @@ async function save() {
         data_path: normalizeDataPath(form.value.data_path) || undefined,
       })
       toast.success('Project created')
+      emit('saved', { id: created.id, project_number: created.project_number })
+      visible.value = false
+      return
     }
     emit('saved')
     visible.value = false

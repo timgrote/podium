@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import type { ProjectSummary, CompanySettings } from '../types'
 import { useProjects } from '../composables/useProjects'
 import { useClients } from '../composables/useClients'
@@ -8,21 +8,13 @@ import { getCompanySettings } from '../api/company'
 import { useToast } from '../composables/useToast'
 import ProjectList from '../components/dashboard/ProjectList.vue'
 import ProjectModal from '../components/modals/ProjectModal.vue'
-import ContractModal from '../components/modals/ContractModal.vue'
-import InvoiceCreateModal from '../components/modals/InvoiceCreateModal.vue'
-import InvoiceEditModal from '../components/modals/InvoiceEditModal.vue'
-import InvoiceActionsModal from '../components/modals/InvoiceActionsModal.vue'
-import ProposalModal from '../components/modals/ProposalModal.vue'
-import PromoteProposalModal from '../components/modals/PromoteProposalModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import CompanySettingsModal from '../components/modals/CompanySettingsModal.vue'
 import ErrorModal from '../components/modals/ErrorModal.vue'
 
-const route = useRoute()
 const router = useRouter()
 
 const {
-  projects: allProjects,
   filtered,
   searchQuery,
   statusFilter,
@@ -41,46 +33,9 @@ const {
 const { load: loadClients } = useClients()
 const toast = useToast()
 
-// Route-derived state — projectId param is now a project_number (e.g. "26-042")
-const routeProjectNumber = computed(() => (route.params.projectId as string) || null)
-const routeProjectId = computed(() => {
-  if (!routeProjectNumber.value) return null
-  const match = allProjects.value.find(p => p.project_number === routeProjectNumber.value)
-  return match?.id || null
-})
-const routeTab = computed(() => (route.query.tab as string) || null)
-const routeEntityId = computed(() => (route.params.entityId as string) || null)
-const routeEntityType = computed(() => {
-  const path = route.path
-  if (path.includes('/tasks/')) return 'task'
-  if (path.includes('/contracts/')) return 'contract'
-  if (path.includes('/invoices/')) return 'invoice'
-  if (path.includes('/proposals/')) return 'proposal'
-  return null
-})
-
-function projectNumber(projectId: string): string {
-  const p = allProjects.value.find(proj => proj.id === projectId)
-  return p?.project_number || projectId
-}
-
 // Modal state
 const showProjectModal = ref(false)
 const editingProject = ref<ProjectSummary | null>(null)
-const showContractModal = ref(false)
-const contractProjectId = ref('')
-const editingContractId = ref<string | null>(null)
-const showInvoiceCreateModal = ref(false)
-const invoiceContractId = ref('')
-const showInvoiceEditModal = ref(false)
-const editingInvoiceId = ref('')
-const showInvoiceActionsModal = ref(false)
-const actionsInvoiceId = ref('')
-const showProposalModal = ref(false)
-const proposalProjectId = ref('')
-const editingProposalId = ref<string | null>(null)
-const showPromoteModal = ref(false)
-const promoteProposalId = ref('')
 const showDeleteModal = ref(false)
 const deleteLabel = ref('')
 const deleteAction = ref<(() => Promise<void>) | null>(null)
@@ -88,25 +43,6 @@ const showSettingsModal = ref(false)
 const showErrorModal = ref(false)
 const errorMessage = ref('')
 const company = ref<CompanySettings>({})
-const projectsLoaded = ref(false)
-
-// Deep-link: open entity modal when route + projects are ready
-watch([routeEntityType, routeEntityId, () => projectsLoaded.value], ([type, id, loaded]) => {
-  if (!type || !id || !loaded) return
-  if (type === 'task') {
-    // TaskDetailModal is opened via ProjectDetail's autoOpenTaskId prop
-    // (handled in ProjectDetail component)
-    return
-  }
-  if (type === 'contract') {
-    openEditContract(id)
-  } else if (type === 'invoice') {
-    openEditInvoice(id)
-  } else if (type === 'proposal') {
-    openEditProposal(id)
-  }
-}, { immediate: true })
-
 
 function openCreateProject() {
   editingProject.value = null
@@ -129,88 +65,16 @@ function openDeleteProject(project: ProjectSummary) {
   showDeleteModal.value = true
 }
 
-function openCreateContract(projectId: string) {
-  contractProjectId.value = projectId
-  editingContractId.value = null
-  showContractModal.value = true
-}
-
-function openEditContract(contractId: string) {
-  editingContractId.value = contractId
-  showContractModal.value = true
-}
-
-function openDeleteContract(contractId: string) {
-  deleteLabel.value = 'this contract'
-  deleteAction.value = async () => {
-    const { deleteContract } = await import('../api/contracts')
-    await deleteContract(contractId)
-    toast.success('Contract deleted')
-    await loadProjects()
-  }
-  showDeleteModal.value = true
-}
-
-function openCreateInvoice(contractId: string) {
-  invoiceContractId.value = contractId
-  showInvoiceCreateModal.value = true
-}
-
-function openEditInvoice(invoiceId: string) {
-  editingInvoiceId.value = invoiceId
-  showInvoiceEditModal.value = true
-}
-
-function openDeleteInvoice(invoiceId: string) {
-  deleteLabel.value = 'this invoice'
-  deleteAction.value = async () => {
-    const { deleteInvoice } = await import('../api/invoices')
-    await deleteInvoice(invoiceId)
-    toast.success('Invoice deleted')
-    await loadProjects()
-  }
-  showDeleteModal.value = true
-}
-
-function openInvoiceActions(invoiceId: string) {
-  actionsInvoiceId.value = invoiceId
-  showInvoiceActionsModal.value = true
-}
-
-function openCreateProposal(projectId: string) {
-  proposalProjectId.value = projectId
-  editingProposalId.value = null
-  showProposalModal.value = true
-}
-
-function openEditProposal(proposalId: string) {
-  editingProposalId.value = proposalId
-  showProposalModal.value = true
-}
-
-function openDeleteProposal(proposalId: string) {
-  deleteLabel.value = 'this proposal'
-  deleteAction.value = async () => {
-    const { deleteProposal } = await import('../api/proposals')
-    await deleteProposal(proposalId)
-    toast.success('Proposal deleted')
-    await loadProjects()
-  }
-  showDeleteModal.value = true
-}
-
-function openPromoteProposal(proposalId: string) {
-  promoteProposalId.value = proposalId
-  showPromoteModal.value = true
-}
-
 function showError(msg: string) {
   errorMessage.value = msg
   showErrorModal.value = true
 }
 
-async function handleSaved() {
+async function handleSaved(created?: { id: string; project_number: string | null }) {
   await loadProjects()
+  if (created) {
+    router.push(`/projects/${created.project_number || created.id}`)
+  }
 }
 
 async function reloadCompany() {
@@ -223,48 +87,8 @@ async function reloadCompany() {
   } catch { /* non-critical */ }
 }
 
-// URL sync: when project is toggled in ProjectList
-function onProjectToggled(projectId: string | null) {
-  if (projectId) {
-    router.push(`/projects/${projectNumber(projectId)}`)
-  } else {
-    router.push('/projects')
-  }
-}
-
-// URL sync: when a task/contract/invoice/proposal is clicked in ProjectDetail
-function onEntityClicked(projectId: string, entityType: string, entityId: string) {
-  router.push(`/projects/${projectNumber(projectId)}/${entityType}s/${entityId}`)
-}
-
-// URL sync: when modals close, update URL to remove entity
-watch(showContractModal, (v) => {
-  if (!v && routeEntityType.value === 'contract') {
-    router.replace(routeProjectNumber.value ? `/projects/${routeProjectNumber.value}` : '/projects')
-  }
-})
-
-watch(showInvoiceEditModal, (v) => {
-  if (!v && routeEntityType.value === 'invoice') {
-    router.replace(routeProjectNumber.value ? `/projects/${routeProjectNumber.value}` : '/projects')
-  }
-})
-
-watch(showProposalModal, (v) => {
-  if (!v && routeEntityType.value === 'proposal') {
-    router.replace(routeProjectNumber.value ? `/projects/${routeProjectNumber.value}` : '/projects')
-  }
-})
-
-function onTaskModalClose(projectId: string) {
-  if (routeEntityType.value === 'task') {
-    router.replace(`/projects/${projectNumber(projectId)}`)
-  }
-}
-
 onMounted(async () => {
   await Promise.all([loadProjects(), loadClients()])
-  projectsLoaded.value = true
   reloadCompany()
 })
 </script>
@@ -292,11 +116,6 @@ onMounted(async () => {
       :sort-order="sortOrder"
       :unique-statuses="uniqueStatuses"
       :unique-p-ms="uniquePMs"
-      :initial-expanded-id="routeProjectId"
-      :auto-open-task-id="routeEntityType === 'task' ? routeEntityId : null"
-      :auto-open-entity-type="routeEntityType !== 'task' ? routeEntityType : null"
-      :auto-open-entity-id="routeEntityType !== 'task' ? routeEntityId : null"
-      :initial-tab="routeTab"
       @update:search-query="searchQuery = $event"
       @update:status-filter="statusFilter = $event"
       @update:pm-filter="pmFilter = $event"
@@ -306,22 +125,7 @@ onMounted(async () => {
       @reorder-pinned="reorderPinned"
       @create-project="openCreateProject"
       @edit-project="openEditProject"
-      @refresh-project="loadProjects"
       @delete-project="openDeleteProject"
-      @create-contract="openCreateContract"
-      @edit-contract="openEditContract"
-      @delete-contract="openDeleteContract"
-      @create-invoice="openCreateInvoice"
-      @edit-invoice="openEditInvoice"
-      @delete-invoice="openDeleteInvoice"
-      @invoice-actions="openInvoiceActions"
-      @create-proposal="openCreateProposal"
-      @edit-proposal="openEditProposal"
-      @delete-proposal="openDeleteProposal"
-      @promote-proposal="openPromoteProposal"
-      @project-toggled="onProjectToggled"
-      @entity-clicked="onEntityClicked"
-      @task-modal-closed="onTaskModalClose"
     />
 
     <!-- Modals -->
@@ -331,50 +135,6 @@ onMounted(async () => {
       @saved="handleSaved"
       @error="showError"
       @delete="editingProject && openDeleteProject(editingProject)"
-    />
-
-    <ContractModal
-      v-model:visible="showContractModal"
-      :project-id="contractProjectId"
-      :contract-id="editingContractId"
-      @saved="handleSaved"
-      @error="showError"
-    />
-
-    <InvoiceCreateModal
-      v-model:visible="showInvoiceCreateModal"
-      :contract-id="invoiceContractId"
-      @saved="handleSaved"
-      @error="showError"
-    />
-
-    <InvoiceEditModal
-      v-model:visible="showInvoiceEditModal"
-      :invoice-id="editingInvoiceId"
-      @saved="handleSaved"
-      @error="showError"
-    />
-
-    <InvoiceActionsModal
-      v-model:visible="showInvoiceActionsModal"
-      :invoice-id="actionsInvoiceId"
-      @saved="handleSaved"
-      @error="showError"
-    />
-
-    <ProposalModal
-      v-model:visible="showProposalModal"
-      :project-id="proposalProjectId"
-      :proposal-id="editingProposalId"
-      @saved="handleSaved"
-      @error="showError"
-    />
-
-    <PromoteProposalModal
-      v-model:visible="showPromoteModal"
-      :proposal-id="promoteProposalId"
-      @saved="handleSaved"
-      @error="showError"
     />
 
     <DeleteConfirmModal
