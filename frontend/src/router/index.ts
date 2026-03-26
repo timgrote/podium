@@ -80,6 +80,14 @@ const router = createRouter({
   ],
 })
 
+// Auto-reload on chunk load failure (stale cache after deploy)
+router.onError((error, to) => {
+  if (error.message?.includes('Failed to fetch dynamically imported module') ||
+      error.message?.includes('Importing a module script failed')) {
+    window.location.href = to.fullPath
+  }
+})
+
 router.beforeEach(async (to) => {
   const { isAuthenticated, checkSession } = useAuth()
 
