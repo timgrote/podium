@@ -66,7 +66,7 @@ async function exportInvoicePdf(invoiceId: string) {
       <h4>Invoices</h4>
     </div>
     <div v-if="project.invoices.length === 0" class="empty">No invoices</div>
-    <div v-for="invoice in project.invoices" :key="invoice.id" class="sub-card">
+    <div v-for="invoice in project.invoices" :key="invoice.id" class="sub-card" @click="emit('editInvoice', invoice.id)">
       <div class="sub-card-header">
         <span class="sub-card-title">{{ invoice.invoice_number }}</span>
         <span class="sub-card-amount">{{ formatCurrency(invoice.total_due) }}</span>
@@ -79,10 +79,10 @@ async function exportInvoicePdf(invoiceId: string) {
         >
           {{ invoice.paid_status === 'paid' ? 'Paid' : invoice.sent_status === 'sent' ? 'Sent' : 'Draft' }}
         </span>
-        <span v-if="invoice.sent_status === 'sent' && invoice.sent_at" class="sub-card-date">
-          {{ formatDate(invoice.sent_at) }}
+        <span v-if="invoice.invoice_date" class="sub-card-date">
+          {{ formatDate(invoice.invoice_date) }}
         </span>
-        <div class="sub-card-actions">
+        <div class="sub-card-actions" @click.stop>
           <a
             v-if="invoice.data_path && invoice.data_path.includes('google.com')"
             class="btn-icon"
@@ -122,9 +122,6 @@ async function exportInvoicePdf(invoiceId: string) {
           <button class="btn-icon" title="Actions" @click="emit('invoiceActions', invoice.id)">
             <i class="pi pi-ellipsis-h" />
           </button>
-          <button class="btn-icon" title="Edit" @click="emit('editInvoice', invoice.id)">
-            <i class="pi pi-pencil" />
-          </button>
         </div>
       </div>
     </div>
@@ -150,7 +147,9 @@ async function exportInvoicePdf(invoiceId: string) {
   border-radius: 0.375rem;
   padding: 0.75rem;
   margin-bottom: 0.5rem;
+  cursor: pointer;
 }
+.sub-card:hover { border-color: var(--p-primary-color); }
 .sub-card-header {
   display: flex;
   align-items: center;
