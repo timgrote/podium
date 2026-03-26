@@ -26,11 +26,12 @@ const emit = defineEmits<{
   editProject: [project: ProjectSummary]
   deleteProject: [project: ProjectSummary]
   togglePin: [projectId: string]
-  reorderPinned: [fromId: string, toId: string]
+  reorderPinned: [fromId: string, toId: string, position: 'before' | 'after']
 }>()
 
 const dragId = ref<string | null>(null)
 const dragOverId = ref<string | null>(null)
+const dragPosition = ref<'before' | 'after'>('before')
 
 function onDragStart(projectId: string, e: DragEvent) {
   dragId.value = projectId
@@ -40,14 +41,16 @@ function onDragStart(projectId: string, e: DragEvent) {
 }
 
 function onDragOver(projectId: string, e: DragEvent) {
-  if (!dragId.value || !props.pinnedIds.has(projectId)) return
+  if (!dragId.value || !props.pinnedIds.has(projectId) || dragId.value === projectId) return
   e.preventDefault()
   dragOverId.value = projectId
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  dragPosition.value = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
 function onDrop(projectId: string) {
   if (dragId.value && dragId.value !== projectId) {
-    emit('reorderPinned', dragId.value, projectId)
+    emit('reorderPinned', dragId.value, projectId, dragPosition.value)
   }
   dragId.value = null
   dragOverId.value = null
@@ -131,7 +134,7 @@ const unpinnedProjects = computed(() => props.projects.filter((p) => !props.pinn
         :key="project.id"
         :project="project"
         :pinned="true"
-        :class="{ 'drag-over': dragOverId === project.id }"
+        :class="{ 'drag-insert-before': dragOverId === project.id && dragPosition === 'before', 'drag-insert-after': dragOverId === project.id && dragPosition === 'after' }"
         :draggable="true"
         @dragstart="onDragStart(project.id, $event)"
         @dragover="onDragOver(project.id, $event)"
@@ -298,10 +301,12 @@ const unpinnedProjects = computed(() => props.projects.filter((p) => !props.pinn
   background: var(--p-surface-950);
 }
 
-.drag-over {
-  outline: 2px solid var(--p-primary-color);
-  outline-offset: -2px;
-  border-radius: 0.5rem;
+.drag-insert-before {
+  box-shadow: 0 -2px 0 0 var(--p-primary-color);
+}
+
+.drag-insert-after {
+  box-shadow: 0 2px 0 0 var(--p-primary-color);
 }
 
 .empty-state {

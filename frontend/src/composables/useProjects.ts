@@ -48,13 +48,15 @@ export function useProjects() {
     savePins()
   }
 
-  function reorderPinned(fromId: string, toId: string) {
+  function reorderPinned(fromId: string, toId: string, position: 'before' | 'after' = 'before') {
     const arr = [...pinnedOrder.value]
     const fromIdx = arr.indexOf(fromId)
     const toIdx = arr.indexOf(toId)
     if (fromIdx < 0 || toIdx < 0) return
     arr.splice(fromIdx, 1)
-    arr.splice(toIdx, 0, fromId)
+    let insertIdx = arr.indexOf(toId)
+    if (position === 'after') insertIdx++
+    arr.splice(insertIdx, 0, fromId)
     pinnedOrder.value = arr
     savePins()
   }
@@ -63,11 +65,13 @@ export function useProjects() {
 
   const filtered = computed(() => {
     let result = projects.value
+    const pinSet = pinnedIds.value
 
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
       result = result.filter(
         (p) =>
+          pinSet.has(p.id) ||
           (p.job_code || '').toLowerCase().includes(q) ||
           (p.project_name || '').toLowerCase().includes(q) ||
           (p.client_name || '').toLowerCase().includes(q) ||
@@ -76,21 +80,20 @@ export function useProjects() {
     }
 
     if (statusFilter.value) {
-      result = result.filter((p) => p.status === statusFilter.value)
+      result = result.filter((p) => pinSet.has(p.id) || p.status === statusFilter.value)
     }
 
     if (pmFilter.value) {
-      result = result.filter((p) => p.pm_name === pmFilter.value)
+      result = result.filter((p) => pinSet.has(p.id) || p.pm_name === pmFilter.value)
     }
 
     if (clientFilter.value) {
-      result = result.filter((p) => p.client_id === clientFilter.value)
+      result = result.filter((p) => pinSet.has(p.id) || p.client_id === clientFilter.value)
     }
 
     const field = sortField.value
     const order = sortOrder.value === 'asc' ? 1 : -1
     const isDateField = field === 'next_task_deadline' || field === 'last_activity'
-    const pinSet = pinnedIds.value
     const pinArr = pinnedOrder.value
     result = [...result].sort((a, b) => {
       // Pinned projects always sort to top, in user-defined order
