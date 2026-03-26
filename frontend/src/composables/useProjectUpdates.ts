@@ -1,4 +1,4 @@
-import { watch, type Ref } from 'vue'
+import { watch, onScopeDispose, type Ref } from 'vue'
 
 export function useProjectUpdates(
   projectId: Ref<string | null>,
@@ -38,6 +38,8 @@ export function useProjectUpdates(
       disconnect()
     }
   }, { immediate: true })
+
+  onScopeDispose(disconnect)
 
   return { disconnect }
 }
