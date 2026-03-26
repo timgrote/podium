@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import type { Employee } from '../types'
 import type { TimeEntry } from '../api/timeEntries'
-import { getTimeEntries, deleteTimeEntry, updateTimeEntry } from '../api/timeEntries'
+import { getTimeEntries, deleteTimeEntry } from '../api/timeEntries'
 import { getEmployees } from '../api/employees'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
@@ -16,8 +16,7 @@ const employees = ref<Employee[]>([])
 const loading = ref(true)
 const showLogModal = ref(false)
 const selectedEmployeeId = ref('')
-const editingId = ref<string | null>(null)
-const editHours = ref('')
+const editingEntry = ref<TimeEntry | null>(null)
 
 // Week navigation
 const weekOffset = ref(0)
@@ -159,25 +158,14 @@ async function handleDelete(id: string) {
   }
 }
 
-function startEdit(entry: TimeEntry) {
-  editingId.value = entry.id
-  editHours.value = String(entry.hours)
+function openEdit(entry: TimeEntry) {
+  editingEntry.value = entry
+  showLogModal.value = true
 }
 
-async function saveEdit(entry: TimeEntry) {
-  const h = parseFloat(editHours.value)
-  if (!h || h <= 0) return
-  try {
-    await updateTimeEntry(entry.id, { hours: h })
-    editingId.value = null
-    await loadEntries()
-  } catch (e) {
-    toast.error(String(e))
-  }
-}
-
-function cancelEdit() {
-  editingId.value = null
+function openCreate() {
+  editingEntry.value = null
+  showLogModal.value = true
 }
 
 watch([effectiveEmployeeId, weekOffset], loadEntries)
@@ -203,7 +191,7 @@ onMounted(async () => {
             {{ emp.first_name }} {{ emp.last_name }}
           </option>
         </select>
-        <button class="btn-log-time" @click="showLogModal = true">
+        <button class="btn-log-time" @click="openCreate">
           <i class="pi pi-plus" /> Log Time
         </button>
       </div>
@@ -251,26 +239,13 @@ onMounted(async () => {
           <span class="project-total">{{ group.totalHours.toFixed(1) }}h</span>
         </div>
         <div class="project-entries">
-          <div v-for="entry in group.entries" :key="entry.id" class="entry-row">
+          <div v-for="entry in group.entries" :key="entry.id" class="entry-row" @click="openEdit(entry)">
             <span class="entry-day">{{ dayLabel(entry.date) }}</span>
             <span v-if="entry.contract_task_name" class="entry-task">{{ entry.contract_task_name }}</span>
             <span v-if="entry.description" class="entry-desc">{{ entry.description }}</span>
             <div class="entry-right">
-              <div v-if="editingId === entry.id" class="edit-hours">
-                <input
-                  v-model="editHours"
-                  type="number"
-                  step="0.25"
-                  min="0.25"
-                  class="edit-hours-input"
-                  @keydown.enter="saveEdit(entry)"
-                  @keydown.escape="cancelEdit"
-                />
-                <button class="btn-icon" @click="saveEdit(entry)"><i class="pi pi-check" /></button>
-                <button class="btn-icon" @click="cancelEdit"><i class="pi pi-times" /></button>
-              </div>
-              <span v-else class="entry-hours" @click="startEdit(entry)">{{ Number(entry.hours).toFixed(1) }}h</span>
-              <button v-if="editingId !== entry.id" class="btn-icon btn-delete" @click="handleDelete(entry.id)">
+              <span class="entry-hours">{{ Number(entry.hours).toFixed(1) }}h</span>
+              <button class="btn-icon btn-delete" @click.stop="handleDelete(entry.id)">
                 <i class="pi pi-trash" />
               </button>
             </div>
@@ -281,6 +256,7 @@ onMounted(async () => {
 
     <LogTimeModal
       v-model:visible="showLogModal"
+      :entry="editingEntry"
       @saved="loadEntries"
     />
   </div>
@@ -482,7 +458,10 @@ onMounted(async () => {
   gap: 0.75rem;
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--p-content-border-color);
+  cursor: pointer;
 }
+
+.entry-row:hover { background: var(--p-content-hover-background); }
 
 .entry-row:last-child { border-bottom: none; }
 
@@ -524,27 +503,8 @@ onMounted(async () => {
   font-weight: 700;
   font-size: 0.875rem;
   color: var(--p-primary-color);
-  cursor: pointer;
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-}
-
-.entry-hours:hover { background: var(--p-content-hover-background); }
-
-.edit-hours {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.edit-hours-input {
-  width: 60px;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--p-primary-color);
-  border-radius: 0.25rem;
-  font-size: 0.875rem;
-  background: var(--p-form-field-background);
-  color: var(--p-text-color);
 }
 
 .btn-icon {

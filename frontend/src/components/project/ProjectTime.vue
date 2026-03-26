@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { ProjectDetail } from '../../types'
-import { getTimeEntries, getTimeSummary, type TimeEntry, type TimeSummary } from '../../api/timeEntries'
+import { getTimeEntries, getTimeSummary, deleteTimeEntry, type TimeEntry, type TimeSummary } from '../../api/timeEntries'
+import { useToast } from '../../composables/useToast'
 import LogTimeModal from '../modals/LogTimeModal.vue'
 
 const props = defineProps<{
   project: ProjectDetail
 }>()
 
+const toast = useToast()
 const timeEntries = ref<TimeEntry[]>([])
 const timeSummary = ref<TimeSummary | null>(null)
 const timeLoading = ref(false)
 const showLogTimeModal = ref(false)
+const editingEntry = ref<TimeEntry | null>(null)
 
 const allContractTasks = computed(() => {
   return props.project.contracts?.flatMap(c => c.tasks || []) || []
@@ -33,6 +36,26 @@ async function loadTime() {
   }
 }
 
+function openCreate() {
+  editingEntry.value = null
+  showLogTimeModal.value = true
+}
+
+function openEdit(entry: TimeEntry) {
+  editingEntry.value = entry
+  showLogTimeModal.value = true
+}
+
+async function handleDelete(id: string) {
+  try {
+    await deleteTimeEntry(id)
+    toast.success('Entry deleted')
+    await loadTime()
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
 onMounted(() => {
   loadTime()
 })
@@ -44,7 +67,7 @@ defineExpose({ totalHours: computed(() => timeSummary.value?.total_hours || 0) }
   <div class="project-time">
     <div class="section-header">
       <h4>Time Tracking</h4>
-      <button class="btn btn-sm btn-primary" @click="showLogTimeModal = true">
+      <button class="btn btn-sm btn-primary" @click="openCreate">
         <i class="pi pi-plus" /> Log Time
       </button>
     </div>
@@ -80,12 +103,15 @@ defineExpose({ totalHours: computed(() => timeSummary.value?.total_hours || 0) }
       <div v-if="timeEntries.length" class="time-entries-section">
         <h5>Recent Entries</h5>
         <div class="time-entries-list">
-          <div v-for="entry in timeEntries.slice(0, 20)" :key="entry.id" class="time-entry-row">
+          <div v-for="entry in timeEntries.slice(0, 20)" :key="entry.id" class="time-entry-row" @click="openEdit(entry)">
             <span class="te-date">{{ entry.date }}</span>
             <span class="te-employee">{{ entry.employee_name }}</span>
             <span v-if="entry.contract_task_name" class="te-task">{{ entry.contract_task_name }}</span>
             <span v-if="entry.description" class="te-desc">{{ entry.description }}</span>
             <span class="te-hours">{{ Number(entry.hours).toFixed(1) }}h</span>
+            <button class="btn-icon btn-delete" @click.stop="handleDelete(entry.id)">
+              <i class="pi pi-trash" />
+            </button>
           </div>
         </div>
       </div>
@@ -100,6 +126,7 @@ defineExpose({ totalHours: computed(() => timeSummary.value?.total_hours || 0) }
       :project-id="project.id"
       :project-name="project.project_name"
       :contract-tasks="allContractTasks"
+      :entry="editingEntry"
       @saved="loadTime"
     />
   </div>
@@ -246,8 +273,10 @@ defineExpose({ totalHours: computed(() => timeSummary.value?.total_hours || 0) }
   padding: 0.375rem 0;
   border-bottom: 1px solid var(--p-content-border-color);
   font-size: 0.8125rem;
+  cursor: pointer;
 }
 
+.time-entry-row:hover { background: var(--p-content-hover-background); }
 .time-entry-row:last-child { border-bottom: none; }
 
 .te-date {
@@ -282,4 +311,16 @@ defineExpose({ totalHours: computed(() => timeSummary.value?.total_hours || 0) }
   color: var(--p-primary-color);
   margin-left: auto;
 }
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--p-text-muted-color);
+  padding: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.btn-icon:hover { color: var(--p-text-color); }
+.btn-delete:hover { color: #dc2626; }
 </style>
