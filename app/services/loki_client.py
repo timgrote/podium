@@ -8,7 +8,7 @@ import httpx
 logger = logging.getLogger("conductor")
 
 
-def query_loki(loki_url: str, user_alias: str, date_from: str, date_to: str) -> list[dict]:
+def query_loki(loki_url: str, user_alias: str, date_from: str, date_to: str, api_key: str = "") -> list[dict]:
     """Query Loki for Raindrop drawing close events for a given user and date range."""
     # Filter for Drawing Closed events containing this user's alias
     logql = '{app="raindrop"} |= "Drawing Closed" |= "' + user_alias + '"'
@@ -26,8 +26,12 @@ def query_loki(loki_url: str, user_alias: str, date_from: str, date_to: str) -> 
         "limit": 5000,
     }
 
+    headers = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
     try:
-        resp = httpx.get(url, params=params, timeout=15)
+        resp = httpx.get(url, params=params, headers=headers, timeout=15)
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:

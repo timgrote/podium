@@ -29,7 +29,7 @@ def get_activity_log(
 
     # Query Loki if alias is configured
     if loki_alias and settings.loki_url:
-        loki_items = query_loki(settings.loki_url, loki_alias, date_from, date_to)
+        loki_items = query_loki(settings.loki_url, loki_alias, date_from, date_to, settings.loki_api_key)
         for item in loki_items:
             item["employee_id"] = employee_id
         items.extend(loki_items)

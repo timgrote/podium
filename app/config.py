@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # Loki (Raindrop activity logs)
     loki_url: str = "https://logging.raindropirrigationsoftware.com"
+    loki_api_key: str = ""
 
     # Proposal settings
     proposal_template_id: str = "1PnVd8O3VgQKDLx8YpqY30U-JvXMdEleASRC87qPxZf4"
