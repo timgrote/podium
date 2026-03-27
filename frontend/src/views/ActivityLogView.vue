@@ -18,7 +18,7 @@ const employees = ref<Employee[]>([])
 const projects = ref<ProjectSummary[]>([])
 const loading = ref(true)
 const selectedEmployeeId = ref('')
-const assigningItemId = ref<string | null>(null)
+const assigningGroupKey = ref<string | null>(null)
 const expandedGroups = ref<Set<string>>(new Set())
 const collapsedDays = ref<Set<string>>(new Set())
 
@@ -269,7 +269,7 @@ async function handleAssign(
       remember: data.remember,
       pattern: data.pattern,
     })
-    assigningItemId.value = null
+    assigningGroupKey.value = null
     toast.success('Project assigned')
     await loadData()
   } catch (e) {
@@ -372,6 +372,21 @@ onMounted(async () => {
             <span v-else class="project-unassigned">Unassigned</span>
             <span class="project-group-meta">{{ pg.files.length }} file{{ pg.files.length !== 1 ? 's' : '' }}</span>
             <span class="project-group-time">{{ formatDuration(pg.total_minutes) }}</span>
+            <div v-if="!pg.project_id && pg.files.length > 0" class="header-assign" style="position: relative" @click.stop>
+              <button
+                class="assign-btn"
+                @click="assigningGroupKey = assigningGroupKey === 'today:unassigned' ? null : 'today:unassigned'"
+              >
+                Assign
+              </button>
+              <ProjectAssignPopover
+                v-if="assigningGroupKey === 'today:unassigned'"
+                :item="pg.files[0]!.representative"
+                :projects="projects"
+                @assigned="handleAssign(pg.files[0]!.representative, $event)"
+                @cancel="assigningGroupKey = null"
+              />
+            </div>
           </div>
           <div v-if="isExpanded('today', pg.project_id)" class="file-list">
             <div v-for="file in pg.files" :key="file.source_path || file.description" class="file-row">
@@ -383,21 +398,6 @@ onMounted(async () => {
               <span v-if="file.total_commands" class="file-detail">{{ file.total_commands }} cmds</span>
               <span v-if="file.sessions > 1" class="file-sessions">{{ file.sessions }}x</span>
               <span v-if="file.total_minutes" class="file-duration">{{ formatDuration(file.total_minutes) }}</span>
-              <div v-if="!pg.project_id" class="file-assign" style="position: relative">
-                <button
-                  class="assign-btn"
-                  @click.stop="assigningItemId = assigningItemId === file.representative.id ? null : file.representative.id"
-                >
-                  Assign
-                </button>
-                <ProjectAssignPopover
-                  v-if="assigningItemId === file.representative.id"
-                  :item="file.representative"
-                  :projects="projects"
-                  @assigned="handleAssign(file.representative, $event)"
-                  @cancel="assigningItemId = null"
-                />
-              </div>
             </div>
           </div>
         </div>
@@ -425,6 +425,21 @@ onMounted(async () => {
             <span v-else class="project-unassigned">Unassigned</span>
             <span class="project-group-meta">{{ pg.files.length }} file{{ pg.files.length !== 1 ? 's' : '' }}</span>
             <span class="project-group-time">{{ formatDuration(pg.total_minutes) }}</span>
+            <div v-if="!pg.project_id && pg.files.length > 0" class="header-assign" style="position: relative" @click.stop>
+              <button
+                class="assign-btn"
+                @click="assigningGroupKey = assigningGroupKey === `${group.dateStr}:unassigned` ? null : `${group.dateStr}:unassigned`"
+              >
+                Assign
+              </button>
+              <ProjectAssignPopover
+                v-if="assigningGroupKey === `${group.dateStr}:unassigned`"
+                :item="pg.files[0]!.representative"
+                :projects="projects"
+                @assigned="handleAssign(pg.files[0]!.representative, $event)"
+                @cancel="assigningGroupKey = null"
+              />
+            </div>
           </div>
           <div v-if="isExpanded(group.dateStr, pg.project_id)" class="file-list">
             <div v-for="file in pg.files" :key="file.source_path || file.description" class="file-row">
@@ -436,21 +451,6 @@ onMounted(async () => {
               <span v-if="file.total_commands" class="file-detail">{{ file.total_commands }} cmds</span>
               <span v-if="file.sessions > 1" class="file-sessions">{{ file.sessions }}x</span>
               <span v-if="file.total_minutes" class="file-duration">{{ formatDuration(file.total_minutes) }}</span>
-              <div v-if="!pg.project_id" class="file-assign" style="position: relative">
-                <button
-                  class="assign-btn"
-                  @click.stop="assigningItemId = assigningItemId === file.representative.id ? null : file.representative.id"
-                >
-                  Assign
-                </button>
-                <ProjectAssignPopover
-                  v-if="assigningItemId === file.representative.id"
-                  :item="file.representative"
-                  :projects="projects"
-                  @assigned="handleAssign(file.representative, $event)"
-                  @cancel="assigningItemId = null"
-                />
-              </div>
             </div>
           </div>
         </div>

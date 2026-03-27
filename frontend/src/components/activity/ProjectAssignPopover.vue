@@ -18,12 +18,12 @@ const remember = ref(true)
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase()
-  if (!q) return props.projects.slice(0, 10)
+  if (!q) return props.projects
   return props.projects.filter(
     (p) =>
       (p.project_name || '').toLowerCase().includes(q) ||
       (p.job_code || '').toLowerCase().includes(q),
-  ).slice(0, 10)
+  )
 })
 
 function extractPattern(sourcePath: string): string {
