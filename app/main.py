@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routers import activity_log, auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, tasks, time_entries, uploads, updates
+from .routers import activity_log, auth, clients, company, contacts, contracts, employees, flows, invoices, projects, proposals, raindrop_analytics, tasks, time_entries, uploads, updates
 
 _log_file = Path(__file__).resolve().parent.parent / "conductor.log"
 logging.basicConfig(
@@ -81,6 +81,7 @@ app.include_router(flows.router, prefix="/api/flows", tags=["flows"])
 app.include_router(uploads.router, prefix="/api/uploads", tags=["uploads"])
 app.include_router(updates.router, prefix="/api/updates", tags=["updates"])
 app.include_router(activity_log.router, prefix="/api/activity-log", tags=["activity-log"])
+app.include_router(raindrop_analytics.router, prefix="/api/raindrop", tags=["raindrop"])
 
 # --- Static files (Vue SPA) ---
 static_root = Path(__file__).resolve().parent.parent
