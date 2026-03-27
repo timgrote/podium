@@ -11,6 +11,8 @@ export interface ActivityItem {
   project_id: string | null
   project_name: string | null
   source_path: string | null
+  opened_at: string | null
+  closed_at: string | null
   mapping_source: 'auto' | 'manual' | 'dismissed' | null
 }
 

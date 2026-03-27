@@ -131,7 +131,8 @@ interface FileEntry {
   total_minutes: number
   total_commands: number
   sessions: number
-  // Keep one representative item for assign functionality
+  earliest_open: string | null
+  latest_close: string | null
   representative: ActivityItem
 }
 
@@ -170,11 +171,19 @@ function consolidateByProject(dayItems: ActivityItem[]): ProjectGroup[] {
         total_minutes: 0,
         total_commands: 0,
         sessions: 0,
+        earliest_open: null,
+        latest_close: null,
         representative: item,
       }
       group.files.push(file)
     }
     file.total_minutes += item.duration_minutes || 0
+    if (item.opened_at && (!file.earliest_open || item.opened_at < file.earliest_open)) {
+      file.earliest_open = item.opened_at
+    }
+    if (item.closed_at && (!file.latest_close || item.closed_at > file.latest_close)) {
+      file.latest_close = item.closed_at
+    }
     file.sessions++
     // Parse command count from detail string
     const cmdMatch = item.detail?.match(/(\d+) cmds/)
@@ -294,6 +303,11 @@ async function handleAssign(
   }
 }
 
+function formatTime(ts: string): string {
+  const d = new Date(ts)
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
 function formatDuration(minutes: number): string {
   const m = Math.round(minutes)
   if (m < 60) return `${m}m`
@@ -399,6 +413,7 @@ onMounted(async () => {
               <div class="file-info">
                 <span class="file-name">{{ file.description }}</span>
                 <span v-if="file.source_path" class="file-path">{{ file.source_path }}</span>
+                <span v-if="file.earliest_open" class="file-times">{{ formatTime(file.earliest_open) }} – {{ file.latest_close ? formatTime(file.latest_close) : '' }}</span>
               </div>
               <span v-if="file.total_commands" class="file-detail">{{ file.total_commands }} cmds</span>
               <span v-if="file.sessions > 1" class="file-sessions">{{ file.sessions }}x</span>
@@ -455,6 +470,7 @@ onMounted(async () => {
               <div class="file-info">
                 <span class="file-name">{{ file.description }}</span>
                 <span v-if="file.source_path" class="file-path">{{ file.source_path }}</span>
+                <span v-if="file.earliest_open" class="file-times">{{ formatTime(file.earliest_open) }} – {{ file.latest_close ? formatTime(file.latest_close) : '' }}</span>
               </div>
               <span v-if="file.total_commands" class="file-detail">{{ file.total_commands }} cmds</span>
               <span v-if="file.sessions > 1" class="file-sessions">{{ file.sessions }}x</span>
@@ -743,6 +759,11 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.file-times {
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
 }
 
 .file-detail {

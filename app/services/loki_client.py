@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -66,11 +66,15 @@ def _parse_loki_response(data: dict, user_alias: str) -> list[dict]:
             raindrop_commands = entry.get("RaindropCommands", 0) or 0
             save_count = entry.get("SaveCount", 0) or 0
 
-            # Parse timestamp from nanoseconds
+            # Parse timestamp (close time) from nanoseconds, derive open time
             try:
-                timestamp = datetime.fromtimestamp(int(ts_ns) / 1e9).isoformat()
+                close_dt = datetime.fromtimestamp(int(ts_ns) / 1e9)
+                timestamp = close_dt.isoformat()
+                open_dt = close_dt - timedelta(minutes=float(open_minutes)) if open_minutes else close_dt
+                opened_at = open_dt.isoformat()
             except (ValueError, OSError):
                 timestamp = datetime.now().isoformat()
+                opened_at = timestamp
 
             # Deterministic ID
             raw = f"{ts_ns}:{user_alias}:{drawing_path}"
@@ -91,6 +95,8 @@ def _parse_loki_response(data: dict, user_alias: str) -> list[dict]:
                 "id": item_id,
                 "source": "loki",
                 "timestamp": timestamp,
+                "opened_at": opened_at,
+                "closed_at": timestamp,
                 "description": drawing_name,
                 "detail": ", ".join(detail_parts) if detail_parts else None,
                 "duration_minutes": float(work_minutes) if work_minutes else None,
