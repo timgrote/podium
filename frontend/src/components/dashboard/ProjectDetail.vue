@@ -657,7 +657,7 @@ function formatPercent(value: number): string {
         :class="{ active: activeTab === 'time' }"
         @click="activeTab = 'time'"
       >
-        Time <span v-if="timeSummary && timeSummary.total_hours > 0" class="tab-count">({{ Number(timeSummary.total_hours).toFixed(1) }}h)</span>
+        Time <span v-if="timeSummary && timeSummary.total_hours > 0" class="tab-count">({{ Number(timeSummary.total_hours).toFixed(2) }}h)</span>
       </button>
       <button
         class="tab"
@@ -1084,7 +1084,7 @@ function formatPercent(value: number): string {
         <!-- Summary -->
         <div v-if="timeSummary && timeSummary.total_hours > 0" class="time-summary">
           <div class="time-total">
-            <span class="time-total-hours">{{ Number(timeSummary.total_hours).toFixed(1) }}</span>
+            <span class="time-total-hours">{{ Number(timeSummary.total_hours).toFixed(2) }}</span>
             <span class="time-total-label">total hours</span>
           </div>
 
@@ -1092,7 +1092,7 @@ function formatPercent(value: number): string {
             <h5>By Employee</h5>
             <div v-for="row in timeSummary.by_employee" :key="row.employee_id" class="breakdown-row">
               <span class="breakdown-name">{{ row.employee_name }}</span>
-              <span class="breakdown-hours">{{ Number(row.total_hours).toFixed(1) }}h</span>
+              <span class="breakdown-hours">{{ Number(row.total_hours).toFixed(2) }}h</span>
             </div>
           </div>
 
@@ -1100,7 +1100,7 @@ function formatPercent(value: number): string {
             <h5>By Contract Task</h5>
             <div v-for="row in timeSummary.by_task.filter(t => t.task_name)" :key="row.contract_task_id || 'none'" class="breakdown-row">
               <span class="breakdown-name">{{ row.task_name }}</span>
-              <span class="breakdown-hours">{{ Number(row.total_hours).toFixed(1) }}h</span>
+              <span class="breakdown-hours">{{ Number(row.total_hours).toFixed(2) }}h</span>
             </div>
           </div>
         </div>
@@ -1114,7 +1114,7 @@ function formatPercent(value: number): string {
               <span class="te-employee">{{ entry.employee_name }}</span>
               <span v-if="entry.contract_task_name" class="te-task">{{ entry.contract_task_name }}</span>
               <span v-if="entry.description" class="te-desc">{{ entry.description }}</span>
-              <span class="te-hours">{{ Number(entry.hours).toFixed(1) }}h</span>
+              <span class="te-hours">{{ Number(entry.hours).toFixed(2) }}h</span>
             </div>
           </div>
         </div>

@@ -38,7 +38,7 @@ const groups = computed<NavGroup[]>(() => [
     items: [
       { id: 'tasks', label: 'Tasks', count: props.taskCount || undefined },
       { id: 'notes', label: 'Notes', count: props.notesCount || undefined },
-      { id: 'time', label: 'Time', count: props.totalHours ? `${Number(props.totalHours).toFixed(1)}h` : undefined },
+      { id: 'time', label: 'Time', count: props.totalHours ? `${Number(props.totalHours).toFixed(2)}h` : undefined },
     ],
   },
   {

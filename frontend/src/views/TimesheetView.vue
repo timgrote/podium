@@ -199,7 +199,7 @@ onMounted(async () => {
 
     <!-- Week total summary -->
     <div class="week-summary">
-      <span class="week-summary-hours">{{ weekTotal.toFixed(1) }}h</span>
+      <span class="week-summary-hours">{{ weekTotal.toFixed(2) }}h</span>
       <span class="week-summary-label">logged this week</span>
     </div>
 
@@ -217,7 +217,7 @@ onMounted(async () => {
         >
           <span class="day-label">{{ day.label }}</span>
           <span class="day-date">{{ day.date.getDate() }}</span>
-          <span class="day-hours">{{ (dailyTotals[day.dateStr] || 0).toFixed(1) }}h</span>
+          <span class="day-hours">{{ (dailyTotals[day.dateStr] || 0).toFixed(2) }}h</span>
         </div>
       </div>
       <button class="week-nav" @click="weekOffset++">
@@ -236,7 +236,7 @@ onMounted(async () => {
       <div v-for="group in projectGroups" :key="group.projectId" class="project-group">
         <div class="project-header">
           <span class="project-name">{{ group.projectName }}</span>
-          <span class="project-total">{{ group.totalHours.toFixed(1) }}h</span>
+          <span class="project-total">{{ group.totalHours.toFixed(2) }}h</span>
         </div>
         <div class="project-entries">
           <div v-for="entry in group.entries" :key="entry.id" class="entry-row" @click="openEdit(entry)">
@@ -244,7 +244,7 @@ onMounted(async () => {
             <span v-if="entry.contract_task_name" class="entry-task">{{ entry.contract_task_name }}</span>
             <span v-if="entry.description" class="entry-desc">{{ entry.description }}</span>
             <div class="entry-right">
-              <span class="entry-hours">{{ Number(entry.hours).toFixed(1) }}h</span>
+              <span class="entry-hours">{{ Number(entry.hours).toFixed(2) }}h</span>
               <button class="btn-icon btn-delete" @click.stop="handleDelete(entry.id)">
                 <i class="pi pi-trash" />
               </button>

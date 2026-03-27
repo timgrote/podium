@@ -9,6 +9,7 @@ import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import { todayStr } from '../utils/dates'
 import ProjectAssignPopover from '../components/activity/ProjectAssignPopover.vue'
+import LogTimeModal from '../components/modals/LogTimeModal.vue'
 
 const { user } = useAuth()
 const toast = useToast()
@@ -19,6 +20,22 @@ const projects = ref<ProjectSummary[]>([])
 const loading = ref(true)
 const selectedEmployeeId = ref('')
 const assigningFileKey = ref<string | null>(null)
+const showLogModal = ref(false)
+const logTimeProjectId = ref('')
+const logTimeDate = ref('')
+const logTimeHours = ref<number | null>(null)
+
+function roundUpToQuarter(minutes: number): number {
+  const hours = minutes / 60
+  return Math.ceil(hours * 4) / 4
+}
+
+function openLogTime(projectId: string, dateStr: string, totalMinutes: number) {
+  logTimeProjectId.value = projectId
+  logTimeDate.value = dateStr
+  logTimeHours.value = roundUpToQuarter(totalMinutes)
+  showLogModal.value = true
+}
 const expandedGroups = ref<Set<string>>(new Set())
 const collapsedDays = ref<Set<string>>(new Set())
 
@@ -372,6 +389,9 @@ onMounted(async () => {
             <span v-else class="project-unassigned">Unassigned</span>
             <span class="project-group-meta">{{ pg.files.length }} file{{ pg.files.length !== 1 ? 's' : '' }}</span>
             <span class="project-group-time">{{ formatDuration(pg.total_minutes) }}</span>
+            <button v-if="pg.project_id" class="log-time-btn" @click.stop="openLogTime(pg.project_id!, todayStr(), pg.total_minutes)">
+              <i class="pi pi-clock" /> Log Time
+            </button>
           </div>
           <div v-if="isExpanded('today', pg.project_id)" class="file-list">
             <div v-for="file in pg.files" :key="file.source_path || file.description" class="file-row">
@@ -425,6 +445,9 @@ onMounted(async () => {
             <span v-else class="project-unassigned">Unassigned</span>
             <span class="project-group-meta">{{ pg.files.length }} file{{ pg.files.length !== 1 ? 's' : '' }}</span>
             <span class="project-group-time">{{ formatDuration(pg.total_minutes) }}</span>
+            <button v-if="pg.project_id" class="log-time-btn" @click.stop="openLogTime(pg.project_id!, group.dateStr, pg.total_minutes)">
+              <i class="pi pi-clock" /> Log Time
+            </button>
           </div>
           <div v-if="isExpanded(group.dateStr, pg.project_id)" class="file-list">
             <div v-for="file in pg.files" :key="file.source_path || file.description" class="file-row">
@@ -457,6 +480,14 @@ onMounted(async () => {
         </template>
       </div>
     </template>
+
+    <LogTimeModal
+      v-model:visible="showLogModal"
+      :project-id="logTimeProjectId"
+      :prefill-date="logTimeDate"
+      :prefill-hours="logTimeHours"
+      @saved="loadData"
+    />
   </div>
 </template>
 
@@ -768,4 +799,22 @@ onMounted(async () => {
   border-color: var(--p-primary-color);
   color: var(--p-primary-color);
 }
+
+.log-time-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--p-primary-color);
+  border-radius: 0.25rem;
+  background: var(--p-primary-color);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.log-time-btn:hover { filter: brightness(1.1); }
+.log-time-btn .pi { font-size: 0.625rem; }
 </style>

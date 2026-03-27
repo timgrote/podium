@@ -16,6 +16,8 @@ const props = defineProps<{
   projectName?: string | null
   contractTasks?: ContractTask[]
   entry?: TimeEntry | null
+  prefillDate?: string | null
+  prefillHours?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -70,17 +72,28 @@ watch(visible, async (val) => {
       selectedHours.value = null
     }
   } else {
-    // Create mode — reset to defaults
-    entryDate.value = todayStr()
-    selectedHours.value = null
-    customHours.value = ''
-    showCustom.value = false
+    // Create mode — reset to defaults, apply prefills
+    entryDate.value = props.prefillDate || todayStr()
     contractTaskId.value = ''
     description.value = ''
-    if (props.projectId) {
-      selectedProjectId.value = props.projectId
+    selectedProjectId.value = props.projectId || ''
+
+    // Pre-fill hours if provided
+    if (props.prefillHours) {
+      const h = props.prefillHours
+      if (hourButtons.includes(h)) {
+        selectedHours.value = h
+        showCustom.value = false
+        customHours.value = ''
+      } else {
+        showCustom.value = true
+        customHours.value = String(h)
+        selectedHours.value = null
+      }
     } else {
-      selectedProjectId.value = ''
+      selectedHours.value = null
+      customHours.value = ''
+      showCustom.value = false
     }
   }
 
