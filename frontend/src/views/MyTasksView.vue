@@ -23,6 +23,8 @@ const collapsedProjects = ref<Set<string>>(new Set())
 const expandedTasks = ref<Set<string>>(new Set())
 const showCompleted = ref(false)
 const searchQuery = ref('')
+const sortField = ref<'project_name' | 'priority' | 'due_date' | null>(null)
+const sortDir = ref<'asc' | 'desc'>('asc')
 
 const showQuickAdd = ref(false)
 const quickAddTitle = ref('')
@@ -46,8 +48,16 @@ const filteredTasks = computed(() => {
 
 const displayTasks = computed(() => filteredTasks.value)
 
-const groupedByProject = computed(() => {
-  const groups = new Map<string, { projectName: string; jobCode: string | null; tasks: MyTask[] }>()
+interface ProjectGroup {
+  projectName: string
+  jobCode: string | null
+  tasks: MyTask[]
+  highestPriority: number | null
+  nearestDueDate: string | null
+}
+
+const sortedGroups = computed(() => {
+  const groups = new Map<string, ProjectGroup>()
   for (const task of displayTasks.value) {
     const key = task.project_id
     if (!groups.has(key)) {
@@ -55,12 +65,55 @@ const groupedByProject = computed(() => {
         projectName: task.project_name || 'Unknown Project',
         jobCode: task.job_code,
         tasks: [],
+        highestPriority: null,
+        nearestDueDate: null,
       })
     }
-    groups.get(key)!.tasks.push(task)
+    const g = groups.get(key)!
+    g.tasks.push(task)
+    if (task.priority != null && (g.highestPriority == null || task.priority > g.highestPriority)) {
+      g.highestPriority = task.priority
+    }
+    if (task.due_date && (g.nearestDueDate == null || task.due_date < g.nearestDueDate)) {
+      g.nearestDueDate = task.due_date
+    }
   }
-  return groups
+
+  let entries = Array.from(groups.entries())
+
+  if (sortField.value) {
+    const field = sortField.value
+    const dir = sortDir.value === 'asc' ? 1 : -1
+    entries.sort(([, a], [, b]) => {
+      if (field === 'project_name') {
+        return a.projectName.localeCompare(b.projectName) * dir
+      }
+      if (field === 'priority') {
+        const ap = a.highestPriority ?? 0
+        const bp = b.highestPriority ?? 0
+        return (bp - ap) * dir  // higher priority first by default
+      }
+      if (field === 'due_date') {
+        if (!a.nearestDueDate && !b.nearestDueDate) return 0
+        if (!a.nearestDueDate) return 1
+        if (!b.nearestDueDate) return -1
+        return a.nearestDueDate.localeCompare(b.nearestDueDate) * dir
+      }
+      return 0
+    })
+  }
+
+  return entries
 })
+
+function toggleSort(field: 'project_name' | 'priority' | 'due_date') {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = field === 'priority' ? 'desc' : 'asc'
+  }
+}
 
 async function loadTasks() {
   if (!user.value) return
@@ -271,8 +324,26 @@ onMounted(loadTasks)
     </div>
 
     <div v-else class="project-groups">
+      <!-- Column headers -->
+      <div class="column-headers">
+        <div class="col-h col-h-project sortable" @click="toggleSort('project_name')">
+          Project
+          <i v-if="sortField === 'project_name'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+        </div>
+        <div class="col-h col-h-spacer"></div>
+        <div class="col-h col-h-priority sortable" @click="toggleSort('priority')">
+          Priority
+          <i v-if="sortField === 'priority'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+        </div>
+        <div class="col-h col-h-status">Status</div>
+        <div class="col-h col-h-due sortable" @click="toggleSort('due_date')">
+          Due
+          <i v-if="sortField === 'due_date'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+        </div>
+      </div>
+
       <div
-        v-for="[projectId, group] in groupedByProject"
+        v-for="[projectId, group] in sortedGroups"
         :key="projectId"
         class="project-group"
       >
@@ -509,6 +580,40 @@ onMounted(loadTasks)
   flex-direction: column;
   gap: 0.5rem;
 }
+
+.column-headers {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 1rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  gap: 0.75rem;
+}
+
+.col-h.sortable {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.col-h.sortable:hover {
+  color: var(--p-text-color);
+}
+
+.col-h.sortable .pi {
+  font-size: 0.5625rem;
+}
+
+.col-h-project { min-width: 0; }
+.col-h-spacer { flex: 1; }
+.col-h-priority { width: 5rem; flex-shrink: 0; text-align: center; justify-content: center; }
+.col-h-status { width: 5.5rem; flex-shrink: 0; text-align: center; font-size: 0.6875rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.025em; }
+.col-h-due { width: 4.5rem; flex-shrink: 0; text-align: right; justify-content: flex-end; }
 
 .project-group {
   border: 1px solid var(--p-content-border-color);
