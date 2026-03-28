@@ -170,10 +170,6 @@ function formatDate(dateStr: string | null): string {
   return formatDateShort(dateStr)
 }
 
-function statusLabel(status: string): string {
-  return status.replace('_', ' ')
-}
-
 function priorityLabel(priority: number | null): string {
   if (priority === 1) return 'Low'
   if (priority === 2) return 'Medium'
@@ -326,16 +322,15 @@ onMounted(loadTasks)
     <div v-else class="project-groups">
       <!-- Column headers -->
       <div class="column-headers">
-        <div class="col-h col-h-project sortable" @click="toggleSort('project_name')">
+        <div class="col-h sortable" @click="toggleSort('project_name')">
           Project
           <i v-if="sortField === 'project_name'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
         </div>
-        <div class="col-h col-h-spacer"></div>
+        <div class="col-h-spacer"></div>
         <div class="col-h col-h-priority sortable" @click="toggleSort('priority')">
           Priority
           <i v-if="sortField === 'priority'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
         </div>
-        <div class="col-h col-h-status">Status</div>
         <div class="col-h col-h-due sortable" @click="toggleSort('due_date')">
           Due
           <i v-if="sortField === 'due_date'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
@@ -379,25 +374,23 @@ onMounted(loadTasks)
                 <i class="pi pi-link" />
               </button>
               <span class="spacer" />
-              <span
-                v-if="task.priority"
-                class="priority-badge"
-                :class="priorityClass(task.priority)"
-              >
-                {{ priorityLabel(task.priority) }}
+              <span class="task-priority">
+                <span
+                  v-if="task.priority"
+                  class="priority-badge"
+                  :class="priorityClass(task.priority)"
+                >
+                  {{ priorityLabel(task.priority) }}
+                </span>
               </span>
-              <span
-                class="status-badge"
-                :class="task.status"
-              >
-                {{ statusLabel(task.status) }}
-              </span>
-              <span
-                v-if="task.due_date"
-                class="due-date"
-                :class="{ overdue: isOverdue(task) }"
-              >
-                {{ formatDate(task.due_date) }}
+              <span class="task-due">
+                <span
+                  v-if="task.due_date"
+                  class="due-date"
+                  :class="{ overdue: isOverdue(task) }"
+                >
+                  {{ formatDate(task.due_date) }}
+                </span>
               </span>
             </div>
 
@@ -609,11 +602,21 @@ onMounted(loadTasks)
   font-size: 0.5625rem;
 }
 
-.col-h-project { min-width: 0; }
 .col-h-spacer { flex: 1; }
 .col-h-priority { width: 5rem; flex-shrink: 0; text-align: center; justify-content: center; }
-.col-h-status { width: 5.5rem; flex-shrink: 0; text-align: center; font-size: 0.6875rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.025em; }
 .col-h-due { width: 4.5rem; flex-shrink: 0; text-align: right; justify-content: flex-end; }
+
+.task-priority {
+  width: 5rem;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.task-due {
+  width: 4.5rem;
+  flex-shrink: 0;
+  text-align: right;
+}
 
 .project-group {
   border: 1px solid var(--p-content-border-color);
@@ -750,63 +753,6 @@ onMounted(loadTasks)
 .task-title.completed {
   text-decoration: line-through;
   color: var(--p-text-muted-color);
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-
-.status-badge.todo {
-  background: var(--p-surface-200);
-  color: var(--p-text-muted-color);
-}
-
-:root.p-dark .status-badge.todo {
-  background: var(--p-surface-600);
-  color: var(--p-surface-100);
-}
-
-.status-badge.in_progress {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-:root.p-dark .status-badge.in_progress {
-  background: #1e3a5f;
-  color: #93c5fd;
-}
-
-.status-badge.blocked {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-:root.p-dark .status-badge.blocked {
-  background: #451a03;
-  color: #fcd34d;
-}
-
-.status-badge.done {
-  background: #dcfce7;
-  color: #166534;
-}
-
-:root.p-dark .status-badge.done {
-  background: #14532d;
-  color: #86efac;
-}
-
-.status-badge.canceled {
-  background: var(--p-surface-200);
-  color: var(--p-text-muted-color);
-  text-decoration: line-through;
 }
 
 .priority-badge {
