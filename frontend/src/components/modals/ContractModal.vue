@@ -26,7 +26,7 @@ const form = ref({
   notes: '',
 })
 
-const tasks = ref<{ name: string; description: string; amount: number | null; billing_type: 'fixed' | 'time_expense' }[]>([])
+const tasks = ref<{ name: string; description: string; amount: number | undefined; billing_type: 'fixed' | 'time_expense' }[]>([])
 
 watch(visible, async (val) => {
   if (!val) return
@@ -53,12 +53,12 @@ watch(visible, async (val) => {
     }
   } else {
     form.value = { signed_at: '', file_path: '', notes: '' }
-    tasks.value = [{ name: '', description: '', amount: null, billing_type: 'fixed' }]
+    tasks.value = [{ name: '', description: '', amount: undefined, billing_type: 'fixed' }]
   }
 })
 
 function addTask() {
-  tasks.value.push({ name: '', description: '', amount: null, billing_type: 'fixed' })
+  tasks.value.push({ name: '', description: '', amount: undefined, billing_type: 'fixed' })
 }
 
 function removeTask(index: number) {
