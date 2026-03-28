@@ -26,7 +26,7 @@ const form = ref({
   notes: '',
 })
 
-const tasks = ref<{ name: string; description: string; amount: number; billing_type: 'fixed' | 'time_expense' }[]>([])
+const tasks = ref<{ name: string; description: string; amount: number | null; billing_type: 'fixed' | 'time_expense' }[]>([])
 
 watch(visible, async (val) => {
   if (!val) return
@@ -53,12 +53,12 @@ watch(visible, async (val) => {
     }
   } else {
     form.value = { signed_at: '', file_path: '', notes: '' }
-    tasks.value = [{ name: '', description: '', amount: 0, billing_type: 'fixed' }]
+    tasks.value = [{ name: '', description: '', amount: null, billing_type: 'fixed' }]
   }
 })
 
 function addTask() {
-  tasks.value.push({ name: '', description: '', amount: 0, billing_type: 'fixed' })
+  tasks.value.push({ name: '', description: '', amount: null, billing_type: 'fixed' })
 }
 
 function removeTask(index: number) {
@@ -132,7 +132,7 @@ async function save() {
             v-model.number="task.amount"
             type="number"
             step="0.01"
-            placeholder="Amount"
+            placeholder="Fee"
             class="task-amount"
           />
           <select v-model="task.billing_type" class="task-type">
