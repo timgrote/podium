@@ -289,13 +289,15 @@ defineExpose({ totalTaskCount, loadTasks })
               <i v-if="task.status === 'done'" class="pi pi-check" />
             </span>
             <span class="task-title">{{ task.title }}</span>
-            <span v-if="task.assignees?.length" class="task-assignees">
+            <span class="task-assignees">
               <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
             </span>
             <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
-            <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/projects/${project.project_number}/tasks/${task.id}`)">
-              <i class="pi pi-link" />
-            </button>
+            <span class="task-link-cell">
+              <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/projects/${project.project_number}/tasks/${task.id}`)">
+                <i class="pi pi-link" />
+              </button>
+            </span>
             <span class="task-due-inline" :class="{ overdue: isOverdue(task.due_date) && task.status !== 'done' }" @click.stop="openDatePicker">
               <span v-if="task.due_date">{{ formatDate(task.due_date) }}</span>
               <span v-else class="no-date-hint"><i class="pi pi-calendar" /></span>
@@ -438,9 +440,12 @@ defineExpose({ totalTaskCount, loadTasks })
 
 .task-title {
   flex: 1;
+  min-width: 0;
 }
 
 .task-assignees {
+  width: 4.5rem;
+  flex-shrink: 0;
   display: flex;
   gap: 0.125rem;
 }
@@ -459,19 +464,29 @@ defineExpose({ totalTaskCount, loadTasks })
 }
 
 .task-status-label {
+  width: 5rem;
+  flex-shrink: 0;
   font-size: 0.6875rem;
   text-transform: uppercase;
   color: var(--p-text-muted-color);
   letter-spacing: 0.05em;
 }
 
+.task-link-cell {
+  width: 1.25rem;
+  flex-shrink: 0;
+}
+
 .task-due-inline {
+  width: 5rem;
+  flex-shrink: 0;
   position: relative;
   font-size: 0.75rem;
   color: var(--p-text-muted-color);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .task-due-inline:hover {
