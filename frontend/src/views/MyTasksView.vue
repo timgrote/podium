@@ -22,6 +22,7 @@ const selectedProjectId = ref<string>('')
 const collapsedProjects = ref<Set<string>>(new Set())
 const expandedTasks = ref<Set<string>>(new Set())
 const showCompleted = ref(false)
+const searchQuery = ref('')
 
 const showQuickAdd = ref(false)
 const quickAddTitle = ref('')
@@ -32,7 +33,18 @@ const projects = ref<ProjectSummary[]>([])
 
 const activeTasks = computed(() => tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled'))
 
-const displayTasks = computed(() => showCompleted.value ? tasks.value : activeTasks.value)
+const filteredTasks = computed(() => {
+  const base = showCompleted.value ? tasks.value : activeTasks.value
+  if (!searchQuery.value.trim()) return base
+  const q = searchQuery.value.toLowerCase()
+  return base.filter(t =>
+    t.title.toLowerCase().includes(q) ||
+    t.project_name?.toLowerCase().includes(q) ||
+    (t.subtasks || []).some(s => s.title.toLowerCase().includes(q))
+  )
+})
+
+const displayTasks = computed(() => filteredTasks.value)
 
 const groupedByProject = computed(() => {
   const groups = new Map<string, { projectName: string; jobCode: string | null; tasks: MyTask[] }>()
@@ -167,20 +179,38 @@ onMounted(loadTasks)
 <template>
   <div class="my-tasks">
     <div class="page-header">
-      <h1>My Tasks</h1>
-      <div class="header-actions">
-        <span class="task-count">{{ activeTasks.length }} active</span>
+      <div class="header-top">
+        <h1>My Tasks</h1>
+        <div class="header-actions">
+          <span class="task-count">{{ activeTasks.length }} active</span>
+          <button
+            class="toggle-completed"
+            :class="{ active: showCompleted }"
+            @click="showCompleted = !showCompleted"
+          >
+            <i class="pi" :class="showCompleted ? 'pi-eye-slash' : 'pi-eye'" />
+            {{ showCompleted ? 'Hide Completed' : 'Show Completed' }}
+          </button>
+          <button class="btn-add-task" @click="openQuickAdd">
+            <i class="pi pi-plus" />
+            Add Task
+          </button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <i class="pi pi-search search-icon" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="search-input"
+          placeholder="Search tasks..."
+        />
         <button
-          class="toggle-completed"
-          :class="{ active: showCompleted }"
-          @click="showCompleted = !showCompleted"
+          v-if="searchQuery"
+          class="search-clear"
+          @click="searchQuery = ''"
         >
-          <i class="pi" :class="showCompleted ? 'pi-eye-slash' : 'pi-eye'" />
-          {{ showCompleted ? 'Hide Completed' : 'Show Completed' }}
-        </button>
-        <button class="btn-add-task" @click="openQuickAdd">
-          <i class="pi pi-plus" />
-          Add Task
+          <i class="pi pi-times" />
         </button>
       </div>
     </div>
@@ -327,16 +357,73 @@ onMounted(loadTasks)
 }
 
 .page-header {
+  margin-bottom: 1.5rem;
+}
+
+.header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .page-header h1 {
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
+}
+
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.5rem 2rem 0.5rem 2.25rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.5rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--p-primary-color);
+}
+
+.search-input::placeholder {
+  color: var(--p-text-muted-color);
+}
+
+.search-clear {
+  position: absolute;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: var(--p-text-muted-color);
+  display: flex;
+  align-items: center;
+}
+
+.search-clear:hover {
+  color: var(--p-text-color);
+}
+
+.search-clear .pi {
+  font-size: 0.6875rem;
 }
 
 .header-actions {
