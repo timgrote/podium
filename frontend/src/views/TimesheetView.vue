@@ -18,6 +18,19 @@ const showLogModal = ref(false)
 const selectedEmployeeId = ref('')
 const editingEntry = ref<TimeEntry | null>(null)
 
+// Sort state for project list
+const sortField = ref<'name' | 'hours'>('hours')
+const sortDir = ref<'asc' | 'desc'>('desc')
+
+function toggleSort(field: 'name' | 'hours') {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = field === 'hours' ? 'desc' : 'asc'
+  }
+}
+
 // Week navigation
 const weekOffset = ref(0)
 
@@ -111,8 +124,14 @@ const projectGroups = computed<ProjectGroup[]>(() => {
   for (const group of map.values()) {
     group.entries.sort((a, b) => a.date.localeCompare(b.date))
   }
-  // Sort groups by total hours descending
-  return [...map.values()].sort((a, b) => b.totalHours - a.totalHours)
+  const groups = [...map.values()]
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  if (sortField.value === 'name') {
+    groups.sort((a, b) => dir * a.projectName.localeCompare(b.projectName))
+  } else {
+    groups.sort((a, b) => dir * (a.totalHours - b.totalHours))
+  }
+  return groups
 })
 
 function dayLabel(dateStr: string): string {
@@ -233,6 +252,24 @@ onMounted(async () => {
     </div>
 
     <div v-else class="project-list">
+      <div class="sort-header">
+        <button
+          class="sort-btn"
+          :class="{ active: sortField === 'name' }"
+          @click="toggleSort('name')"
+        >
+          Project
+          <i v-if="sortField === 'name'" :class="sortDir === 'asc' ? 'pi pi-arrow-up' : 'pi pi-arrow-down'" />
+        </button>
+        <button
+          class="sort-btn"
+          :class="{ active: sortField === 'hours' }"
+          @click="toggleSort('hours')"
+        >
+          Hours
+          <i v-if="sortField === 'hours'" :class="sortDir === 'asc' ? 'pi pi-arrow-up' : 'pi pi-arrow-down'" />
+        </button>
+      </div>
       <div v-for="group in projectGroups" :key="group.projectId" class="project-group">
         <div class="project-header">
           <span class="project-name">{{ group.projectName }}</span>
@@ -419,6 +456,33 @@ onMounted(async () => {
   flex-direction: column;
   gap: 1rem;
 }
+
+.sort-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+}
+
+.sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: var(--p-text-muted-color);
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.sort-btn:hover { color: var(--p-text-color); }
+.sort-btn.active { color: var(--p-primary-color); }
+.sort-btn .pi { font-size: 0.625rem; }
 
 .project-group {
   border: 1px solid var(--p-content-border-color);

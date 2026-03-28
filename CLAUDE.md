@@ -69,6 +69,13 @@ Auto-deploys on push to `master` via GitHub Actions (`.github/workflows/deploy.y
 ssh root@100.105.238.37 "cd /var/www/conductor && bash scripts/deploy.sh"
 ```
 
+### QA Test Account
+
+For browser testing via Playwright:
+- **Email:** `qa_test@conductor.test`
+- **Password:** `testtest`
+- **URL:** `http://100.105.238.37`
+
 ### Production environment
 
 - **Access:** Tailscale only — `http://100.105.238.37` (Tailscale: `tie-conductor`). Public internet returns 403.
