@@ -9,6 +9,7 @@ import { useAuth } from '../../composables/useAuth'
 import { formatDate, isOverdue, todayStr } from '../../utils/dates'
 import { copyLink } from '../../utils/clipboard'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
+import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const props = defineProps<{
   project: ProjectSummary
@@ -43,6 +44,8 @@ const selectedTaskId = ref<string | null>(null)
 const activeTasks = computed(() =>
   tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled')
 )
+
+const { searchQuery, sortField, sortOrder, toggleSort, filteredTasks } = useProjectTasks(activeTasks)
 
 const completedTasks = computed(() =>
   tasks.value.filter(t => t.status === 'done' || t.status === 'canceled')
@@ -243,12 +246,44 @@ defineExpose({ totalTaskCount, loadTasks })
       </button>
     </div>
 
+    <!-- Task search -->
+    <div v-if="!tasksLoading && activeTasks.length > 0" class="task-search-bar">
+      <i class="pi pi-search" />
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Search tasks..."
+      />
+      <button v-if="searchQuery" class="search-clear" @click="searchQuery = ''">
+        <i class="pi pi-times" />
+      </button>
+    </div>
+
+    <!-- Column headers -->
+    <div v-if="!tasksLoading && activeTasks.length > 0" class="task-column-headers">
+      <div class="col-checkbox"></div>
+      <div class="col-name sortable" @click="toggleSort('title')">
+        Name
+        <i v-if="sortField === 'title'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
+      <div class="col-assignee sortable" @click="toggleSort('assignee')">
+        Assignee
+        <i v-if="sortField === 'assignee'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
+      <div class="col-status">Status</div>
+      <div class="col-link"></div>
+      <div class="col-due sortable" @click="toggleSort('due_date')">
+        Due
+        <i v-if="sortField === 'due_date'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
+    </div>
+
     <div v-if="tasksLoading" class="empty">Loading tasks...</div>
     <div v-else-if="tasks.length === 0 && !showNewTaskForm" class="empty">No tasks</div>
     <template v-else>
       <!-- Active tasks -->
-      <div v-if="activeTasks.length" class="tasks-list">
-        <template v-for="task in activeTasks" :key="task.id">
+      <div v-if="filteredTasks.length" class="tasks-list">
+        <template v-for="task in filteredTasks" :key="task.id">
           <div class="task-item clickable" @click="openTaskDetail(task.id)">
             <span class="task-checkbox" :class="{ checked: task.status === 'done' }" @click.stop="toggleTaskDone(task.id, task.status)">
               <i v-if="task.status === 'done'" class="pi pi-check" />
@@ -288,6 +323,9 @@ defineExpose({ totalTaskCount, loadTasks })
             </div>
           </div>
         </template>
+      </div>
+      <div v-if="activeTasks.length && !filteredTasks.length" class="empty">
+        No tasks matching "{{ searchQuery }}"
       </div>
 
       <!-- Completed tasks -->
@@ -668,4 +706,80 @@ defineExpose({ totalTaskCount, loadTasks })
   background: var(--p-content-hover-background);
   color: var(--p-text-color);
 }
+
+.task-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.task-search-bar i {
+  color: var(--p-text-muted-color);
+}
+
+.task-search-bar input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 0.8125rem;
+  background: transparent;
+  color: var(--p-text-color);
+}
+
+.task-search-bar .search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.125rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.task-search-bar .search-clear:hover {
+  color: var(--p-text-color);
+}
+
+.task-column-headers {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+  margin-bottom: 0.25rem;
+}
+
+.task-column-headers .sortable {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.task-column-headers .sortable:hover {
+  color: var(--p-text-color);
+}
+
+.task-column-headers .sortable .pi {
+  font-size: 0.5625rem;
+}
+
+.col-checkbox { width: 16px; flex-shrink: 0; }
+.col-name { flex: 1; min-width: 0; }
+.col-assignee { width: 4.5rem; flex-shrink: 0; }
+.col-status { width: 5rem; flex-shrink: 0; }
+.col-link { width: 1.25rem; flex-shrink: 0; }
+.col-due { width: 5rem; flex-shrink: 0; text-align: right; justify-content: flex-end; }
 </style>
