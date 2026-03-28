@@ -51,6 +51,13 @@ const statusOptions = [
   { value: 'canceled', label: 'Canceled' },
 ]
 
+const priorityOptions = [
+  { value: '', label: 'None' },
+  { value: '1', label: 'Low' },
+  { value: '2', label: 'Medium' },
+  { value: '3', label: 'High' },
+]
+
 const parentTaskId = ref<string | null>(null)
 const newSubtaskTitle = ref('')
 const showSubtaskForm = ref(false)
@@ -328,12 +335,20 @@ async function handleNotePaste(event: ClipboardEvent) {
         <i class="pi pi-arrow-left" /> Back to parent task
       </button>
 
-      <!-- Status -->
-      <div class="field">
-        <label>Status</label>
-        <select :value="task.status" @change="patchField('status', ($event.target as HTMLSelectElement).value)">
-          <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-        </select>
+      <!-- Status & Priority -->
+      <div class="field-group">
+        <div class="field">
+          <label>Status</label>
+          <select :value="task.status" @change="patchField('status', ($event.target as HTMLSelectElement).value)">
+            <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Priority</label>
+          <select :value="task.priority ?? ''" @change="patchField('priority', ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)">
+            <option v-for="opt in priorityOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
       </div>
 
       <!-- Dates -->

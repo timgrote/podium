@@ -96,10 +96,10 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
     start_date = str(data.start_date) if data.start_date else now[:10]  # default to today
     db.execute(
         "INSERT INTO project_tasks "
-        "(id, project_id, parent_id, title, description, status, start_date, due_date, reminder_at, sort_order, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "(id, project_id, parent_id, title, description, status, priority, start_date, due_date, reminder_at, sort_order, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (task_id, project_id, data.parent_id, data.title, data.description,
-         data.status, start_date,
+         data.status, data.priority, start_date,
          str(data.due_date) if data.due_date else None,
          str(data.reminder_at) if data.reminder_at else None,
          data.sort_order, now, now),

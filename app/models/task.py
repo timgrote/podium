@@ -30,6 +30,7 @@ class TaskCreate(BaseModel):
     due_date: date | str | None = None
     reminder_at: datetime | str | None = None
     parent_id: str | None = None
+    priority: int | None = None
     sort_order: int = 0
     assignee_ids: list[str] | None = None
 
@@ -38,6 +39,7 @@ class TaskUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     status: str | None = None
+    priority: int | None = None
     start_date: date | str | None = None
     due_date: date | str | None = None
     reminder_at: datetime | str | None = None

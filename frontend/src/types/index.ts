@@ -240,6 +240,7 @@ export interface TaskCreatePayload {
   description?: string | null
   parent_id?: string | null
   status?: string
+  priority?: number | null
   start_date?: string | null
   due_date?: string | null
   assignee_ids?: string[]
@@ -249,6 +250,7 @@ export interface TaskUpdatePayload {
   title?: string
   description?: string | null
   status?: string
+  priority?: number | null
   start_date?: string | null
   due_date?: string | null
   assignee_ids?: string[]

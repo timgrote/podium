@@ -121,6 +121,20 @@ function statusLabel(status: string): string {
   return status.replace('_', ' ')
 }
 
+function priorityLabel(priority: number | null): string {
+  if (priority === 1) return 'Low'
+  if (priority === 2) return 'Medium'
+  if (priority === 3) return 'High'
+  return ''
+}
+
+function priorityClass(priority: number | null): string {
+  if (priority === 1) return 'priority-low'
+  if (priority === 2) return 'priority-medium'
+  if (priority === 3) return 'priority-high'
+  return ''
+}
+
 async function loadProjects() {
   try {
     projects.value = await getProjects()
@@ -294,6 +308,13 @@ onMounted(loadTasks)
                 <i class="pi pi-link" />
               </button>
               <span class="spacer" />
+              <span
+                v-if="task.priority"
+                class="priority-badge"
+                :class="priorityClass(task.priority)"
+              >
+                {{ priorityLabel(task.priority) }}
+              </span>
               <span
                 class="status-badge"
                 :class="task.status"
@@ -681,6 +702,46 @@ onMounted(loadTasks)
   background: var(--p-surface-200);
   color: var(--p-text-muted-color);
   text-decoration: line-through;
+}
+
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.priority-low {
+  background: var(--p-surface-200);
+  color: var(--p-text-muted-color);
+}
+
+:root.p-dark .priority-low {
+  background: var(--p-surface-600);
+  color: var(--p-surface-100);
+}
+
+.priority-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+:root.p-dark .priority-medium {
+  background: #451a03;
+  color: #fcd34d;
+}
+
+.priority-high {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+:root.p-dark .priority-high {
+  background: #450a0a;
+  color: #fca5a5;
 }
 
 .due-date {
