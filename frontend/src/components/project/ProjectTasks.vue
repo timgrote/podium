@@ -270,7 +270,6 @@ defineExpose({ totalTaskCount, loadTasks })
         Assignee
         <i v-if="sortField === 'assignee'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
       </div>
-      <div class="col-status">Status</div>
       <div class="col-link"></div>
       <div class="col-due sortable" @click="toggleSort('due_date')">
         Due
@@ -292,7 +291,6 @@ defineExpose({ totalTaskCount, loadTasks })
             <span class="task-assignees">
               <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
             </span>
-            <span class="task-status-label">{{ task.status.replace('_', ' ') }}</span>
             <span class="task-link-cell">
               <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/projects/${project.project_number}/tasks/${task.id}`)">
                 <i class="pi pi-link" />
