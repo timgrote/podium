@@ -286,3 +286,16 @@ export interface MyTask extends Task {
   project_name: string | null
   job_code: string | null
 }
+
+export interface WikiNote {
+  id: string
+  title: string
+  content: string
+  category: string
+  created_by: string | null
+  updated_by: string | null
+  created_by_name: string | null
+  updated_by_name: string | null
+  created_at: string | null
+  updated_at: string | null
+}
