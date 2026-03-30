@@ -78,6 +78,16 @@ const router = createRouter({
       meta: { layout: 'dashboard' },
     },
     {
+      path: '/wiki',
+      component: () => import('../views/WikiView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/wiki/:noteId',
+      component: () => import('../views/WikiView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
       path: '/raindrop',
       component: () => import('../views/RaindropAnalyticsView.vue'),
       meta: { layout: 'dashboard' },
