@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { marked } from 'marked'
+import { Marked } from 'marked'
 import DOMPurify from 'dompurify'
 
 const props = defineProps<{
@@ -11,7 +11,7 @@ const props = defineProps<{
 
 const router = useRouter()
 
-const md = new marked.Marked({ breaks: true, gfm: true })
+const md = new Marked({ breaks: true, gfm: true })
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
