@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { WikiNote } from '../types'
 import { getWikiNotes, getWikiCategories, getWikiNote, createWikiNote, updateWikiNote, deleteWikiNote } from '../api/wiki'
@@ -62,7 +62,7 @@ async function loadNotes() {
     notes.value = noteList
     categories.value = catList
   } catch (e) {
-    toast.error('Failed to load notes')
+    toast.error('Failed to load notes: ' + String(e))
   } finally {
     loading.value = false
   }
@@ -74,8 +74,8 @@ async function selectNote(note: WikiNote) {
     editing.value = false
     creating.value = false
     router.replace(`/wiki/${note.id}`)
-  } catch {
-    toast.error('Failed to load note')
+  } catch (e) {
+    toast.error('Failed to load note: ' + String(e))
   }
 }
 
@@ -150,8 +150,8 @@ async function removeNote() {
     router.replace('/wiki')
     await loadNotes()
     toast.success('Note deleted')
-  } catch {
-    toast.error('Failed to delete note')
+  } catch (e) {
+    toast.error('Failed to delete note: ' + String(e))
   }
 }
 
@@ -190,8 +190,17 @@ onMounted(async () => {
   const noteId = route.params.noteId as string
   if (noteId) {
     const found = notes.value.find(n => n.id === noteId)
-    if (found) await selectNote(found)
+    if (found) {
+      await selectNote(found)
+    } else {
+      toast.error('Note not found — it may have been deleted')
+      router.replace('/wiki')
+    }
   }
+})
+
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer)
 })
 </script>
 

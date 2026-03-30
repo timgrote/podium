@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from ..database import get_db
 from ..models.wiki_note import WikiNoteCreate, WikiNoteResponse, WikiNoteUpdate
 from ..utils import generate_id
+
+logger = logging.getLogger(__name__)
 
 _root = Path(__file__).resolve().parent.parent.parent
 _IMAGE_RE = re.compile(r'!\[.*?\]\((/uploads/images/[^)]+)\)')
@@ -111,12 +114,16 @@ def delete_note(note_id: str, db=Depends(get_db)):
     if not existing:
         raise HTTPException(status_code=404, detail="Note not found")
 
-    # Delete attached images from disk
-    for match in _IMAGE_RE.finditer(existing["content"] or ""):
-        img_path = _root / match.group(1).lstrip("/")
-        img_path.unlink(missing_ok=True)
-
     now = datetime.now().isoformat()
     db.execute("UPDATE wiki_notes SET deleted_at = %s WHERE id = %s", (now, note_id))
     db.commit()
+
+    # Best-effort image cleanup after commit
+    for match in _IMAGE_RE.finditer(existing["content"] or ""):
+        img_path = _root / match.group(1).lstrip("/")
+        try:
+            img_path.unlink(missing_ok=True)
+        except OSError as e:
+            logger.warning("Failed to delete wiki image %s for note %s: %s", img_path, note_id, e)
+
     return {"success": True}

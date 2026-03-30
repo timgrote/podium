@@ -11,27 +11,27 @@ const props = defineProps<{
 
 const router = useRouter()
 
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-})
+const md = new marked.Marked({ breaks: true, gfm: true })
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
 
 function processWikiLinks(text: string): string {
-  // Replace [[Page Title]] with clickable links
   return text.replace(/\[\[([^\]]+)\]\]/g, (_match, title: string) => {
     const trimmed = title.trim()
     const noteId = props.noteIndex?.get(trimmed.toLowerCase())
     if (noteId) {
-      return `<a href="/wiki/${noteId}" class="wiki-link">${trimmed}</a>`
+      return `<a href="/wiki/${escapeHtml(noteId)}" class="wiki-link">${escapeHtml(trimmed)}</a>`
     }
-    return `<span class="wiki-link-missing">${trimmed}</span>`
+    return `<span class="wiki-link-missing">${escapeHtml(trimmed)}</span>`
   })
 }
 
 const rendered = computed(() => {
   if (!props.content) return ''
   const withLinks = processWikiLinks(props.content)
-  const html = marked.parse(withLinks) as string
+  const html = md.parse(withLinks) as string
   return DOMPurify.sanitize(html, { ADD_ATTR: ['class'] })
 })
 
