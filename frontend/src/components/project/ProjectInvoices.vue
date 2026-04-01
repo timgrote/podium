@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { ProjectDetail } from '../../types'
 import { generateSheet, exportPdf as exportInvoicePdfApi } from '../../api/invoices'
 import { useToast } from '../../composables/useToast'
@@ -13,8 +13,16 @@ const emit = defineEmits<{
   editInvoice: [invoiceId: string]
   deleteInvoice: [invoiceId: string]
   invoiceActions: [invoiceId: string]
+  createInvoice: [contractId: string]
   refreshProject: []
 }>()
+
+const allSent = computed(() =>
+  props.project.invoices.length > 0 &&
+  props.project.invoices.every(i => i.sent_status === 'sent' || i.paid_status === 'paid')
+)
+
+const firstContractId = computed(() => props.project.contracts[0]?.id || null)
 
 const toast = useToast()
 const invoiceBusy = ref<Record<string, string>>({})
@@ -64,6 +72,13 @@ async function exportInvoicePdf(invoiceId: string) {
   <div class="section">
     <div class="section-header">
       <h4>Invoices</h4>
+      <button
+        v-if="allSent && firstContractId"
+        class="btn btn-sm btn-primary"
+        @click="emit('createInvoice', firstContractId!)"
+      >
+        <i class="pi pi-plus" /> Add
+      </button>
     </div>
     <div v-if="project.invoices.length === 0" class="empty">No invoices</div>
     <div v-for="invoice in project.invoices" :key="invoice.id" class="sub-card" @click="emit('editInvoice', invoice.id)">

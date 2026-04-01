@@ -14,9 +14,7 @@ import ProjectTasks from '../components/project/ProjectTasks.vue'
 import ProjectNotes from '../components/project/ProjectNotes.vue'
 import ProjectTime from '../components/project/ProjectTime.vue'
 import ProjectTeam from '../components/project/ProjectTeam.vue'
-import ProjectContracts from '../components/project/ProjectContracts.vue'
-import ProjectInvoices from '../components/project/ProjectInvoices.vue'
-import ProjectProposals from '../components/project/ProjectProposals.vue'
+import ProjectFinancial from '../components/project/ProjectFinancial.vue'
 import ProjectModal from '../components/modals/ProjectModal.vue'
 import ContractModal from '../components/modals/ContractModal.vue'
 import InvoiceCreateModal from '../components/modals/InvoiceCreateModal.vue'
@@ -70,15 +68,15 @@ watch(() => project.value?.id, (newId, oldId) => {
 })
 
 // Active section from query param
-const validSections: Section[] = ['tasks', 'notes', 'time', 'contracts', 'invoices', 'proposals', 'team']
+const validSections: Section[] = ['tasks', 'notes', 'time', 'financial', 'team']
 const activeSection = computed<Section>({
   get() {
     const s = route.query.section as string
     if (s && validSections.includes(s as Section)) return s as Section
     // Auto-select based on entity type route
-    if (routeEntityType.value === 'contract') return 'contracts'
-    if (routeEntityType.value === 'invoice') return 'invoices'
-    if (routeEntityType.value === 'proposal') return 'proposals'
+    if (routeEntityType.value === 'contract') return 'financial'
+    if (routeEntityType.value === 'invoice') return 'financial'
+    if (routeEntityType.value === 'proposal') return 'financial'
     if (routeEntityType.value === 'task') return 'tasks'
     return 'tasks'
   },
@@ -249,19 +247,19 @@ async function handleSaved() {
 // URL sync: when modals close, update URL
 watch(showContractModal, (v) => {
   if (!v && routeEntityType.value === 'contract') {
-    router.replace(`/projects/${routeProjectNumber.value}?section=contracts`)
+    router.replace(`/projects/${routeProjectNumber.value}?section=financial`)
   }
 })
 
 watch(showInvoiceEditModal, (v) => {
   if (!v && routeEntityType.value === 'invoice') {
-    router.replace(`/projects/${routeProjectNumber.value}?section=invoices`)
+    router.replace(`/projects/${routeProjectNumber.value}?section=financial`)
   }
 })
 
 watch(showProposalModal, (v) => {
   if (!v && routeEntityType.value === 'proposal') {
-    router.replace(`/projects/${routeProjectNumber.value}?section=proposals`)
+    router.replace(`/projects/${routeProjectNumber.value}?section=financial`)
   }
 })
 
@@ -300,9 +298,7 @@ onMounted(async () => {
         :notes-count="notesCount"
         :total-hours="totalHours"
         :team-count="teamCount"
-        :contract-count="project.contract_count || 0"
-        :invoice-count="project.invoice_count || 0"
-        :proposal-count="project.proposal_count || 0"
+        :financial-count="(project.contract_count || 0) + (project.invoice_count || 0) + (project.proposal_count || 0)"
         :folder-href="folderHref"
         @update:active-section="activeSection = $event"
       />
@@ -334,29 +330,16 @@ onMounted(async () => {
             />
           </div>
 
-          <div v-show="activeSection === 'contracts'">
-            <ProjectContracts
+          <div v-show="activeSection === 'financial'">
+            <ProjectFinancial
               :project="projectDetail"
               @create-contract="openCreateContract"
               @edit-contract="openEditContract"
               @delete-contract="openDeleteContract"
               @create-invoice="openCreateInvoice"
-            />
-          </div>
-
-          <div v-show="activeSection === 'invoices'">
-            <ProjectInvoices
-              :project="projectDetail"
               @edit-invoice="openEditInvoice"
               @delete-invoice="openDeleteInvoice"
               @invoice-actions="openInvoiceActions"
-              @refresh-project="handleSaved"
-            />
-          </div>
-
-          <div v-show="activeSection === 'proposals'">
-            <ProjectProposals
-              :project="projectDetail"
               @create-proposal="openCreateProposal"
               @edit-proposal="openEditProposal"
               @delete-proposal="openDeleteProposal"

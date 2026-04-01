@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-export type Section = 'tasks' | 'notes' | 'time' | 'contracts' | 'invoices' | 'proposals' | 'team'
+export type Section = 'tasks' | 'notes' | 'time' | 'financial' | 'team'
 
 const props = defineProps<{
   activeSection: Section
@@ -9,9 +9,7 @@ const props = defineProps<{
   notesCount?: number
   teamCount?: number
   totalHours?: number
-  contractCount?: number
-  invoiceCount?: number
-  proposalCount?: number
+  financialCount?: number
   folderHref?: string | null
 }>()
 
@@ -44,9 +42,7 @@ const groups = computed<NavGroup[]>(() => [
   {
     label: 'Financial',
     items: [
-      { id: 'contracts', label: 'Contracts', count: props.contractCount || undefined },
-      { id: 'invoices', label: 'Invoices', count: props.invoiceCount || undefined },
-      { id: 'proposals', label: 'Proposals', count: props.proposalCount || undefined },
+      { id: 'financial', label: 'Financial', count: props.financialCount || undefined },
     ],
   },
   {
