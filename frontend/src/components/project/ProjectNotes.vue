@@ -50,6 +50,7 @@ async function submitNote() {
   try {
     await addProjectNote(props.project.id, { content: newNote.value, author_id: user.value?.id })
     newNote.value = ''
+    sessionStorage.removeItem(draftKey())
     toast.success('Note added')
     await loadNotes()
   } catch (e) {
@@ -67,6 +68,7 @@ function startEditNote(note: ProjectNote) {
 function cancelEditNote() {
   editingNoteId.value = null
   editNoteContent.value = ''
+  sessionStorage.removeItem(editKey())
 }
 
 async function saveEditNote(noteId: string) {
@@ -75,6 +77,7 @@ async function saveEditNote(noteId: string) {
     await updateProjectNote(noteId, { content: editNoteContent.value })
     editingNoteId.value = null
     editNoteContent.value = ''
+    sessionStorage.removeItem(editKey())
     toast.success('Note updated')
     await loadNotes()
   } catch (e) {
@@ -120,8 +123,40 @@ function onNotePaste(event: ClipboardEvent) {
   handlePasteImage(event, newNote)
 }
 
+// Draft persistence via sessionStorage
+function draftKey() { return `note-draft-${props.project.id}` }
+function editKey() { return `note-edit-${props.project.id}` }
+
+function restoreDrafts() {
+  const draft = sessionStorage.getItem(draftKey())
+  if (draft) newNote.value = draft
+
+  const editDraft = sessionStorage.getItem(editKey())
+  if (editDraft) {
+    try {
+      const { id, content } = JSON.parse(editDraft)
+      editingNoteId.value = id
+      editNoteContent.value = content
+    } catch { /* ignore corrupt data */ }
+  }
+}
+
+watch(newNote, (val) => {
+  if (val) sessionStorage.setItem(draftKey(), val)
+  else sessionStorage.removeItem(draftKey())
+})
+
+watch(editNoteContent, (val) => {
+  if (editingNoteId.value && val) {
+    sessionStorage.setItem(editKey(), JSON.stringify({ id: editingNoteId.value, content: val }))
+  } else {
+    sessionStorage.removeItem(editKey())
+  }
+})
+
 watch(() => props.project.id, () => {
   loadNotes()
+  restoreDrafts()
 }, { immediate: true })
 
 defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
