@@ -101,6 +101,8 @@ export interface InvoiceListItem {
   client_id: string | null
   client_name: string | null
   client_email: string | null
+  pm_id: string | null
+  pm_name: string | null
   data_path: string | null
   pdf_path: string | null
 }

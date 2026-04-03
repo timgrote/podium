@@ -14,6 +14,7 @@ const {
   clientFilter,
   projectFilter,
   typeFilter,
+  pmFilter,
   sentDateFrom,
   sentDateTo,
   sortField,
@@ -23,6 +24,7 @@ const {
   stats,
   uniqueClients,
   uniqueProjects,
+  uniquePMs,
   load,
   toggleSort,
   selectedIds,
@@ -169,6 +171,10 @@ async function doBatchMarkPaid() {
         <option value="">All Projects</option>
         <option v-for="p in uniqueProjects" :key="p.id" :value="p.id">{{ p.name }}</option>
       </select>
+      <select v-model="pmFilter" class="filter-select">
+        <option value="">All PMs</option>
+        <option v-for="pm in uniquePMs" :key="pm.id" :value="pm.id">{{ pm.name }}</option>
+      </select>
       <select v-model="typeFilter" class="filter-select filter-select-sm">
         <option value="">All Types</option>
         <option value="task">Task</option>
@@ -251,6 +257,10 @@ async function doBatchMarkPaid() {
             Client
             <i v-if="sortField === 'client_name'" :class="sortOrder === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down'" />
           </th>
+          <th class="sortable" @click="toggleSort('pm_name')">
+            PM
+            <i v-if="sortField === 'pm_name'" :class="sortOrder === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down'" />
+          </th>
           <th class="sortable" @click="toggleSort('invoice_date')">
             Date
             <i v-if="sortField === 'invoice_date'" :class="sortOrder === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down'" />
@@ -287,6 +297,7 @@ async function doBatchMarkPaid() {
           <td class="cell-name">{{ inv.invoice_number }}</td>
           <td>{{ inv.project_name }}</td>
           <td>{{ inv.client_name || '' }}</td>
+          <td>{{ inv.pm_name || '' }}</td>
           <td>{{ formatDate(inv.invoice_date || inv.created_at) }}</td>
           <td class="col-amount">{{ formatCurrency(inv.total_due) }}</td>
           <td>
