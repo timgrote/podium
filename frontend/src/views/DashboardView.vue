@@ -96,7 +96,8 @@ onMounted(async () => {
   if (savedScroll) {
     sessionStorage.removeItem('dashboardScrollY')
     await nextTick()
-    window.scrollTo(0, parseInt(savedScroll, 10))
+    const main = document.querySelector('.main-content')
+    if (main) main.scrollTop = parseInt(savedScroll, 10)
   }
 })
 </script>
