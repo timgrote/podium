@@ -298,7 +298,7 @@ async function doBatchMarkPaid() {
           <td>{{ inv.project_name }}</td>
           <td>{{ inv.client_name || '' }}</td>
           <td>{{ inv.pm_name || '' }}</td>
-          <td>{{ formatDate(inv.invoice_date || inv.created_at) }}</td>
+          <td>{{ formatDate(inv.invoice_date || inv.sent_at || inv.created_at) }}</td>
           <td class="col-amount">{{ formatCurrency(inv.total_due) }}</td>
           <td>
             <span class="status-pill" :class="statusClass(inv)">{{ statusLabel(inv) }}</span>

@@ -646,8 +646,8 @@ def promote_to_contract(
         )
 
     db.execute(
-        "UPDATE proposals SET status = 'accepted', updated_at = %s WHERE id = %s",
-        (now, proposal_id),
+        "UPDATE proposals SET status = 'accepted', deleted_at = %s, updated_at = %s WHERE id = %s",
+        (now, now, proposal_id),
     )
     db.execute(
         "UPDATE projects SET status = 'contract', updated_at = %s WHERE id = %s",

@@ -18,6 +18,7 @@ const emit = defineEmits<{
 const router = useRouter()
 
 function navigateToProject() {
+  sessionStorage.setItem('dashboardScrollY', String(window.scrollY))
   router.push(`/projects/${props.project.project_number || props.project.id}`)
 }
 

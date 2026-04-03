@@ -270,6 +270,10 @@ defineExpose({ totalTaskCount, loadTasks })
         Assignee
         <i v-if="sortField === 'assignee'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
       </div>
+      <div class="col-priority sortable" @click="toggleSort('priority')">
+        Priority
+        <i v-if="sortField === 'priority'" class="pi" :class="sortOrder === 'asc' ? 'pi-sort-up' : 'pi-sort-down'" />
+      </div>
       <div class="col-link"></div>
       <div class="col-due sortable" @click="toggleSort('due_date')">
         Due
@@ -290,6 +294,11 @@ defineExpose({ totalTaskCount, loadTasks })
             <span class="task-title">{{ task.title }}</span>
             <span class="task-assignees">
               <span v-for="initials in getInitials(task.assignees)" :key="initials" class="initials-badge">{{ initials }}</span>
+            </span>
+            <span class="task-priority-cell">
+              <span v-if="task.priority" class="priority-badge" :class="'priority-' + task.priority">
+                {{ task.priority === 3 ? 'High' : task.priority === 2 ? 'Medium' : 'Low' }}
+              </span>
             </span>
             <span class="task-link-cell">
               <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/projects/${project.project_number}/tasks/${task.id}`)">
@@ -792,7 +801,21 @@ defineExpose({ totalTaskCount, loadTasks })
 .col-checkbox { width: 16px; flex-shrink: 0; }
 .col-name { flex: 1; min-width: 0; }
 .col-assignee { width: 4.5rem; flex-shrink: 0; }
+.col-priority { width: 4rem; flex-shrink: 0; }
 .col-status { width: 5rem; flex-shrink: 0; }
 .col-link { width: 1.25rem; flex-shrink: 0; }
 .col-due { width: 5rem; flex-shrink: 0; text-align: right; justify-content: flex-end; }
+
+.task-priority-cell { width: 4rem; flex-shrink: 0; }
+.priority-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.priority-1 { background: var(--p-blue-100); color: var(--p-blue-700); }
+.priority-2 { background: var(--p-yellow-100); color: var(--p-yellow-700); }
+.priority-3 { background: var(--p-red-100); color: var(--p-red-700); }
 </style>
