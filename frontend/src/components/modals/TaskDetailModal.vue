@@ -42,8 +42,6 @@ const form = ref({
   due_date: null as string | null,
   assignee_ids: [] as string[],
 })
-const dirty = ref(false)
-
 function populateForm(t: Task) {
   form.value = {
     title: t.title,
@@ -54,11 +52,11 @@ function populateForm(t: Task) {
     due_date: t.due_date?.split('T')[0] ?? null,
     assignee_ids: t.assignees?.map(a => a.id) ?? [],
   }
-  dirty.value = false
 }
 
-function markDirty() {
-  dirty.value = true
+function onPriorityChange(event: Event) {
+  const val = (event.target as HTMLSelectElement).value
+  form.value.priority = val ? Number(val) : null
 }
 
 // Note editing
@@ -118,6 +116,10 @@ watch(visible, async (val) => {
 
 async function saveAll() {
   if (!task.value) return
+  if (!form.value.title.trim()) {
+    toast.error('Task title is required')
+    return
+  }
   saving.value = true
   try {
     task.value = await updateTask(task.value.id, {
@@ -176,7 +178,7 @@ function toggleAssignee(empId: string) {
   } else {
     form.value.assignee_ids = [...form.value.assignee_ids, empId]
   }
-  markDirty()
+
 }
 
 async function submitNote() {
@@ -311,7 +313,6 @@ async function handleNotePaste(event: ClipboardEvent) {
           v-model="form.title"
           type="text"
           class="title-edit-input"
-          @input="markDirty"
         />
       </div>
     </template>
@@ -327,13 +328,13 @@ async function handleNotePaste(event: ClipboardEvent) {
       <div class="field-group">
         <div class="field">
           <label>Status</label>
-          <select v-model="form.status" @change="markDirty">
+          <select v-model="form.status">
             <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
         <div class="field">
           <label>Priority</label>
-          <select :value="form.priority ?? ''" @change="form.priority = ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null; markDirty()">
+          <select :value="form.priority ?? ''" @change="onPriorityChange($event)">
             <option v-for="opt in priorityOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
@@ -346,7 +347,6 @@ async function handleNotePaste(event: ClipboardEvent) {
           <input
             type="date"
             v-model="form.start_date"
-            @change="markDirty"
           />
         </div>
         <div class="field">
@@ -354,7 +354,6 @@ async function handleNotePaste(event: ClipboardEvent) {
           <input
             type="date"
             v-model="form.due_date"
-            @change="markDirty"
           />
         </div>
       </div>
@@ -383,7 +382,6 @@ async function handleNotePaste(event: ClipboardEvent) {
           rows="3"
           class="note-edit-textarea"
           placeholder="Add a description..."
-          @input="markDirty"
         />
       </div>
 

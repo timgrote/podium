@@ -17,15 +17,10 @@ const emit = defineEmits<{
   refreshProject: []
 }>()
 
-const allSent = computed(() =>
-  props.project.invoices.length > 0 &&
-  props.project.invoices.every(i => i.sent_status === 'sent' || i.paid_status === 'paid')
-)
-
 const latestContractId = computed(() => {
   const contracts = props.project.contracts
   if (contracts.length === 0) return null
-  return contracts[contracts.length - 1].id
+  return contracts[contracts.length - 1]!.id
 })
 
 const toast = useToast()

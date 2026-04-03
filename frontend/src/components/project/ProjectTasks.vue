@@ -177,6 +177,8 @@ async function inlineDateChange(taskId: string, event: Event) {
   }
 }
 
+const priorityLabels: Record<number, string> = { 1: 'Low', 2: 'Medium', 3: 'High' }
+
 function getInitials(assignees: Task['assignees']): string[] {
   if (!assignees) return []
   return assignees.map(a => {
@@ -297,7 +299,7 @@ defineExpose({ totalTaskCount, loadTasks })
             </span>
             <span class="task-priority-cell">
               <span v-if="task.priority" class="priority-badge" :class="'priority-' + task.priority">
-                {{ task.priority === 3 ? 'High' : task.priority === 2 ? 'Medium' : 'Low' }}
+                {{ priorityLabels[task.priority!] }}
               </span>
             </span>
             <span class="task-link-cell">

@@ -35,6 +35,16 @@ function parseProposalDate(dateStr: string | null | undefined): string {
   return ''
 }
 
+function defaultEngineerKey(): string {
+  const keys = Object.keys(engineers.value)
+  const firstName = user.value?.first_name?.toLowerCase()
+  if (firstName) {
+    const match = keys.find(k => k === firstName)
+    if (match) return match
+  }
+  return keys[0] || ''
+}
+
 const form = ref({
   engineer_key: '',
   engineer_name: '',
@@ -78,7 +88,7 @@ watch(visible, async (val) => {
       dataPath.value = null
       expandedTask.value = null
       form.value = {
-        engineer_key: (user.value?.first_name && Object.keys(engineers.value).find(k => k === user.value!.first_name.toLowerCase())) || Object.keys(engineers.value)[0] || '',
+        engineer_key: defaultEngineerKey(),
         engineer_name: '',
         contact_method: '',
         proposal_date: todayStr(),
