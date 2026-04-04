@@ -10,6 +10,7 @@ const statusFilter = ref('')
 const clientFilter = ref('')
 const projectFilter = ref('')
 const typeFilter = ref('')
+const pmFilter = ref('')
 const sentDateFrom = ref('')
 const sentDateTo = ref('')
 const sortField = ref<string>('created_at')
@@ -82,6 +83,10 @@ export function useInvoices() {
       result = result.filter((i) => i.type === typeFilter.value)
     }
 
+    if (pmFilter.value) {
+      result = result.filter((i) => i.pm_id === pmFilter.value)
+    }
+
     if (sentDateFrom.value) {
       result = result.filter((i) => i.sent_at && i.sent_at >= sentDateFrom.value)
     }
@@ -144,6 +149,16 @@ export function useInvoices() {
       if (i.client_name) clients.add(i.client_name)
     })
     return [...clients].sort()
+  })
+
+  const uniquePMs = computed(() => {
+    const pms = new Map<string, string>()
+    invoices.value.forEach((i) => {
+      if (i.pm_id && i.pm_name) pms.set(i.pm_id, i.pm_name)
+    })
+    return [...pms.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
   })
 
   const uniqueProjects = computed(() => {
@@ -315,6 +330,7 @@ export function useInvoices() {
     clientFilter,
     projectFilter,
     typeFilter,
+    pmFilter,
     sentDateFrom,
     sentDateTo,
     sortField,
@@ -324,6 +340,7 @@ export function useInvoices() {
     stats,
     uniqueClients,
     uniqueProjects,
+    uniquePMs,
     load,
     toggleSort,
     // Batch

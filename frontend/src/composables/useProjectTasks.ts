@@ -1,7 +1,7 @@
 import { computed, ref, type Ref } from 'vue'
 import type { Task } from '../types'
 
-type SortField = 'title' | 'due_date' | 'assignee'
+type SortField = 'title' | 'due_date' | 'assignee' | 'priority'
 
 export function useProjectTasks(activeTasks: Ref<Task[]>) {
   const searchQuery = ref('')
@@ -13,7 +13,7 @@ export function useProjectTasks(activeTasks: Ref<Task[]>) {
       sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
     } else {
       sortField.value = field
-      sortOrder.value = field === 'due_date' ? 'desc' : 'asc'
+      sortOrder.value = field === 'due_date' || field === 'priority' ? 'desc' : 'asc'
     }
   }
 
@@ -48,6 +48,11 @@ export function useProjectTasks(activeTasks: Ref<Task[]>) {
           if (aVal == null) return 1
           if (bVal == null) return -1
           return (new Date(aVal).getTime() - new Date(bVal).getTime()) * order
+        }
+        if (field === 'priority') {
+          const aVal = a.priority ?? 0
+          const bVal = b.priority ?? 0
+          return (aVal - bVal) * order
         }
         if (field === 'assignee') {
           const aName = a.assignees?.[0]?.first_name || null

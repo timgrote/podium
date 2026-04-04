@@ -24,6 +24,7 @@ const emit = defineEmits<{
 const toast = useToast()
 const { user } = useAuth()
 const loading = ref(false)
+const saving = ref(false)
 const task = ref<Task | null>(null)
 const employees = ref<Employee[]>([])
 const newNote = ref('')
@@ -31,13 +32,32 @@ const noteSaving = ref(false)
 const imageUploading = ref(false)
 const showDeleteConfirm = ref(false)
 
-// Title editing
-const editingTitle = ref(false)
-const editTitleValue = ref('')
+// Local form state (buffered until Save)
+const form = ref({
+  title: '',
+  description: null as string | null,
+  status: 'todo',
+  priority: null as number | null,
+  start_date: null as string | null,
+  due_date: null as string | null,
+  assignee_ids: [] as string[],
+})
+function populateForm(t: Task) {
+  form.value = {
+    title: t.title,
+    description: t.description || null,
+    status: t.status,
+    priority: t.priority ?? null,
+    start_date: t.start_date?.split('T')[0] ?? null,
+    due_date: t.due_date?.split('T')[0] ?? null,
+    assignee_ids: t.assignees?.map(a => a.id) ?? [],
+  }
+}
 
-// Description editing
-const editingDescription = ref(false)
-const editDescriptionValue = ref('')
+function onPriorityChange(event: Event) {
+  const val = (event.target as HTMLSelectElement).value
+  form.value.priority = val ? Number(val) : null
+}
 
 // Note editing
 const editingNoteId = ref<string | null>(null)
@@ -76,8 +96,6 @@ watch(visible, async (val) => {
   if (!val || !props.taskId) return
   parentTaskId.value = null
   showDeleteConfirm.value = false
-  editingTitle.value = false
-  editingDescription.value = false
   editingNoteId.value = null
   loading.value = true
   try {
@@ -87,6 +105,7 @@ watch(visible, async (val) => {
     ])
     task.value = t
     employees.value = emps
+    populateForm(t)
   } catch (e) {
     toast.error(String(e))
     visible.value = false
@@ -95,51 +114,36 @@ watch(visible, async (val) => {
   }
 })
 
-async function patchField(field: string, value: unknown) {
+async function saveAll() {
   if (!task.value) return
+  if (!form.value.title.trim()) {
+    toast.error('Task title is required')
+    return
+  }
+  saving.value = true
   try {
-    task.value = await updateTask(task.value.id, { [field]: value })
+    task.value = await updateTask(task.value.id, {
+      title: form.value.title.trim(),
+      description: form.value.description?.trim() || null,
+      status: form.value.status,
+      priority: form.value.priority,
+      start_date: form.value.start_date || null,
+      due_date: form.value.due_date || null,
+      assignee_ids: form.value.assignee_ids,
+    })
+    populateForm(task.value)
     emit('saved')
+    visible.value = false
   } catch (e) {
     toast.error(String(e))
+  } finally {
+    saving.value = false
   }
 }
 
-// Title editing
-function startEditTitle() {
-  if (!task.value) return
-  editTitleValue.value = task.value.title
-  editingTitle.value = true
-}
-
-async function saveTitle() {
-  if (!editTitleValue.value.trim()) return
-  await patchField('title', editTitleValue.value.trim())
-  editingTitle.value = false
-}
-
-function cancelEditTitle() {
-  editingTitle.value = false
-}
-
-// Description editing
-function startEditDescription() {
-  if (!task.value) return
-  editDescriptionValue.value = task.value.description || ''
-  editingDescription.value = true
-}
-
-async function saveDescription() {
-  await patchField('description', editDescriptionValue.value.trim() || null)
-  editingDescription.value = false
-}
-
-function cancelEditDescription() {
-  editingDescription.value = false
-}
-
-async function clearDescription() {
-  await patchField('description', null)
+function cancelChanges() {
+  if (task.value) populateForm(task.value)
+  visible.value = false
 }
 
 // Note editing
@@ -165,21 +169,16 @@ function cancelEditNote() {
 }
 
 function isAssigned(empId: string): boolean {
-  return task.value?.assignees?.some(a => a.id === empId) ?? false
+  return form.value.assignee_ids.includes(empId)
 }
 
-async function toggleAssignee(empId: string) {
-  if (!task.value) return
-  const current = task.value.assignees?.map(a => a.id) ?? []
-  const next = isAssigned(empId)
-    ? current.filter(id => id !== empId)
-    : [...current, empId]
-  try {
-    task.value = await updateTask(task.value.id, { assignee_ids: next })
-    emit('saved')
-  } catch (e) {
-    toast.error(String(e))
+function toggleAssignee(empId: string) {
+  if (isAssigned(empId)) {
+    form.value.assignee_ids = form.value.assignee_ids.filter(id => id !== empId)
+  } else {
+    form.value.assignee_ids = [...form.value.assignee_ids, empId]
   }
+
 }
 
 async function submitNote() {
@@ -253,6 +252,7 @@ async function openSubtask(id: string) {
   loading.value = true
   try {
     task.value = await getTask(id)
+    populateForm(task.value)
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -266,6 +266,7 @@ async function goBackToParent() {
   try {
     task.value = await getTask(parentTaskId.value)
     parentTaskId.value = null
+    populateForm(task.value)
   } catch (e) {
     toast.error(String(e))
   } finally {
@@ -307,24 +308,12 @@ async function handleNotePaste(event: ClipboardEvent) {
     :style="{ width: '640px' }"
   >
     <template #header>
-      <div v-if="editingTitle" class="title-edit">
+      <div class="title-display">
         <input
-          v-model="editTitleValue"
+          v-model="form.title"
           type="text"
           class="title-edit-input"
-          @keyup.enter="saveTitle"
-          @keyup.escape="cancelEditTitle"
         />
-        <div class="title-edit-actions">
-          <button class="btn btn-sm btn-primary" @click="saveTitle">Save</button>
-          <button class="btn btn-sm" @click="cancelEditTitle">Cancel</button>
-        </div>
-      </div>
-      <div v-else class="title-display">
-        <span class="title-text">{{ task?.title ?? 'Task' }}</span>
-        <button v-if="task" class="btn-edit-inline" title="Edit title" @click="startEditTitle">
-          <i class="pi pi-pencil" />
-        </button>
       </div>
     </template>
 
@@ -339,13 +328,13 @@ async function handleNotePaste(event: ClipboardEvent) {
       <div class="field-group">
         <div class="field">
           <label>Status</label>
-          <select :value="task.status" @change="patchField('status', ($event.target as HTMLSelectElement).value)">
+          <select v-model="form.status">
             <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
         <div class="field">
           <label>Priority</label>
-          <select :value="task.priority ?? ''" @change="patchField('priority', ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null)">
+          <select :value="form.priority ?? ''" @change="onPriorityChange($event)">
             <option v-for="opt in priorityOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
@@ -357,16 +346,14 @@ async function handleNotePaste(event: ClipboardEvent) {
           <label>Start Date</label>
           <input
             type="date"
-            :value="task.start_date?.split('T')[0] ?? ''"
-            @change="patchField('start_date', ($event.target as HTMLInputElement).value || null)"
+            v-model="form.start_date"
           />
         </div>
         <div class="field">
           <label>Due Date</label>
           <input
             type="date"
-            :value="task.due_date?.split('T')[0] ?? ''"
-            @change="patchField('due_date', ($event.target as HTMLInputElement).value || null)"
+            v-model="form.due_date"
           />
         </div>
       </div>
@@ -389,24 +376,13 @@ async function handleNotePaste(event: ClipboardEvent) {
 
       <!-- Description -->
       <div class="field">
-        <div class="section-header">
-          <label>Description</label>
-          <template v-if="!editingDescription">
-            <button v-if="task.description" class="btn-edit-inline" title="Edit description" @click="startEditDescription">
-              <i class="pi pi-pencil" />
-            </button>
-            <button v-if="task.description" class="btn-remove-sm" title="Clear description" @click="clearDescription">&times;</button>
-          </template>
-        </div>
-        <div v-if="editingDescription" class="note-edit">
-          <textarea v-model="editDescriptionValue" rows="3" class="note-edit-textarea" @keyup.escape="cancelEditDescription" />
-          <div class="note-edit-actions">
-            <button class="btn btn-sm btn-primary" @click="saveDescription">Save</button>
-            <button class="btn btn-sm" @click="cancelEditDescription">Cancel</button>
-          </div>
-        </div>
-        <RichText v-else-if="task.description" :content="task.description" class="description" />
-        <button v-else class="btn-add-link" @click="startEditDescription">+ Add description</button>
+        <label>Description</label>
+        <textarea
+          v-model="form.description"
+          rows="3"
+          class="note-edit-textarea"
+          placeholder="Add a description..."
+        />
       </div>
 
       <!-- Subtasks -->
@@ -480,6 +456,15 @@ async function handleNotePaste(event: ClipboardEvent) {
         </div>
       </div>
     </div>
+
+    <template #footer>
+      <div class="modal-footer">
+        <button class="btn" @click="cancelChanges">Cancel</button>
+        <button class="btn btn-primary" :disabled="saving" @click="saveAll">
+          {{ saving ? 'Saving...' : 'Save' }}
+        </button>
+      </div>
+    </template>
   </Dialog>
 </template>
 
@@ -491,17 +476,11 @@ async function handleNotePaste(event: ClipboardEvent) {
 .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 
 .title-display { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
-.title-text { font-weight: 700; font-size: 1.125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.title-edit { display: flex; flex-direction: column; gap: 0.375rem; flex: 1; }
 .title-edit-input { padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 1rem; font-weight: 600; background: var(--p-form-field-background); color: var(--p-text-color); width: 100%; }
-.title-edit-actions { display: flex; gap: 0.375rem; }
 
 .btn-edit-inline { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; font-size: 0.75rem; padding: 0.125rem 0.25rem; }
 .btn-edit-inline:hover { color: var(--p-primary-color); }
 .btn-edit-inline .pi { font-size: 0.6875rem; }
-
-.btn-add-link { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; font-size: 0.8125rem; padding: 0.25rem 0; text-align: left; }
-.btn-add-link:hover { color: var(--p-primary-color); }
 
 .assignee-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .chip { padding: 0.25rem 0.625rem; border: 1px solid var(--p-content-border-color); border-radius: 9999px; font-size: 0.75rem; cursor: pointer; background: var(--p-content-background); color: var(--p-text-muted-color); transition: all 0.15s; }
@@ -552,4 +531,6 @@ async function handleNotePaste(event: ClipboardEvent) {
 .btn-danger { color: var(--p-red-600); border-color: var(--p-red-300); }
 .btn-danger:hover { background: var(--p-red-50); }
 .upload-indicator { color: var(--p-primary-color); font-size: 0.75rem; font-style: italic; }
+
+.modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
 </style>

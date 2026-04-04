@@ -2,6 +2,7 @@
 import { ref, watch, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useToast } from '../../composables/useToast'
+import { useAuth } from '../../composables/useAuth'
 import { getProposal, createProposal, updateProposal, getProposalDefaults, generateDoc } from '../../api/proposals'
 import { todayStr } from '../../utils/dates'
 
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { user } = useAuth()
 const saving = ref(false)
 const loading = ref(false)
 const generateGoogleDoc = ref(true)
@@ -31,6 +33,16 @@ function parseProposalDate(dateStr: string | null | undefined): string {
   const parsed = new Date(dateStr)
   if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10)
   return ''
+}
+
+function defaultEngineerKey(): string {
+  const keys = Object.keys(engineers.value)
+  const firstName = user.value?.first_name?.toLowerCase()
+  if (firstName) {
+    const match = keys.find(k => k === firstName)
+    if (match) return match
+  }
+  return keys[0] || ''
 }
 
 const form = ref({
@@ -76,12 +88,13 @@ watch(visible, async (val) => {
       dataPath.value = null
       expandedTask.value = null
       form.value = {
-        engineer_key: Object.keys(engineers.value)[0] || '',
+        engineer_key: defaultEngineerKey(),
         engineer_name: '',
         contact_method: '',
         proposal_date: todayStr(),
         status: 'draft',
       }
+      onEngineerChange()
       // Pre-populate with default tasks
       const defaultTasks = [...(defaults.tasks || [])];
       if (defaults.changes_task) {
@@ -165,8 +178,9 @@ async function save() {
       if (generateGoogleDoc.value && created.id) {
         try {
           toast.success('Generating Google Doc...')
-          await generateDoc(created.id)
+          const result = await generateDoc(created.id)
           toast.success('Google Doc generated')
+          if (result.data_path) window.open(result.data_path, '_blank')
         } catch (e) {
           toast.error('Proposal saved but Google Doc generation failed: ' + String(e))
         }

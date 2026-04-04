@@ -342,12 +342,21 @@ onMounted(loadTasks)
         :key="projectId"
         class="project-group"
       >
-        <button class="group-header" @click="toggleProject(projectId)">
-          <i class="pi" :class="collapsedProjects.has(projectId) ? 'pi-chevron-right' : 'pi-chevron-down'" />
-          <span class="project-name">{{ group.projectName }}</span>
-          <span v-if="group.jobCode" class="job-code">{{ group.jobCode }}</span>
-          <span class="group-count">{{ group.tasks.length }}</span>
-        </button>
+        <div class="group-header-row">
+          <button class="group-header" @click="toggleProject(projectId)">
+            <i class="pi" :class="collapsedProjects.has(projectId) ? 'pi-chevron-right' : 'pi-chevron-down'" />
+            <span class="project-name">{{ group.projectName }}</span>
+            <span v-if="group.jobCode" class="job-code">{{ group.jobCode }}</span>
+            <span class="group-count">{{ group.tasks.length }}</span>
+          </button>
+          <button
+            class="project-link-btn"
+            title="Go to project"
+            @click="router.push('/projects/' + projectId)"
+          >
+            <i class="pi pi-external-link" />
+          </button>
+        </div>
 
         <div v-if="!collapsedProjects.has(projectId)" class="task-list">
           <div v-for="task in group.tasks" :key="task.id" class="task-block">
@@ -624,18 +633,37 @@ onMounted(loadTasks)
   overflow: hidden;
 }
 
+.group-header-row {
+  display: flex;
+  align-items: center;
+  background: var(--p-content-hover-background);
+}
+
 .group-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  width: 100%;
+  flex: 1;
   padding: 0.75rem 1rem;
-  background: var(--p-content-hover-background);
+  background: none;
   border: none;
   cursor: pointer;
   font-size: 0.875rem;
   color: var(--p-text-color);
   text-align: left;
+}
+
+.project-link-btn {
+  background: none;
+  border: none;
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.project-link-btn:hover {
+  color: var(--p-primary-color);
 }
 
 .group-header:hover {

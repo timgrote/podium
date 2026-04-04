@@ -28,8 +28,9 @@ function formatCurrency(value: number): string {
 async function genProposalDoc(proposalId: string) {
   proposalBusy.value[proposalId] = 'gen'
   try {
-    await generateDoc(proposalId)
+    const result = await generateDoc(proposalId)
     toast.success('Google Doc generated')
+    if (result.data_path) window.open(result.data_path, '_blank')
     emit('refreshProject')
   } catch (e) {
     toast.error(String(e))
@@ -214,7 +215,7 @@ function hasGoogleDoc(proposal: { data_path: string | null }): boolean {
 .doc-link {
   font-size: 0.75rem; color: var(--p-primary-color); text-decoration: none;
   display: inline-flex; align-items: center; gap: 0.25rem;
-  margin-left: auto; white-space: nowrap;
+  white-space: nowrap;
 }
 .doc-link:hover { text-decoration: underline; }
 </style>

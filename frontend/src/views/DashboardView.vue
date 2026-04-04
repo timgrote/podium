@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ProjectSummary, CompanySettings } from '../types'
 import { useProjects } from '../composables/useProjects'
@@ -90,6 +90,15 @@ async function reloadCompany() {
 onMounted(async () => {
   await Promise.all([loadProjects(), loadClients()])
   reloadCompany()
+
+  // Restore scroll position after navigating back from a project
+  const savedScroll = sessionStorage.getItem('dashboardScrollY')
+  if (savedScroll) {
+    sessionStorage.removeItem('dashboardScrollY')
+    await nextTick()
+    const main = document.querySelector('.main-content')
+    if (main) main.scrollTop = parseInt(savedScroll, 10)
+  }
 })
 </script>
 

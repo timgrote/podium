@@ -668,7 +668,6 @@ onMounted(async () => {
 .project-group {
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.5rem;
-  overflow: hidden;
   background: var(--p-content-background);
   margin-bottom: 0.75rem;
 }
