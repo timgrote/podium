@@ -237,7 +237,6 @@ async function save() {
           <select v-model="form.status">
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
-            <option value="accepted">Accepted</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>

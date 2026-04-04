@@ -144,12 +144,12 @@ function hasGoogleDoc(proposal: { data_path: string | null }): boolean {
             <i class="pi" :class="proposalBusy[proposal.id] === 'send' ? 'pi-spin pi-spinner' : 'pi-send'" />
           </button>
           <button
-            v-if="proposal.status === 'accepted'"
-            class="btn-icon"
-            title="Promote to Contract"
+            v-if="proposal.status !== 'accepted'"
+            class="btn-promote"
+            title="Accept & Promote to Contract"
             @click="emit('promoteProposal', proposal.id)"
           >
-            <i class="pi pi-arrow-up" />
+            <i class="pi pi-check" /> Accept
           </button>
           <button class="btn-icon" title="Edit" @click="emit('editProposal', proposal.id)">
             <i class="pi pi-pencil" />
@@ -218,4 +218,12 @@ function hasGoogleDoc(proposal: { data_path: string | null }): boolean {
   white-space: nowrap;
 }
 .doc-link:hover { text-decoration: underline; }
+.btn-promote {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.125rem 0.5rem; border: 1px solid var(--p-green-400);
+  border-radius: 0.25rem; background: var(--p-green-100); color: var(--p-green-700);
+  cursor: pointer; font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
+}
+.btn-promote:hover { background: var(--p-green-200); }
+.btn-promote .pi { font-size: 0.625rem; }
 </style>
