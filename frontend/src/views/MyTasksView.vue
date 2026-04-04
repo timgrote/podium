@@ -352,7 +352,7 @@ onMounted(loadTasks)
           <button
             class="project-link-btn"
             title="Go to project"
-            @click="router.push('/projects/' + projectId)"
+            @click.stop="router.push('/projects/' + projectId)"
           >
             <i class="pi pi-external-link" />
           </button>
