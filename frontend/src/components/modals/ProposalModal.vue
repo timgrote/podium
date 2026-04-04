@@ -176,12 +176,19 @@ async function save() {
       toast.success('Proposal created')
 
       if (generateGoogleDoc.value && created.id) {
+        // Open window immediately to avoid popup blocker (doc generation takes ~12s)
+        const docWindow = window.open('about:blank', '_blank')
         try {
           toast.success('Generating Google Doc...')
           const result = await generateDoc(created.id)
           toast.success('Google Doc generated')
-          if (result.data_path) window.open(result.data_path, '_blank')
+          if (result.data_path && docWindow) {
+            docWindow.location.href = result.data_path
+          } else if (result.data_path) {
+            window.open(result.data_path, '_blank')
+          }
         } catch (e) {
+          if (docWindow) docWindow.close()
           toast.error('Proposal saved but Google Doc generation failed: ' + String(e))
         }
       }

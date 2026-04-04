@@ -342,20 +342,11 @@ onMounted(loadTasks)
         :key="projectId"
         class="project-group"
       >
-        <div class="group-header-row">
-          <button class="group-header" @click="toggleProject(projectId)">
-            <i class="pi" :class="collapsedProjects.has(projectId) ? 'pi-chevron-right' : 'pi-chevron-down'" />
-            <span class="project-name">{{ group.projectName }}</span>
-            <span v-if="group.jobCode" class="job-code">{{ group.jobCode }}</span>
-            <span class="group-count">{{ group.tasks.length }}</span>
-          </button>
-          <button
-            class="project-link-btn"
-            title="Go to project"
-            @click.stop="router.push('/projects/' + projectId)"
-          >
-            <i class="pi pi-external-link" />
-          </button>
+        <div class="group-header-row" @click="toggleProject(projectId)">
+          <i class="pi header-chevron" :class="collapsedProjects.has(projectId) ? 'pi-chevron-right' : 'pi-chevron-down'" />
+          <span class="project-name" @click.stop="router.push('/projects/' + projectId)">{{ group.projectName }}</span>
+          <span v-if="group.jobCode" class="job-code" @click.stop="router.push('/projects/' + projectId)">{{ group.jobCode }}</span>
+          <span class="group-count">{{ group.tasks.length }}</span>
         </div>
 
         <div v-if="!collapsedProjects.has(projectId)" class="task-list">
@@ -636,57 +627,41 @@ onMounted(loadTasks)
 .group-header-row {
   display: flex;
   align-items: center;
-  background: var(--p-content-hover-background);
-}
-
-.group-header {
-  display: flex;
-  align-items: center;
   gap: 0.5rem;
-  flex: 1;
   padding: 0.75rem 1rem;
-  background: none;
-  border: none;
+  background: var(--p-content-hover-background);
   cursor: pointer;
   font-size: 0.875rem;
   color: var(--p-text-color);
-  text-align: left;
 }
 
-.project-link-btn {
-  background: none;
-  border: none;
-  color: var(--p-text-muted-color);
-  cursor: pointer;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
-}
-
-.project-link-btn:hover {
-  color: var(--p-primary-color);
-}
-
-.group-header:hover {
+.group-header-row:hover {
   background: var(--p-surface-200);
 }
 
-:root.p-dark .group-header:hover {
+:root.p-dark .group-header-row:hover {
   background: var(--p-surface-700);
 }
 
-.group-header .pi {
+.header-chevron {
   font-size: 0.625rem;
   color: var(--p-text-muted-color);
 }
 
 .project-name {
   font-weight: 600;
+  cursor: pointer;
+}
+
+.project-name:hover, .job-code:hover {
+  color: var(--p-primary-color);
 }
 
 .job-code {
   font-size: 0.75rem;
   color: var(--p-text-muted-color);
   font-family: monospace;
+  cursor: pointer;
 }
 
 .group-count {

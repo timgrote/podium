@@ -27,12 +27,18 @@ function formatCurrency(value: number): string {
 
 async function genProposalDoc(proposalId: string) {
   proposalBusy.value[proposalId] = 'gen'
+  const docWindow = window.open('about:blank', '_blank')
   try {
     const result = await generateDoc(proposalId)
     toast.success('Google Doc generated')
-    if (result.data_path) window.open(result.data_path, '_blank')
+    if (result.data_path && docWindow) {
+      docWindow.location.href = result.data_path
+    } else if (result.data_path) {
+      window.open(result.data_path, '_blank')
+    }
     emit('refreshProject')
   } catch (e) {
+    if (docWindow) docWindow.close()
     toast.error(String(e))
   } finally {
     delete proposalBusy.value[proposalId]
