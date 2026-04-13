@@ -4,7 +4,7 @@ import { useInvoices } from '../composables/useInvoices'
 import { useToast } from '../composables/useToast'
 import InvoiceEditModal from '../components/modals/InvoiceEditModal.vue'
 import InvoiceActionsModal from '../components/modals/InvoiceActionsModal.vue'
-import { formatDate as formatDateUtil } from '../utils/dates'
+import { formatDate as formatDateUtil, daysPastDue } from '../utils/dates'
 
 const toast = useToast()
 const {
@@ -74,15 +74,17 @@ function openActions(invoiceId: string) {
   showActionsModal.value = true
 }
 
-function statusLabel(inv: { sent_status: string; paid_status: string }): string {
+function statusLabel(inv: { sent_status: string; paid_status: string; due_date?: string | null }): string {
   if (inv.paid_status === 'paid') return 'Paid'
-  if (inv.paid_status === 'partial') return 'Partial'
-  if (inv.sent_status === 'sent') return 'Sent'
+  if (inv.paid_status === 'partial') return inv.due_date && daysPastDue(inv.due_date) > 0 ? 'Past Due' : 'Partial'
+  if (inv.sent_status === 'sent') return inv.due_date && daysPastDue(inv.due_date) > 0 ? 'Past Due' : 'Sent'
   return 'Draft'
 }
 
-function statusClass(inv: { sent_status: string; paid_status: string }): string {
+function statusClass(inv: { sent_status: string; paid_status: string; due_date?: string | null }): string {
   if (inv.paid_status === 'paid') return 'status-paid'
+  if (inv.sent_status === 'sent' && inv.due_date && daysPastDue(inv.due_date) > 0) return 'status-past-due'
+  if (inv.paid_status === 'partial' && inv.due_date && daysPastDue(inv.due_date) > 0) return 'status-past-due'
   if (inv.paid_status === 'partial') return 'status-partial'
   if (inv.sent_status === 'sent') return 'status-sent'
   return 'status-draft'
@@ -150,6 +152,10 @@ async function doBatchMarkPaid() {
         <div class="stat-label">Collected YTD</div>
         <div class="stat-value collected">{{ formatCurrency(stats.collectedYTD) }}</div>
       </div>
+      <div v-if="stats.pastDue > 0" class="stat-card">
+        <div class="stat-label">Past Due</div>
+        <div class="stat-value past-due">{{ formatCurrency(stats.pastDue) }}</div>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -162,6 +168,7 @@ async function doBatchMarkPaid() {
         <option value="sent">Sent / Awaiting Payment</option>
         <option value="partial">Partial Payment</option>
         <option value="paid">Paid</option>
+        <option value="past_due">Past Due</option>
       </select>
       <select v-model="clientFilter" class="filter-select">
         <option value="">All Clients</option>
@@ -273,6 +280,10 @@ async function doBatchMarkPaid() {
             Status
             <i v-if="sortField === 'paid_status'" :class="sortOrder === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down'" />
           </th>
+          <th class="sortable col-days" @click="toggleSort('days_past_due')">
+            Days Due
+            <i v-if="sortField === 'days_past_due'" :class="sortOrder === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down'" />
+          </th>
           <th class="col-sheet">Sheet</th>
           <th class="sortable" @click="toggleSort('sent_at')">
             Sent
@@ -302,6 +313,9 @@ async function doBatchMarkPaid() {
           <td class="col-amount">{{ formatCurrency(inv.total_due) }}</td>
           <td>
             <span class="status-pill" :class="statusClass(inv)">{{ statusLabel(inv) }}</span>
+          </td>
+          <td class="col-days">
+            <span v-if="daysPastDue(inv.due_date) > 0 && inv.paid_status !== 'paid'" class="days-overdue">{{ daysPastDue(inv.due_date) }}d</span>
           </td>
           <td class="col-sheet">
             <i v-if="inv.data_path" class="pi pi-check-circle sheet-yes" title="Sheet generated" />
@@ -636,6 +650,16 @@ async function doBatchMarkPaid() {
   background: var(--p-orange-100);
   color: var(--p-orange-700);
 }
+
+.status-past-due {
+  background: var(--p-red-100);
+  color: var(--p-red-700);
+}
+
+.col-days { width: 70px; text-align: center; }
+.days-overdue { font-size: 0.75rem; font-weight: 600; color: var(--p-red-600); }
+
+.past-due { color: var(--p-red-600) !important; }
 
 .btn-icon {
   background: none;

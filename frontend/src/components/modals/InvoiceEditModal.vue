@@ -24,6 +24,7 @@ const loading = ref(false)
 const invoiceNumber = ref('')
 const invoiceType = ref('')
 const invoiceDate = ref('')
+const dueDate = ref('')
 const description = ref('')
 const status = ref<'draft' | 'sent' | 'paid'>('draft')
 const paidDate = ref('')
@@ -37,6 +38,7 @@ watch(visible, async (val) => {
     invoiceNumber.value = inv.invoice_number
     invoiceType.value = inv.type
     invoiceDate.value = inv.invoice_date || (inv.created_at ? inv.created_at.slice(0, 10) : '')
+    dueDate.value = inv.due_date || ''
     description.value = inv.description || ''
     status.value = inv.paid_status === 'paid' ? 'paid' : inv.sent_status === 'sent' ? 'sent' : 'draft'
     paidDate.value = inv.paid_at ? inv.paid_at.slice(0, 10) : ''
@@ -87,6 +89,7 @@ async function save() {
   try {
     await updateInvoice(props.invoiceId, {
       invoice_date: invoiceDate.value || undefined,
+      due_date: dueDate.value || null,
       description: description.value || undefined,
       sent_status: status.value === 'draft' ? 'unsent' : 'sent',
       paid_status: status.value === 'paid' ? 'paid' : 'unpaid',
@@ -122,6 +125,10 @@ async function save() {
         <div class="field">
           <label>Invoice Date</label>
           <input v-model="invoiceDate" type="date" />
+        </div>
+        <div class="field">
+          <label>Due Date</label>
+          <input v-model="dueDate" type="date" />
         </div>
         <div class="field">
           <label>Status</label>

@@ -30,6 +30,15 @@ export function isOverdue(dateStr: string | null): boolean {
   return parseLocalDate(dateStr) < today
 }
 
+export function daysPastDue(dateStr: string | null): number {
+  if (!dateStr) return 0
+  const now = new Date()
+  const today = new Date(now.toLocaleDateString('en-US', { timeZone: TZ }))
+  const due = parseLocalDate(dateStr)
+  const diff = today.getTime() - due.getTime()
+  return diff > 0 ? Math.floor(diff / (1000 * 60 * 60 * 24)) : 0
+}
+
 export function todayStr(): string {
   const now = new Date()
   const parts = now.toLocaleDateString('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })

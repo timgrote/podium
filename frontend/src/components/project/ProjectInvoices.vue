@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { ProjectDetail } from '../../types'
 import { generateSheet, exportPdf as exportInvoicePdfApi } from '../../api/invoices'
 import { useToast } from '../../composables/useToast'
-import { formatDate } from '../../utils/dates'
+import { formatDate, daysPastDue } from '../../utils/dates'
 
 const props = defineProps<{
   project: ProjectDetail
@@ -93,6 +93,12 @@ async function exportInvoicePdf(invoiceId: string) {
         >
           {{ invoice.paid_status === 'paid' ? 'Paid' : invoice.sent_status === 'sent' ? 'Sent' : 'Draft' }}
         </span>
+        <span
+          v-if="daysPastDue(invoice.due_date) > 0 && invoice.paid_status !== 'paid'"
+          class="status-pill overdue"
+        >
+          {{ daysPastDue(invoice.due_date) }}d overdue
+        </span>
         <span v-if="invoice.invoice_date" class="sub-card-date">
           {{ formatDate(invoice.invoice_date) }}
         </span>
@@ -180,6 +186,7 @@ async function exportInvoicePdf(invoiceId: string) {
 }
 .status-pill.sent { background: var(--p-blue-100); color: var(--p-blue-700); }
 .status-pill.paid, .status-pill.accepted { background: var(--p-green-100); color: var(--p-green-700); }
+.status-pill.overdue { background: var(--p-red-100); color: var(--p-red-700); }
 .btn-icon {
   background: none; border: none; cursor: pointer; padding: 0.25rem;
   color: var(--p-text-muted-color); border-radius: 0.25rem; font-size: 0.875rem;

@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import type { InvoiceListItem } from '../types'
 import { getInvoices, generateSheet, sendInvoice, updateInvoice } from '../api/invoices'
+import { isOverdue, daysPastDue } from '../utils/dates'
 
 const invoices = ref<InvoiceListItem[]>([])
 const loading = ref(false)
@@ -68,6 +69,9 @@ export function useInvoices() {
         case 'partial':
           result = result.filter((i) => i.paid_status === 'partial')
           break
+        case 'past_due':
+          result = result.filter((i) => i.sent_status === 'sent' && i.paid_status !== 'paid' && i.due_date && isOverdue(i.due_date))
+          break
       }
     }
 
@@ -98,8 +102,14 @@ export function useInvoices() {
     const field = sortField.value
     const order = sortOrder.value === 'asc' ? 1 : -1
     result = [...result].sort((a, b) => {
-      const aVal = (a as Record<string, unknown>)[field] ?? ''
-      const bVal = (b as Record<string, unknown>)[field] ?? ''
+      let aVal: unknown, bVal: unknown
+      if (field === 'days_past_due') {
+        aVal = daysPastDue(a.due_date)
+        bVal = daysPastDue(b.due_date)
+      } else {
+        aVal = (a as Record<string, unknown>)[field] ?? ''
+        bVal = (b as Record<string, unknown>)[field] ?? ''
+      }
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return (aVal - bVal) * order
       }
@@ -134,6 +144,11 @@ export function useInvoices() {
       collectedYTD: all
         .filter(
           (i) => i.paid_status === 'paid' && i.paid_at && new Date(i.paid_at) >= new Date(now.getFullYear(), 0, 1),
+        )
+        .reduce((s, i) => s + i.total_due, 0),
+      pastDue: all
+        .filter(
+          (i) => i.sent_status === 'sent' && i.paid_status !== 'paid' && i.due_date && isOverdue(i.due_date),
         )
         .reduce((s, i) => s + i.total_due, 0),
     }
@@ -178,7 +193,7 @@ export function useInvoices() {
       sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
     } else {
       sortField.value = field
-      sortOrder.value = field === 'total_due' || field === 'created_at' || field === 'sent_at' || field === 'paid_at' ? 'desc' : 'asc'
+      sortOrder.value = field === 'total_due' || field === 'created_at' || field === 'sent_at' || field === 'paid_at' || field === 'days_past_due' ? 'desc' : 'asc'
     }
   }
 

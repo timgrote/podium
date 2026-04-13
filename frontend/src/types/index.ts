@@ -73,6 +73,7 @@ export interface Invoice {
   data_path: string | null
   pdf_path: string | null
   invoice_date: string | null
+  due_date: string | null
   sent_status: 'unsent' | 'sent'
   paid_status: 'unpaid' | 'partial' | 'paid'
   total_due: number
@@ -90,6 +91,7 @@ export interface InvoiceListItem {
   contract_id: string | null
   type: 'task' | 'list'
   invoice_date: string | null
+  due_date: string | null
   sent_status: 'unsent' | 'sent'
   paid_status: 'unpaid' | 'partial' | 'paid'
   total_due: number

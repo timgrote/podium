@@ -8,6 +8,7 @@ class InvoiceCreate(BaseModel):
     type: str = "task"
     description: str | None = None
     total_due: float = 0
+    due_date: str | None = None
 
 
 class InvoiceUpdate(BaseModel):
@@ -20,6 +21,7 @@ class InvoiceUpdate(BaseModel):
     description: str | None = None
     data_path: str | None = None
     pdf_path: str | None = None
+    due_date: str | None = None
     line_items: list[dict] | None = None
 
 
