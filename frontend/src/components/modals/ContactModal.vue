@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
-import { getContacts, updateContact } from '../../api/contacts'
+import { getContacts, updateContact, deleteContact, getContactProjects } from '../../api/contacts'
 import { useClients } from '../../composables/useClients'
 import { useToast } from '../../composables/useToast'
+import DeleteConfirmModal from './DeleteConfirmModal.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -20,6 +21,8 @@ const { clients, load: loadClients } = useClients()
 const toast = useToast()
 const loading = ref(false)
 const saving = ref(false)
+const showDeleteConfirm = ref(false)
+const contactProjects = ref<{ id: string; project_name: string; job_code: string | null; status: string }[]>([])
 
 const form = ref({
   name: '',
@@ -34,7 +37,7 @@ watch(visible, async (val) => {
   if (!val || !props.contactId) return
   loading.value = true
   try {
-    const [all] = await Promise.all([getContacts(), loadClients()])
+    const [all, , projects] = await Promise.all([getContacts(), loadClients(), getContactProjects(props.contactId)])
     const ct = all.find(c => c.id === props.contactId)
     if (!ct) {
       emit('error', 'Contact not found')
@@ -49,6 +52,7 @@ watch(visible, async (val) => {
       notes: ct.notes || '',
       client_id: ct.client_id || '',
     }
+    contactProjects.value = projects
   } catch (e) {
     emit('error', String(e))
     visible.value = false
@@ -81,6 +85,14 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+async function handleDelete() {
+  if (!props.contactId) return
+  await deleteContact(props.contactId)
+  toast.success('Contact deleted')
+  emit('saved')
+  visible.value = false
 }
 </script>
 
@@ -122,14 +134,41 @@ async function save() {
           <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </div>
+
+      <!-- Projects -->
+      <fieldset v-if="contactProjects.length > 0" class="projects-fieldset">
+        <legend>Projects</legend>
+        <router-link
+          v-for="p in contactProjects"
+          :key="p.id"
+          :to="`/projects/${p.id}`"
+          class="project-link"
+          @click="visible = false"
+        >
+          <span class="project-name">{{ p.project_name }}</span>
+          <span v-if="p.job_code" class="project-code">{{ p.job_code }}</span>
+          <span v-if="p.status" class="project-status">{{ p.status }}</span>
+        </router-link>
+      </fieldset>
     </div>
     <template #footer>
-      <button class="btn" @click="visible = false">Cancel</button>
-      <button class="btn btn-primary" :disabled="saving" @click="save">
-        {{ saving ? 'Saving...' : 'Save' }}
-      </button>
+      <div class="modal-footer">
+        <button class="btn btn-danger" @click="showDeleteConfirm = true">Delete</button>
+        <div class="footer-right">
+          <button class="btn" @click="visible = false">Cancel</button>
+          <button class="btn btn-primary" :disabled="saving" @click="save">
+            {{ saving ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </div>
     </template>
   </Dialog>
+
+  <DeleteConfirmModal
+    v-model:visible="showDeleteConfirm"
+    label="this contact"
+    :action="handleDelete"
+  />
 </template>
 
 <style scoped>
@@ -139,8 +178,21 @@ async function save() {
 .field label { font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.05em; }
 .field input, .field select, .field textarea { padding: 0.5rem 0.75rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.875rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; margin-left: 0.5rem; color: var(--p-text-color); }
+.modal-footer { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.footer-right { display: flex; gap: 0.5rem; }
+.btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; color: var(--p-text-color); }
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .btn-primary:hover { background: var(--p-primary-hover-color); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-danger { background: var(--p-red-600); color: #fff; border-color: var(--p-red-600); }
+.btn-danger:hover { background: var(--p-red-700); }
+
+.projects-fieldset { border: 1px solid var(--p-content-border-color); border-radius: 0.5rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0; margin: 0; }
+.projects-fieldset legend { font-size: 0.8rem; font-weight: 600; color: var(--p-text-muted-color); padding: 0 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.project-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--p-content-border-color); text-decoration: none; color: var(--p-text-color); cursor: pointer; }
+.project-link:last-child { border-bottom: none; }
+.project-link:hover { color: var(--p-primary-color); }
+.project-name { font-size: 0.875rem; font-weight: 500; }
+.project-code { font-size: 0.75rem; color: var(--p-text-muted-color); background: var(--p-content-hover-background); padding: 0.125rem 0.375rem; border-radius: 0.25rem; }
+.project-status { font-size: 0.6875rem; color: var(--p-text-muted-color); margin-left: auto; }
 </style>

@@ -43,6 +43,10 @@ export function updateContact(
   })
 }
 
+export function getContactProjects(contactId: string): Promise<{ id: string; project_name: string; job_code: string | null; status: string }[]> {
+  return apiFetch(`/contacts/${contactId}/projects`)
+}
+
 export function deleteContact(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/contacts/${id}`, { method: 'DELETE' })
 }

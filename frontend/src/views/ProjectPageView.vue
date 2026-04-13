@@ -67,6 +67,10 @@ watch(() => project.value?.id, (newId, oldId) => {
   if (newId && newId !== oldId) loadProjectDetail()
 })
 
+watch(() => project.value?.project_name, (name) => {
+  document.title = name ? `${name} — Conductor` : 'Conductor'
+}, { immediate: true })
+
 // Active section from query param
 const validSections: Section[] = ['tasks', 'notes', 'time', 'financial', 'team']
 const activeSection = computed<Section>({

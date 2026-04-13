@@ -2,9 +2,12 @@
 import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import type { Contact } from '../../types'
-import { getClient, createClient, updateClient } from '../../api/clients'
+import { getClient, createClient, updateClient, deleteClient } from '../../api/clients'
 import { getContacts, createContact, updateContact, deleteContact } from '../../api/contacts'
+import { getProjects } from '../../api/projects'
+import type { ProjectSummary } from '../../types'
 import { useToast } from '../../composables/useToast'
+import DeleteConfirmModal from './DeleteConfirmModal.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -21,6 +24,7 @@ const toast = useToast()
 const loading = ref(false)
 const saving = ref(false)
 const contacts = ref<Contact[]>([])
+const clientProjects = ref<ProjectSummary[]>([])
 const editingContactId = ref<string | null>(null)
 
 const form = ref({
@@ -38,6 +42,8 @@ const contactForm = ref({
   role: '',
 })
 
+const showDeleteConfirm = ref(false)
+
 const showAddContact = ref(false)
 const addingContact = ref(false)
 const newContact = ref({ name: '', email: '', phone: '', role: '' })
@@ -49,13 +55,15 @@ watch(visible, async (val) => {
   if (!props.clientId) {
     form.value = { name: '', accounting_email: '', phone: '', address: '', notes: '' }
     contacts.value = []
+    clientProjects.value = []
     return
   }
   loading.value = true
   try {
-    const [client, clientContacts] = await Promise.all([
+    const [client, clientContacts, allProjects] = await Promise.all([
       getClient(props.clientId),
       getContacts(props.clientId),
+      getProjects(),
     ])
     form.value = {
       name: client.name || '',
@@ -65,6 +73,7 @@ watch(visible, async (val) => {
       notes: client.notes || '',
     }
     contacts.value = clientContacts
+    clientProjects.value = allProjects.filter(p => p.client_id === props.clientId)
   } catch (e) {
     emit('error', String(e))
     visible.value = false
@@ -75,7 +84,7 @@ watch(visible, async (val) => {
 
 async function saveClient() {
   if (!form.value.name.trim()) {
-    toast.error('Client name is required')
+    toast.error('Company name is required')
     return
   }
   saving.value = true
@@ -88,7 +97,7 @@ async function saveClient() {
         address: form.value.address || undefined,
         notes: form.value.notes || undefined,
       })
-      toast.success('Client updated')
+      toast.success('Company updated')
     } else {
       await createClient({
         name: form.value.name,
@@ -97,7 +106,7 @@ async function saveClient() {
         address: form.value.address || undefined,
         notes: form.value.notes || undefined,
       })
-      toast.success('Client created')
+      toast.success('Company created')
     }
     emit('saved')
     visible.value = false
@@ -149,6 +158,14 @@ async function removeContact(ct: Contact) {
   }
 }
 
+async function handleDelete() {
+  if (!props.clientId) return
+  await deleteClient(props.clientId)
+  toast.success('Company deleted')
+  emit('saved')
+  visible.value = false
+}
+
 async function addContact() {
   if (!newContact.value.name.trim() || !props.clientId) return
   addingContact.value = true
@@ -175,7 +192,7 @@ async function addContact() {
 <template>
   <Dialog
     v-model:visible="visible"
-    :header="clientId ? 'Edit Client' : 'New Client'"
+    :header="clientId ? 'Edit Company' : 'New Company'"
     :modal="true"
     :style="{ width: '600px' }"
   >
@@ -270,15 +287,44 @@ async function addContact() {
           </template>
         </div>
       </fieldset>
+
+      <!-- Projects Section (edit mode only) -->
+      <fieldset v-if="clientId" class="contacts-fieldset">
+        <legend>Projects</legend>
+        <div v-if="clientProjects.length === 0" class="empty-contacts">No projects</div>
+        <router-link
+          v-for="p in clientProjects"
+          :key="p.id"
+          :to="`/projects/${p.id}`"
+          class="project-link"
+          @click="visible = false"
+        >
+          <span class="project-name">{{ p.project_name }}</span>
+          <span v-if="p.job_code" class="project-code">{{ p.job_code }}</span>
+          <span v-if="p.status" class="project-status">{{ p.status }}</span>
+        </router-link>
+      </fieldset>
     </div>
 
     <template #footer>
-      <button class="btn" @click="visible = false">Cancel</button>
-      <button class="btn btn-primary" :disabled="saving" @click="saveClient">
-        {{ saving ? 'Saving...' : 'Save' }}
-      </button>
+      <div class="modal-footer">
+        <button v-if="clientId" class="btn btn-danger" @click="showDeleteConfirm = true">Delete</button>
+        <span v-else />
+        <div class="footer-right">
+          <button class="btn" @click="visible = false">Cancel</button>
+          <button class="btn btn-primary" :disabled="saving" @click="saveClient">
+            {{ saving ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </div>
     </template>
   </Dialog>
+
+  <DeleteConfirmModal
+    v-model:visible="showDeleteConfirm"
+    label="this company"
+    :action="handleDelete"
+  />
 </template>
 
 <style scoped>
@@ -313,9 +359,20 @@ async function addContact() {
 .btn-icon:hover { background: var(--p-content-hover-background); }
 .btn-icon-danger:hover { color: var(--p-red-600); border-color: var(--p-red-300); }
 
-.btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; margin-left: 0.5rem; color: var(--p-text-color); }
+.modal-footer { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.footer-right { display: flex; gap: 0.5rem; }
+.btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; color: var(--p-text-color); }
 .btn-sm { padding: 0.375rem 0.625rem; font-size: 0.8125rem; margin-left: 0; }
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .btn-primary:hover { background: var(--p-primary-hover-color); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-danger { background: var(--p-red-600); color: #fff; border-color: var(--p-red-600); }
+.btn-danger:hover { background: var(--p-red-700); }
+
+.project-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--p-content-border-color); text-decoration: none; color: var(--p-text-color); cursor: pointer; }
+.project-link:last-child { border-bottom: none; }
+.project-link:hover { color: var(--p-primary-color); }
+.project-name { font-size: 0.875rem; font-weight: 500; }
+.project-code { font-size: 0.75rem; color: var(--p-text-muted-color); background: var(--p-content-hover-background); padding: 0.125rem 0.375rem; border-radius: 0.25rem; }
+.project-status { font-size: 0.6875rem; color: var(--p-text-muted-color); margin-left: auto; }
 </style>

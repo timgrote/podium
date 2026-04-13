@@ -131,20 +131,20 @@ onMounted(async () => {
 <template>
   <div class="clients-page">
     <div class="page-header">
-      <h1>Clients & Contacts</h1>
+      <h1>Companies & Contacts</h1>
     </div>
 
     <!-- Clients List -->
     <section class="section">
       <div class="section-header">
-        <h2>Clients</h2>
+        <h2>Companies</h2>
         <button class="btn-add" @click="openCreateClient">
           <i class="pi pi-plus" />
-          New Client
+          New Company
         </button>
       </div>
-      <div v-if="loadingClients" class="loading">Loading clients...</div>
-      <div v-else-if="clients.length === 0" class="empty-state">No clients yet</div>
+      <div v-if="loadingClients" class="loading">Loading companies...</div>
+      <div v-else-if="clients.length === 0" class="empty-state">No companies yet</div>
       <div v-else class="client-grid">
         <div
           v-for="c in clients"
@@ -176,7 +176,7 @@ onMounted(async () => {
       <!-- Filters -->
       <div class="filters">
         <select v-model="selectedClientId" class="filter-select">
-          <option value="">All Clients</option>
+          <option value="">All Companies</option>
           <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
         <input

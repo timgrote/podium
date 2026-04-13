@@ -118,6 +118,24 @@ def delete_contact(contact_id: str, db=Depends(get_db)):
     return {"success": True}
 
 
+# --- Contact Projects ---
+
+
+@router.get("/{contact_id}/projects")
+def list_contact_projects(contact_id: str, db=Depends(get_db)):
+    """Get projects where this contact is listed in project_contacts or as client_pm."""
+    rows = db.execute(
+        "SELECT DISTINCT p.id, p.name AS project_name, p.job_code, p.status "
+        "FROM projects p "
+        "LEFT JOIN project_contacts pc ON pc.project_id = p.id AND pc.contact_id = %s "
+        "WHERE (pc.contact_id = %s OR p.client_pm_id = %s) "
+        "AND p.deleted_at IS NULL "
+        "ORDER BY p.name",
+        (contact_id, contact_id, contact_id),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 # --- Contact Notes ---
 
 
