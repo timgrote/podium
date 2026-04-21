@@ -18,6 +18,7 @@ export function updateInvoice(
   data: {
     invoice_number?: string
     invoice_date?: string
+    due_date?: string | null
     sent_status?: string
     paid_status?: string
     paid_at?: string
