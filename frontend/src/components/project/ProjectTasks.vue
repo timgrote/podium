@@ -148,6 +148,14 @@ function openTaskDetail(taskId: string) {
   emit('entityClicked', 'task', taskId)
 }
 
+function cancelNewTask() {
+  newTaskTitle.value = ''
+  newTaskDueDate.value = todayStr()
+  newTaskDescription.value = ''
+  newTaskAssigneeIds.value = []
+  showNewTaskForm.value = false
+}
+
 function toggleNewTaskAssignee(empId: string) {
   const idx = newTaskAssigneeIds.value.indexOf(empId)
   if (idx >= 0) {
@@ -219,8 +227,8 @@ defineExpose({ totalTaskCount, loadTasks })
   <div class="section">
     <div class="section-header tasks-header">
       <h4>Tasks</h4>
-      <button class="btn-icon" :title="showNewTaskForm ? 'Cancel' : 'Add task'" @click="showNewTaskForm = !showNewTaskForm; if (showNewTaskForm && user) newTaskAssigneeIds = [user.id]">
-        <i class="pi" :class="showNewTaskForm ? 'pi-times' : 'pi-plus'" />
+      <button v-if="!showNewTaskForm" class="btn-icon" title="Add task" @click="showNewTaskForm = true; if (user) newTaskAssigneeIds = [user.id]">
+        <i class="pi pi-plus" />
       </button>
     </div>
 
@@ -243,9 +251,12 @@ defineExpose({ totalTaskCount, loadTasks })
           </button>
         </div>
       </div>
-      <button class="btn btn-sm btn-primary" :disabled="newTaskSaving || !newTaskTitle.trim()" @click="submitNewTask">
-        {{ newTaskSaving ? 'Creating...' : 'Create' }}
-      </button>
+      <div class="new-task-actions">
+        <button class="btn btn-sm" :disabled="newTaskSaving" @click="cancelNewTask">Cancel</button>
+        <button class="btn btn-sm btn-primary" :disabled="newTaskSaving || !newTaskTitle.trim()" @click="submitNewTask">
+          {{ newTaskSaving ? 'Creating...' : 'Create' }}
+        </button>
+      </div>
     </div>
 
     <!-- Task search -->
@@ -589,6 +600,12 @@ defineExpose({ totalTaskCount, loadTasks })
   color: var(--p-text-muted-color);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.new-task-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .assignee-chips {

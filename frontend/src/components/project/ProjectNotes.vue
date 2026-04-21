@@ -60,6 +60,11 @@ async function submitNote() {
   }
 }
 
+function cancelNewNote() {
+  newNote.value = ''
+  sessionStorage.removeItem(draftKey())
+}
+
 function startEditNote(note: ProjectNote) {
   editingNoteId.value = note.id
   editNoteContent.value = note.content
@@ -167,9 +172,12 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
     <div class="add-note">
       <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" @paste="onNotePaste" />
       <small v-if="noteImageUploading" class="upload-indicator">Uploading image...</small>
-      <button class="btn btn-sm btn-primary" :disabled="noteSaving" @click="submitNote">
-        {{ noteSaving ? 'Adding...' : 'Add Note' }}
-      </button>
+      <div class="add-note-actions">
+        <button class="btn btn-sm" :disabled="noteSaving || !newNote" @click="cancelNewNote">Cancel</button>
+        <button class="btn btn-sm btn-primary" :disabled="noteSaving || !newNote.trim()" @click="submitNote">
+          {{ noteSaving ? 'Adding...' : 'Add Note' }}
+        </button>
+      </div>
     </div>
 
     <div v-if="notes.length > 1" class="note-search">
@@ -225,6 +233,12 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
   background: var(--p-content-background);
   color: var(--p-text-color);
   font-family: inherit;
+}
+
+.add-note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .upload-indicator { color: var(--p-primary-color); font-size: 0.75rem; font-style: italic; }
