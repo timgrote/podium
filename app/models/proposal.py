@@ -43,6 +43,7 @@ class ProposalUpdate(BaseModel):
     sent_at: str | None = None
     data_path: str | None = None
     pdf_path: str | None = None
+    tasks: list[ProposalTaskCreate] | None = None
 
 
 class ProposalGenerateTask(BaseModel):

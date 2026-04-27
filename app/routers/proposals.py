@@ -296,17 +296,37 @@ def update_proposal(
     if not existing:
         raise HTTPException(status_code=404, detail="Proposal not found")
 
-    updates = {k: v for k, v in data.model_dump().items() if v is not None}
-    if not updates:
-        return _get_proposal_with_tasks(db, proposal_id)
+    payload = data.model_dump(exclude_unset=True)
+    tasks = payload.pop("tasks", None)
+    updates = {k: v for k, v in payload.items() if v is not None}
 
     if "proposal_date" in updates:
         updates["proposal_date"] = _format_proposal_date(updates["proposal_date"])
 
-    updates["updated_at"] = datetime.now().isoformat()
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    values = list(updates.values()) + [proposal_id]
-    db.execute(f"UPDATE proposals SET {set_clause} WHERE id = %s", values)
+    if tasks is not None:
+        updates["total_fee"] = sum((t.get("amount") or 0) for t in tasks)
+
+    now = datetime.now().isoformat()
+
+    if updates:
+        updates["updated_at"] = now
+        set_clause = ", ".join(f"{k} = %s" for k in updates)
+        values = list(updates.values()) + [proposal_id]
+        db.execute(f"UPDATE proposals SET {set_clause} WHERE id = %s", values)
+
+    if tasks is not None:
+        db.execute(
+            "DELETE FROM proposal_tasks WHERE proposal_id = %s", (proposal_id,)
+        )
+        for i, task in enumerate(tasks):
+            task_id = generate_id("ptask-")
+            db.execute(
+                "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, created_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (task_id, proposal_id, i + 1, task.get("name"),
+                 task.get("description"), task.get("amount") or 0, now),
+            )
+
     db.commit()
     event_bus.publish(existing["project_id"], "proposal_updated", proposal_id)
     return _get_proposal_with_tasks(db, proposal_id)
