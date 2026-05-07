@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
+import AutoComplete, { type AutoCompleteCompleteEvent } from 'primevue/autocomplete'
 import { getContacts, updateContact, deleteContact, getContactProjects } from '../../api/contacts'
+import { createClient } from '../../api/clients'
 import { useClients } from '../../composables/useClients'
 import { useToast } from '../../composables/useToast'
+import type { Client } from '../../types'
 import DeleteConfirmModal from './DeleteConfirmModal.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -32,6 +35,15 @@ const form = ref({
   notes: '',
   client_id: '',
 })
+const companyValue = ref<Client | string | null>(null)
+const companySuggestions = ref<Client[]>([])
+
+function searchCompanies(event: AutoCompleteCompleteEvent) {
+  const q = (event.query || '').toLowerCase()
+  companySuggestions.value = q
+    ? clients.value.filter(c => c.name.toLowerCase().includes(q))
+    : [...clients.value]
+}
 
 watch(visible, async (val) => {
   if (!val || !props.contactId) return
@@ -52,6 +64,9 @@ watch(visible, async (val) => {
       notes: ct.notes || '',
       client_id: ct.client_id || '',
     }
+    companyValue.value = ct.client_id
+      ? clients.value.find(c => c.id === ct.client_id) || null
+      : null
     contactProjects.value = projects
   } catch (e) {
     emit('error', String(e))
@@ -69,13 +84,30 @@ async function save() {
   if (!props.contactId) return
   saving.value = true
   try {
+    let clientId: string | null = null
+    const cv = companyValue.value
+    if (cv && typeof cv === 'object' && 'id' in cv) {
+      clientId = cv.id
+    } else if (typeof cv === 'string') {
+      const typed = cv.trim()
+      if (typed) {
+        const existing = clients.value.find(c => c.name.toLowerCase() === typed.toLowerCase())
+        if (existing) {
+          clientId = existing.id
+        } else {
+          const created = await createClient({ name: typed })
+          clientId = created.id
+          await loadClients()
+        }
+      }
+    }
     await updateContact(props.contactId, {
       name: form.value.name,
       email: form.value.email || null,
       phone: form.value.phone || null,
       role: form.value.role || null,
       notes: form.value.notes || null,
-      client_id: form.value.client_id || null,
+      client_id: clientId,
     })
     toast.success('Contact updated')
     emit('saved')
@@ -129,10 +161,15 @@ async function handleDelete() {
       </div>
       <div class="field">
         <label>Company</label>
-        <select v-model="form.client_id">
-          <option value="">-- None --</option>
-          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
+        <AutoComplete
+          v-model="companyValue"
+          :suggestions="companySuggestions"
+          option-label="name"
+          dropdown
+          complete-on-focus
+          placeholder="Type or select a company"
+          @complete="searchCompanies"
+        />
       </div>
 
       <!-- Projects -->
