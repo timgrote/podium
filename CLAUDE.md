@@ -66,7 +66,7 @@ Auto-deploys on push to `master` via GitHub Actions (`.github/workflows/deploy.y
 
 ```bash
 # Manual deploy (same script GitHub Actions runs)
-ssh root@100.105.238.37 "cd /var/www/conductor && bash scripts/deploy.sh"
+ssh root@tie-conductor "cd /var/www/conductor && bash scripts/deploy.sh"
 ```
 
 ### QA Test Account
@@ -74,12 +74,12 @@ ssh root@100.105.238.37 "cd /var/www/conductor && bash scripts/deploy.sh"
 For browser testing via Playwright:
 - **Email:** `qa_test@conductor.test`
 - **Password:** `testtest`
-- **URL:** `http://100.105.238.37`
+- **URL:** `http://tie-conductor`
 
 ### Production environment
 
-- **Access:** Tailscale only — `http://100.105.238.37` (Tailscale: `tie-conductor`). Public internet returns 403.
-- **Droplet:** `24.144.82.75` (public IP, blocked by Caddy), `100.105.238.37` (Tailscale)
+- **Access:** Tailscale only — `http://tie-conductor` (Tailscale IP: `100.64.170.40`). Public internet returns 403.
+- **Droplet:** `165.232.148.72` (public IP, blocked by Caddy), `100.64.170.40` (Tailscale, name `tie-conductor`)
 - **User:** `root`
 - **App dir:** `/var/www/conductor`
 - **Python:** 3.12.3 in `/var/www/conductor/.venv`

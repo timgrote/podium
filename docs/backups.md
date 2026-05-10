@@ -25,7 +25,7 @@
 ## Cron Jobs
 
 - **Droplet:** `0 3 * * * /var/www/conductor/scripts/backup.sh >> /var/log/conductor-backup.log 2>&1`
-- **dodge-wsl** (tim's crontab): `0 4 * * * rsync -avz root@100.105.238.37:/var/www/conductor/backups/ /mnt/d/Dropbox/TIE/Backups/conductor/ >> /tmp/conductor-backup-sync.log 2>&1`
+- **dodge-wsl** (tim's crontab): `0 4 * * * rsync -avz root@tie-conductor:/var/www/conductor/backups/ /mnt/d/Dropbox/TIE/Backups/conductor/ >> /tmp/conductor-backup-sync.log 2>&1`
 
 ## Restore Procedures
 
@@ -82,16 +82,16 @@ ls -lh /var/www/conductor/backups/
 
 ```bash
 # 1. Ensure SSH key is on the droplet
-ssh-copy-id root@100.105.238.37
+ssh-copy-id root@tie-conductor
 
 # 2. Create local directory
 mkdir -p /mnt/d/Dropbox/TIE/Backups/conductor
 
 # 3. Test rsync
-rsync -avz root@100.105.238.37:/var/www/conductor/backups/ /mnt/d/Dropbox/TIE/Backups/conductor/
+rsync -avz root@tie-conductor:/var/www/conductor/backups/ /mnt/d/Dropbox/TIE/Backups/conductor/
 
 # 4. Add cron (daily at 4am, after 3am server backup)
-(crontab -l 2>/dev/null; echo "0 4 * * * rsync -avz root@100.105.238.37:/var/www/conductor/backups/ /mnt/d/Dropbox/TIE/Backups/conductor/ >> /tmp/conductor-backup-sync.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo "0 4 * * * rsync -avz root@tie-conductor:/var/www/conductor/backups/ /mnt/d/Dropbox/TIE/Backups/conductor/ >> /tmp/conductor-backup-sync.log 2>&1") | crontab -
 ```
 
 ## Optional: DO Spaces
