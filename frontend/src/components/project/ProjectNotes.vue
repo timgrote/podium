@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import type { ProjectSummary, ProjectNote } from '../../types'
 import { getProjectNotes, addProjectNote, updateProjectNote, deleteProjectNote } from '../../api/projects'
 import { uploadImage } from '../../api/tasks'
@@ -90,6 +90,28 @@ async function saveEditNote(noteId: string) {
   }
 }
 
+async function copyNoteLink(noteId: string) {
+  const url = `${window.location.origin}${window.location.pathname}#note-${noteId}`
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.success('Note link copied')
+  } catch {
+    toast.error('Failed to copy link')
+  }
+}
+
+function scrollToHashedNote() {
+  const hash = window.location.hash
+  if (!hash.startsWith('#note-')) return
+  nextTick(() => {
+    const el = document.getElementById(hash.slice(1))
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('highlight')
+    setTimeout(() => el.classList.remove('highlight'), 2000)
+  })
+}
+
 async function removeNote(noteId: string) {
   if (!confirm('Delete this note?')) return
   try {
@@ -159,9 +181,10 @@ watch(editNoteContent, (val) => {
   }
 })
 
-watch(() => props.project.id, () => {
-  loadNotes()
+watch(() => props.project.id, async () => {
   restoreDrafts()
+  await loadNotes()
+  scrollToHashedNote()
 }, { immediate: true })
 
 defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
@@ -170,7 +193,7 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
 <template>
   <div class="project-notes">
     <div class="add-note">
-      <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" @paste="onNotePaste" />
+      <textarea v-model="newNote" rows="7" placeholder="Add a note..." class="note-input" @paste="onNotePaste" />
       <small v-if="noteImageUploading" class="upload-indicator">Uploading image...</small>
       <div class="add-note-actions">
         <button class="btn btn-sm" :disabled="noteSaving || !newNote" @click="cancelNewNote">Cancel</button>
@@ -196,13 +219,16 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
     <div v-else-if="filteredNotes.length === 0 && notes.length > 0" class="empty">No matching notes</div>
     <div v-else-if="notes.length === 0 && !notesLoading" class="empty">No notes yet</div>
     <div v-else class="notes-list">
-      <div v-for="note in filteredNotes" :key="note.id" class="note-card">
+      <div v-for="note in filteredNotes" :key="note.id" :id="`note-${note.id}`" class="note-card">
         <div class="note-header">
           <img v-if="note.author_avatar_url" :src="note.author_avatar_url" class="note-avatar" />
           <span class="note-author">{{ note.author_name || 'Unknown' }}</span>
           <span class="note-date">{{ formatDateTime(note.created_at) }}</span>
-          <button v-if="editingNoteId !== note.id" class="btn-edit-note" title="Edit note" @click="startEditNote(note)"><i class="pi pi-pencil" /></button>
-          <button class="btn-remove" title="Delete note" @click="removeNote(note.id)">&times;</button>
+          <div class="note-actions">
+            <button v-if="editingNoteId !== note.id" class="btn-edit-note" title="Edit note" @click="startEditNote(note)"><i class="pi pi-pencil" /></button>
+            <button class="btn-link-note" title="Copy link to note" @click="copyNoteLink(note.id)"><i class="pi pi-link" /></button>
+            <button class="btn-remove" title="Delete note" @click="removeNote(note.id)">&times;</button>
+          </div>
         </div>
         <div v-if="editingNoteId === note.id" class="note-edit">
           <textarea v-model="editNoteContent" rows="3" class="note-edit-textarea" />
@@ -251,6 +277,7 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.375rem;
   padding: 0.375rem 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .note-search i {
@@ -324,32 +351,46 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
   white-space: pre-wrap;
 }
 
+.note-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
 .btn-remove {
   background: none;
   border: none;
   color: var(--p-red-600);
   cursor: pointer;
   font-size: 1rem;
-  margin-left: auto;
   padding: 0 0.25rem;
 }
 
-.btn-edit-note {
+.btn-edit-note,
+.btn-link-note {
   background: none;
   border: none;
   color: var(--p-text-muted-color);
   cursor: pointer;
   font-size: 0.75rem;
-  margin-left: auto;
   padding: 0.125rem 0.25rem;
 }
 
-.btn-edit-note:hover {
+.btn-edit-note:hover,
+.btn-link-note:hover {
   color: var(--p-primary-color);
 }
 
-.btn-edit-note .pi {
+.btn-edit-note .pi,
+.btn-link-note .pi {
   font-size: 0.6875rem;
+}
+
+.note-card.highlight {
+  background: var(--p-primary-color);
+  background: color-mix(in srgb, var(--p-primary-color) 15%, transparent);
+  transition: background 0.5s ease;
 }
 
 .note-edit {
