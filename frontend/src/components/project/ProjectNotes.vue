@@ -91,7 +91,7 @@ async function saveEditNote(noteId: string) {
 }
 
 async function copyNoteLink(noteId: string) {
-  const url = `${window.location.origin}${window.location.pathname}#note-${noteId}`
+  const url = `${window.location.origin}${window.location.pathname}?section=notes#note-${noteId}`
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(url)
