@@ -93,7 +93,19 @@ async function saveEditNote(noteId: string) {
 async function copyNoteLink(noteId: string) {
   const url = `${window.location.origin}${window.location.pathname}#note-${noteId}`
   try {
-    await navigator.clipboard.writeText(url)
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = url
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      if (!ok) throw new Error('execCommand failed')
+    }
     toast.success('Note link copied')
   } catch {
     toast.error('Failed to copy link')
