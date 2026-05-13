@@ -23,7 +23,7 @@ CREATE TABLE clients (
     deleted_at TIMESTAMPTZ                  -- soft delete
 );
 
-CREATE INDEX idx_clients_email ON clients(email);
+CREATE INDEX idx_clients_accounting_email ON clients(accounting_email);
 CREATE INDEX idx_clients_name ON clients(name);
 
 -- ============================================================================
@@ -55,6 +55,7 @@ CREATE TABLE projects (
     name TEXT NOT NULL,
     client_id TEXT REFERENCES clients(id),
     client_pm_id TEXT REFERENCES contacts(id),  -- project manager contact
+    pm_id TEXT,                             -- internal PM (employees.id); FK added after employees table
     pm_name TEXT,                           -- project manager name (denormalized for convenience)
     pm_email TEXT,                          -- project manager email
     client_project_number TEXT,             -- client's internal project/PO number

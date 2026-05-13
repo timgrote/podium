@@ -1,11 +1,22 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..database import get_db
 from ..events import event_bus
-from ..models.task import TaskCreate, TaskNoteCreate, TaskNoteResponse, TaskNoteUpdate, TaskResponse, TaskUpdate
+from ..models.task import (
+    TaskBulkRequest,
+    TaskCreate,
+    TaskNoteCreate,
+    TaskNoteResponse,
+    TaskNoteUpdate,
+    TaskResponse,
+    TaskUpdate,
+)
 from ..utils import generate_id
+
+STALE_DAYS = 30
+BULK_ALLOWED_FIELDS = {"due_date", "status", "assignee_ids", "priority"}
 
 router = APIRouter()
 
@@ -35,6 +46,24 @@ def _get_notes_for_task(db, task_id: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def _compute_is_stale(task: dict) -> bool:
+    if task.get("status") in ("done", "archived", "canceled"):
+        return False
+    updated_at = task.get("updated_at")
+    if not updated_at:
+        return False
+    if isinstance(updated_at, str):
+        try:
+            updated_at = datetime.fromisoformat(updated_at)
+        except ValueError:
+            return False
+    if updated_at.tzinfo is not None:
+        threshold = datetime.now(updated_at.tzinfo) - timedelta(days=STALE_DAYS)
+    else:
+        threshold = datetime.now() - timedelta(days=STALE_DAYS)
+    return updated_at < threshold
+
+
 def _get_subtasks(db, parent_id: str) -> list[dict]:
     rows = db.execute(
         "SELECT * FROM project_tasks WHERE parent_id = %s AND deleted_at IS NULL "
@@ -47,6 +76,7 @@ def _get_subtasks(db, parent_id: str) -> list[dict]:
         task["assignees"] = _get_assignees_for_task(db, task["id"])
         task["notes"] = _get_notes_for_task(db, task["id"])
         task["subtasks"] = []  # only one level deep
+        task["is_stale"] = _compute_is_stale(task)
         result.append(task)
     return result
 
@@ -56,6 +86,7 @@ def _build_task_response(db, task_row) -> dict:
     task["assignees"] = _get_assignees_for_task(db, task["id"])
     task["notes"] = _get_notes_for_task(db, task["id"])
     task["subtasks"] = _get_subtasks(db, task["id"])
+    task["is_stale"] = _compute_is_stale(task)
     return task
 
 
@@ -70,15 +101,50 @@ def _set_assignees(db, task_id: str, assignee_ids: list[str]):
 
 # --- Project-scoped endpoints ---
 
+def _parse_status_csv(status: str | None) -> list[str] | None:
+    if not status:
+        return None
+    parts = [s.strip() for s in status.split(",") if s.strip()]
+    return parts or None
+
+
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskResponse])
-def list_project_tasks(project_id: str, db=Depends(get_db)):
-    # Top-level tasks only (no parent)
-    rows = db.execute(
-        "SELECT * FROM project_tasks "
-        "WHERE project_id = %s AND parent_id IS NULL AND deleted_at IS NULL "
-        "ORDER BY sort_order, created_at",
-        (project_id,),
-    ).fetchall()
+def list_project_tasks(
+    project_id: str,
+    due_before: date | None = Query(None),
+    due_after: date | None = Query(None),
+    stale: bool | None = Query(None),
+    status: str | None = Query(None),
+    assignee: str | None = Query(None),
+    db=Depends(get_db),
+):
+    sql = (
+        "SELECT t.* FROM project_tasks t "
+        "WHERE t.project_id = %s AND t.parent_id IS NULL AND t.deleted_at IS NULL"
+    )
+    params: list = [project_id]
+    if due_before is not None:
+        sql += " AND t.due_date <= %s"
+        params.append(str(due_before))
+    if due_after is not None:
+        sql += " AND t.due_date >= %s"
+        params.append(str(due_after))
+    statuses = _parse_status_csv(status)
+    if statuses:
+        sql += " AND t.status = ANY(%s)"
+        params.append(statuses)
+    if stale is True:
+        cutoff = (datetime.now() - timedelta(days=STALE_DAYS)).isoformat()
+        sql += " AND t.updated_at < %s AND t.status NOT IN ('done','archived','canceled')"
+        params.append(cutoff)
+    if assignee:
+        sql += (
+            " AND EXISTS (SELECT 1 FROM project_task_assignees a "
+            "WHERE a.task_id = t.id AND a.employee_id = %s)"
+        )
+        params.append(assignee)
+    sql += " ORDER BY t.sort_order, t.created_at"
+    rows = db.execute(sql, tuple(params)).fetchall()
     return [_build_task_response(db, row) for row in rows]
 
 
@@ -118,7 +184,62 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
 # --- Cross-project "My Tasks" endpoint (before /tasks/{task_id} to avoid shadowing) ---
 
 @router.get("/tasks/my")
-def list_my_tasks(employee_id: str, db=Depends(get_db)):
+def list_my_tasks(
+    employee_id: str,
+    due_before: date | None = Query(None),
+    due_after: date | None = Query(None),
+    stale: bool | None = Query(None),
+    status: str | None = Query(None),
+    no_due_date: bool | None = Query(None),
+    db=Depends(get_db),
+):
+    sql = (
+        "SELECT t.*, p.name AS project_name, p.job_code "
+        "FROM project_tasks t "
+        "JOIN project_task_assignees a ON a.task_id = t.id "
+        "JOIN projects p ON p.id = t.project_id "
+        "WHERE a.employee_id = %s "
+        "AND t.deleted_at IS NULL "
+        "AND p.deleted_at IS NULL "
+        "AND t.parent_id IS NULL"
+    )
+    params: list = [employee_id]
+    if due_before is not None:
+        sql += " AND t.due_date <= %s"
+        params.append(str(due_before))
+    if due_after is not None:
+        sql += " AND t.due_date >= %s"
+        params.append(str(due_after))
+    if no_due_date is True:
+        sql += " AND t.due_date IS NULL"
+    statuses = _parse_status_csv(status)
+    if statuses:
+        sql += " AND t.status = ANY(%s)"
+        params.append(statuses)
+    if stale is True:
+        cutoff = (datetime.now() - timedelta(days=STALE_DAYS)).isoformat()
+        sql += " AND t.updated_at < %s AND t.status NOT IN ('done','archived','canceled')"
+        params.append(cutoff)
+    sql += " ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC"
+    rows = db.execute(sql, tuple(params)).fetchall()
+    result = []
+    for row in rows:
+        task = dict(row)
+        task["assignees"] = _get_assignees_for_task(db, task["id"])
+        task["notes"] = _get_notes_for_task(db, task["id"])
+        task["subtasks"] = _get_subtasks(db, task["id"])
+        task["is_stale"] = _compute_is_stale(task)
+        result.append(task)
+    return result
+
+
+@router.get("/tasks/done-today")
+def list_done_today(
+    employee_id: str,
+    today: date | None = Query(None, description="Client local date (YYYY-MM-DD); defaults to server today"),
+    db=Depends(get_db),
+):
+    day = today or date.today()
     rows = db.execute(
         "SELECT t.*, p.name AS project_name, p.job_code "
         "FROM project_tasks t "
@@ -128,8 +249,10 @@ def list_my_tasks(employee_id: str, db=Depends(get_db)):
         "AND t.deleted_at IS NULL "
         "AND p.deleted_at IS NULL "
         "AND t.parent_id IS NULL "
-        "ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC",
-        (employee_id,),
+        "AND t.completed_at >= %s "
+        "AND t.completed_at < %s "
+        "ORDER BY t.completed_at DESC",
+        (employee_id, str(day), str(day + timedelta(days=1))),
     ).fetchall()
     result = []
     for row in rows:
@@ -137,8 +260,76 @@ def list_my_tasks(employee_id: str, db=Depends(get_db)):
         task["assignees"] = _get_assignees_for_task(db, task["id"])
         task["notes"] = _get_notes_for_task(db, task["id"])
         task["subtasks"] = _get_subtasks(db, task["id"])
+        task["is_stale"] = _compute_is_stale(task)
         result.append(task)
     return result
+
+
+@router.patch("/tasks/bulk")
+def bulk_update_tasks(data: TaskBulkRequest, db=Depends(get_db)):
+    if not data.task_ids:
+        raise HTTPException(status_code=400, detail="task_ids cannot be empty")
+
+    fields_set = data.patch.model_fields_set
+    extra = fields_set - BULK_ALLOWED_FIELDS
+    if extra:
+        raise HTTPException(status_code=400, detail=f"Disallowed fields: {sorted(extra)}")
+    if not fields_set:
+        raise HTTPException(status_code=400, detail="patch must include at least one field")
+
+    rows = db.execute(
+        "SELECT id, status FROM project_tasks WHERE id = ANY(%s) AND deleted_at IS NULL",
+        (data.task_ids,),
+    ).fetchall()
+    found = {r["id"]: dict(r) for r in rows}
+    missing = [tid for tid in data.task_ids if tid not in found]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Tasks not found: {missing}")
+
+    patch = data.patch
+    now = datetime.now().isoformat()
+    updated_ids: list[str] = []
+
+    for tid in data.task_ids:
+        updates: dict = {}
+        if "due_date" in fields_set:
+            updates["due_date"] = str(patch.due_date) if patch.due_date else None
+        if "priority" in fields_set:
+            updates["priority"] = patch.priority
+        if "status" in fields_set:
+            updates["status"] = patch.status
+            existing_status = found[tid]["status"]
+            if patch.status == "done" and existing_status != "done":
+                updates["completed_at"] = now
+            elif patch.status and patch.status != "done" and existing_status == "done":
+                updates["completed_at"] = None
+        if updates:
+            updates["updated_at"] = now
+            set_clause = ", ".join(f"{k} = %s" for k in updates)
+            values = list(updates.values()) + [tid]
+            db.execute(f"UPDATE project_tasks SET {set_clause} WHERE id = %s", values)
+        if "assignee_ids" in fields_set and patch.assignee_ids is not None:
+            _set_assignees(db, tid, patch.assignee_ids)
+            db.execute(
+                "UPDATE project_tasks SET updated_at = %s WHERE id = %s",
+                (now, tid),
+            )
+        updated_ids.append(tid)
+
+    db.commit()
+
+    project_rows = db.execute(
+        "SELECT id, project_id FROM project_tasks WHERE id = ANY(%s)",
+        (updated_ids,),
+    ).fetchall()
+    for r in project_rows:
+        event_bus.publish(r["project_id"], "task_updated", r["id"])
+
+    result_rows = db.execute(
+        "SELECT * FROM project_tasks WHERE id = ANY(%s)",
+        (updated_ids,),
+    ).fetchall()
+    return [_build_task_response(db, r) for r in result_rows]
 
 
 # --- Task Notes (registered before /tasks/{task_id} to avoid route shadowing) ---

@@ -64,6 +64,19 @@ class TaskResponse(BaseModel):
     completed_at: datetime | str | None = None
     created_at: datetime | str | None = None
     updated_at: datetime | str | None = None
+    is_stale: bool = False
     assignees: list[dict] = []
     notes: list[dict] = []
     subtasks: list[dict] = []
+
+
+class TaskBulkPatch(BaseModel):
+    due_date: date | str | None = None
+    status: str | None = None
+    assignee_ids: list[str] | None = None
+    priority: int | None = None
+
+
+class TaskBulkRequest(BaseModel):
+    task_ids: list[str]
+    patch: TaskBulkPatch
