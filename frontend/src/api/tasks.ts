@@ -1,8 +1,41 @@
 import type { Task, MyTask, TaskCreatePayload, TaskUpdatePayload, TaskNote } from '../types'
 import { apiFetch } from './client'
 
-export function getMyTasks(employeeId: string): Promise<MyTask[]> {
-  return apiFetch(`/tasks/my?employee_id=${encodeURIComponent(employeeId)}`)
+export interface MyTaskFilters {
+  due_before?: string
+  due_after?: string
+  stale?: boolean
+  status?: string
+  no_due_date?: boolean
+}
+
+export function getMyTasks(employeeId: string, filters?: MyTaskFilters): Promise<MyTask[]> {
+  const params = new URLSearchParams({ employee_id: employeeId })
+  if (filters?.due_before) params.set('due_before', filters.due_before)
+  if (filters?.due_after) params.set('due_after', filters.due_after)
+  if (filters?.stale) params.set('stale', 'true')
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.no_due_date) params.set('no_due_date', 'true')
+  return apiFetch(`/tasks/my?${params.toString()}`)
+}
+
+export function getDoneToday(employeeId: string, today: string): Promise<MyTask[]> {
+  const params = new URLSearchParams({ employee_id: employeeId, today })
+  return apiFetch(`/tasks/done-today?${params.toString()}`)
+}
+
+export interface BulkPatchFields {
+  due_date?: string | null
+  status?: string
+  assignee_ids?: string[]
+  priority?: number | null
+}
+
+export function bulkUpdateTasks(taskIds: string[], patch: BulkPatchFields): Promise<MyTask[]> {
+  return apiFetch('/tasks/bulk', {
+    method: 'PATCH',
+    body: JSON.stringify({ task_ids: taskIds, patch }),
+  })
 }
 
 export function getProjectTasks(projectId: string): Promise<Task[]> {

@@ -283,6 +283,7 @@ export interface Task {
   completed_at: string | null
   created_at: string | null
   updated_at: string | null
+  is_stale?: boolean
   assignees?: TaskAssignee[]
   notes?: TaskNote[]
   subtasks?: Task[]

@@ -45,3 +45,39 @@ export function todayStr(): string {
   const [m, d, y] = parts.split('/')
   return `${y}-${m}-${d}`
 }
+
+export function addDaysStr(dateStr: string, days: number): string {
+  const d = parseLocalDate(dateStr)
+  d.setDate(d.getDate() + days)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+export function nextMondayStr(fromDateStr?: string): string {
+  const base = fromDateStr ? parseLocalDate(fromDateStr) : parseLocalDate(todayStr())
+  const dayOfWeek = base.getDay()  // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysUntil = ((1 - dayOfWeek + 7) % 7) || 7  // always future Monday
+  base.setDate(base.getDate() + daysUntil)
+  const y = base.getFullYear()
+  const m = String(base.getMonth() + 1).padStart(2, '0')
+  const d = String(base.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+export function isoWeekRange(fromDateStr?: string): { start: string; end: string } {
+  const base = fromDateStr ? parseLocalDate(fromDateStr) : parseLocalDate(todayStr())
+  const dayOfWeek = base.getDay() || 7  // treat Sun as 7
+  const monday = new Date(base)
+  monday.setDate(base.getDate() - (dayOfWeek - 1))
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  const fmt = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+  return { start: fmt(monday), end: fmt(sunday) }
+}
