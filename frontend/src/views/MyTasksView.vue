@@ -12,6 +12,7 @@ import {
   isOverdue as isDateOverdue,
   todayStr,
   addDaysStr,
+  nextMondayStr,
   isoWeekRange,
 } from '../utils/dates'
 import { copyLink } from '../utils/clipboard'
@@ -72,6 +73,8 @@ const searchedActive = computed(() =>
 )
 
 const todayValue = computed(() => todayStr())
+const tomorrowValue = computed(() => addDaysStr(todayValue.value, 1))
+const nextMondayValue = computed(() => nextMondayStr(todayValue.value))
 
 function dueWithinDays(task: MyTask, days: number): boolean {
   if (!task.due_date) return false
@@ -249,6 +252,22 @@ function toggleExpand(taskId: string, event: Event) {
   } else {
     expandedTasks.value.add(taskId)
   }
+}
+
+async function rescheduleTask(task: MyTask | Task, dueDate: string, event?: Event) {
+  event?.stopPropagation()
+  try {
+    await updateTask(task.id, { due_date: dueDate })
+    await loadAll()
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+function onPickDate(task: MyTask | Task, event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.value) return
+  rescheduleTask(task, input.value)
 }
 
 async function toggleDone(task: MyTask | Task, event: Event) {
@@ -542,6 +561,28 @@ onMounted(loadAll)
               <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/my-tasks/${task.id}`)">
                 <i class="pi pi-link" />
               </button>
+              <span class="row-chips">
+                <button
+                  class="row-chip"
+                  title="Push to tomorrow"
+                  @click.stop="rescheduleTask(task, tomorrowValue, $event)"
+                >→ Tomorrow</button>
+                <button
+                  class="row-chip"
+                  title="Push to next Monday"
+                  @click.stop="rescheduleTask(task, nextMondayValue, $event)"
+                >→ Next Mon</button>
+                <label class="row-chip date-chip" title="Pick date" @click.stop>
+                  <i class="pi pi-calendar" />
+                  <input
+                    type="date"
+                    class="row-chip-date-input"
+                    :value="task.due_date || ''"
+                    @change="onPickDate(task, $event)"
+                    @click.stop
+                  />
+                </label>
+              </span>
               <span class="spacer" />
               <span class="task-priority">
                 <span v-if="task.priority" class="priority-badge" :class="priorityClass(task.priority)">
@@ -615,6 +656,28 @@ onMounted(loadAll)
                   <button class="btn-copy-link" title="Copy link" @click.stop="copyLink(`/my-tasks/${task.id}`)">
                     <i class="pi pi-link" />
                   </button>
+                  <span class="row-chips">
+                    <button
+                      class="row-chip"
+                      title="Push to tomorrow"
+                      @click.stop="rescheduleTask(task, tomorrowValue, $event)"
+                    >→ Tomorrow</button>
+                    <button
+                      class="row-chip"
+                      title="Push to next Monday"
+                      @click.stop="rescheduleTask(task, nextMondayValue, $event)"
+                    >→ Next Mon</button>
+                    <label class="row-chip date-chip" title="Pick date" @click.stop>
+                      <i class="pi pi-calendar" />
+                      <input
+                        type="date"
+                        class="row-chip-date-input"
+                        :value="task.due_date || ''"
+                        @change="onPickDate(task, $event)"
+                        @click.stop
+                      />
+                    </label>
+                  </span>
                   <span class="spacer" />
                   <span class="task-priority">
                     <span v-if="task.priority" class="priority-badge" :class="priorityClass(task.priority)">
@@ -1097,4 +1160,46 @@ onMounted(loadAll)
 }
 .task-row:hover .btn-copy-link { opacity: 1; }
 .btn-copy-link:hover { color: var(--p-primary-color); }
+
+/* Inline reschedule chips — hover-revealed */
+.row-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.task-row:hover .row-chips { opacity: 1; }
+
+.row-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 9999px;
+  background: var(--p-content-background);
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+}
+.row-chip:hover {
+  background: var(--p-primary-color);
+  color: #fff;
+  border-color: var(--p-primary-color);
+}
+
+.date-chip { position: relative; padding: 0.1875rem 0.375rem; }
+.date-chip .pi { font-size: 0.6875rem; }
+.row-chip-date-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
 </style>
