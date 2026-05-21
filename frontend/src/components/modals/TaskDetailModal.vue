@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import Dialog from 'primevue/dialog'
 import type { Task, Employee } from '../../types'
 import { getTask, createTask, updateTask, deleteTask, addTaskNote, updateTaskNote, deleteTaskNote, uploadImage } from '../../api/tasks'
@@ -30,6 +30,29 @@ const employees = ref<Employee[]>([])
 const newNote = ref('')
 const noteSaving = ref(false)
 const imageUploading = ref(false)
+const descUploading = ref(false)
+const editingDescription = ref(false)
+const descTextarea = ref<HTMLTextAreaElement | null>(null)
+
+// Auto-grow the description textarea: min 7 lines, max 20 (then scroll).
+function autoGrowDesc() {
+  const el = descTextarea.value
+  if (!el) return
+  const cs = getComputedStyle(el)
+  const lineHeight = parseFloat(cs.lineHeight) || 21
+  const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+  const borderV = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth)
+  el.style.height = 'auto'
+  const content = el.scrollHeight + borderV
+  const min = lineHeight * 7 + padV + borderV
+  const max = lineHeight * 20 + padV + borderV
+  el.style.height = Math.min(Math.max(content, min), max) + 'px'
+}
+
+function startEditDescription() {
+  editingDescription.value = true
+  nextTick(autoGrowDesc)
+}
 const showDeleteConfirm = ref(false)
 
 // Local form state (buffered until Save)
@@ -52,6 +75,8 @@ function populateForm(t: Task) {
     due_date: t.due_date?.split('T')[0] ?? null,
     assignee_ids: t.assignees?.map(a => a.id) ?? [],
   }
+  editingDescription.value = false
+  nextTick(autoGrowDesc)
 }
 
 function onPriorityChange(event: Event) {
@@ -298,6 +323,31 @@ async function handleNotePaste(event: ClipboardEvent) {
   }
 }
 
+async function handleDescriptionPaste(event: ClipboardEvent) {
+  const items = event.clipboardData?.files
+  if (!items?.length) return
+  const imageFile = Array.from(items).find(f => f.type.startsWith('image/'))
+  if (!imageFile) return
+
+  event.preventDefault()
+  descUploading.value = true
+  try {
+    const { url } = await uploadImage(imageFile)
+    const textarea = event.target as HTMLTextAreaElement
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const current = form.value.description ?? ''
+    const before = current.slice(0, start)
+    const after = current.slice(end)
+    form.value.description = before + `![image](${url})` + after
+    nextTick(autoGrowDesc)
+  } catch (e) {
+    toast.error('Image upload failed: ' + String(e))
+  } finally {
+    descUploading.value = false
+  }
+}
+
 
 </script>
 
@@ -376,13 +426,29 @@ async function handleNotePaste(event: ClipboardEvent) {
 
       <!-- Description -->
       <div class="field">
-        <label>Description</label>
-        <textarea
-          v-model="form.description"
-          rows="3"
-          class="note-edit-textarea"
-          placeholder="Add a description..."
-        />
+        <div class="desc-header">
+          <label>Description</label>
+          <button
+            v-if="!editingDescription && form.description"
+            class="btn-edit-inline"
+            title="Edit description"
+            @click="startEditDescription"
+          >
+            <i class="pi pi-pencil" />
+          </button>
+        </div>
+        <template v-if="editingDescription || !form.description">
+          <textarea
+            ref="descTextarea"
+            v-model="form.description"
+            class="note-edit-textarea description-textarea"
+            placeholder="Add a description..."
+            @paste="handleDescriptionPaste"
+            @input="autoGrowDesc"
+          />
+          <small v-if="descUploading" class="upload-indicator">Uploading image...</small>
+        </template>
+        <RichText v-else :content="form.description" class="description-body" @click="editingDescription = true" />
       </div>
 
       <!-- Subtasks -->
@@ -487,7 +553,9 @@ async function handleNotePaste(event: ClipboardEvent) {
 .chip.active { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .chip:hover { border-color: var(--p-primary-color); }
 
-.description { font-size: 0.8125rem; color: var(--p-text-muted-color); white-space: pre-wrap; padding: 0.5rem 0.75rem; background: var(--p-content-hover-background); border-radius: 0.375rem; }
+.desc-header { display: flex; align-items: center; gap: 0.25rem; }
+.description-body { font-size: 0.8125rem; color: var(--p-text-muted-color); white-space: pre-wrap; padding: 0.5rem 0.75rem; background: var(--p-content-hover-background); border-radius: 0.375rem; cursor: text; }
+.description-textarea { box-sizing: border-box; line-height: 1.5; min-height: calc(7 * 1.5em + 1rem); max-height: calc(20 * 1.5em + 1rem); overflow-y: auto; }
 
 .section-header { display: flex; align-items: center; gap: 0.25rem; }
 .subtask-form { display: flex; gap: 0.375rem; align-items: center; margin-bottom: 0.5rem; }
