@@ -6,7 +6,7 @@ import { useAuth } from '../../composables/useAuth'
 import { getProjectNotes, addProjectNote, updateProjectNote, deleteProjectNote } from '../../api/projects'
 import { uploadImage } from '../../api/tasks'
 import type { ProjectNote } from '../../types'
-import RichText from '../RichText.vue'
+import MarkdownRenderer from '../MarkdownRenderer.vue'
 import { formatDateTime } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -152,7 +152,7 @@ function formatDate(dateStr: string | null): string {
               <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
             </div>
           </div>
-          <RichText v-else :content="note.content" class="note-content" />
+          <MarkdownRenderer v-else :content="note.content" class="note-content" />
         </div>
       </div>
     </div>

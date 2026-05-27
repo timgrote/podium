@@ -9,7 +9,7 @@ import { generateSheet, exportPdf as exportInvoicePdfApi } from '../../api/invoi
 import { getEmployees } from '../../api/employees'
 import { getUserSettings } from '../../api/auth'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
-import RichText from '../RichText.vue'
+import MarkdownRenderer from '../MarkdownRenderer.vue'
 import { uploadImage } from '../../api/tasks'
 import type { Employee } from '../../types'
 import { useToast } from '../../composables/useToast'
@@ -1173,7 +1173,7 @@ function formatPercent(value: number): string {
               <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>
             </div>
           </div>
-          <RichText v-else :content="note.content" class="note-body" />
+          <MarkdownRenderer v-else :content="note.content" class="note-body" />
         </div>
       </div>
     </div>

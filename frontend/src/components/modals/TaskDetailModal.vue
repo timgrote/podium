@@ -6,7 +6,7 @@ import { getTask, createTask, updateTask, deleteTask, addTaskNote, updateTaskNot
 import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
-import RichText from '../RichText.vue'
+import MarkdownRenderer from '../MarkdownRenderer.vue'
 import { formatDateTime } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -448,7 +448,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
           />
           <small v-if="descUploading" class="upload-indicator">Uploading image...</small>
         </template>
-        <RichText v-else :content="form.description" class="description-body" @click="editingDescription = true" />
+        <MarkdownRenderer v-else :content="form.description" class="description-body" @click="editingDescription = true" />
       </div>
 
       <!-- Subtasks -->
@@ -505,7 +505,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
                 <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>
               </div>
             </div>
-            <RichText v-else :content="note.content" class="note-body" />
+            <MarkdownRenderer v-else :content="note.content" class="note-body" />
           </div>
         </div>
       </div>

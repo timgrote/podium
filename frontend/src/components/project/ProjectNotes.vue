@@ -6,7 +6,7 @@ import { uploadImage } from '../../api/tasks'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 import { formatDateTime } from '../../utils/dates'
-import RichText from '../RichText.vue'
+import MarkdownRenderer from '../MarkdownRenderer.vue'
 
 const props = defineProps<{ project: ProjectSummary }>()
 
@@ -249,7 +249,7 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
             <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>
           </div>
         </div>
-        <RichText v-else :content="note.content" class="note-body" />
+        <MarkdownRenderer v-else :content="note.content" class="note-body" />
       </div>
     </div>
   </div>
