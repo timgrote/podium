@@ -21,6 +21,8 @@ const noteImageUploading = ref(false)
 const noteSearch = ref('')
 const editingNoteId = ref<string | null>(null)
 const editNoteContent = ref('')
+const newNoteTab = ref<'edit' | 'preview'>('edit')
+const editNoteTab = ref<'edit' | 'preview'>('edit')
 
 const filteredNotes = computed(() => {
   const sorted = [...notes.value].sort((a, b) => {
@@ -205,12 +207,14 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
 <template>
   <div class="project-notes">
     <div class="add-note">
-      <div class="editor-split">
-        <textarea v-model="newNote" rows="7" placeholder="Add a note... (markdown supported)" class="note-input" @paste="onNotePaste" />
-        <div class="editor-preview" :class="{ empty: !newNote }">
-          <MarkdownRenderer v-if="newNote" :content="newNote" />
-          <span v-else class="preview-placeholder">Preview</span>
-        </div>
+      <div class="editor-tabs">
+        <button type="button" class="tab" :class="{ active: newNoteTab === 'edit' }" @click="newNoteTab = 'edit'">Edit</button>
+        <button type="button" class="tab" :class="{ active: newNoteTab === 'preview' }" @click="newNoteTab = 'preview'">Preview</button>
+      </div>
+      <textarea v-if="newNoteTab === 'edit'" v-model="newNote" rows="7" placeholder="Add a note... (markdown supported)" class="note-input" @paste="onNotePaste" />
+      <div v-else class="editor-preview" :class="{ empty: !newNote }">
+        <MarkdownRenderer v-if="newNote" :content="newNote" />
+        <span v-else class="preview-placeholder">Nothing to preview</span>
       </div>
       <small v-if="noteImageUploading" class="upload-indicator">Uploading image...</small>
       <div class="add-note-actions">
@@ -249,12 +253,14 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
           </div>
         </div>
         <div v-if="editingNoteId === note.id" class="note-edit">
-          <div class="editor-split">
-            <textarea v-model="editNoteContent" rows="5" class="note-edit-textarea" />
-            <div class="editor-preview" :class="{ empty: !editNoteContent }">
-              <MarkdownRenderer v-if="editNoteContent" :content="editNoteContent" />
-              <span v-else class="preview-placeholder">Preview</span>
-            </div>
+          <div class="editor-tabs">
+            <button type="button" class="tab" :class="{ active: editNoteTab === 'edit' }" @click="editNoteTab = 'edit'">Edit</button>
+            <button type="button" class="tab" :class="{ active: editNoteTab === 'preview' }" @click="editNoteTab = 'preview'">Preview</button>
+          </div>
+          <textarea v-if="editNoteTab === 'edit'" v-model="editNoteContent" rows="5" class="note-edit-textarea" />
+          <div v-else class="editor-preview" :class="{ empty: !editNoteContent }">
+            <MarkdownRenderer v-if="editNoteContent" :content="editNoteContent" />
+            <span v-else class="preview-placeholder">Nothing to preview</span>
           </div>
           <div class="note-edit-actions">
             <button class="btn btn-sm btn-primary" @click="saveEditNote(note.id)">Save</button>
@@ -287,24 +293,40 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
   box-sizing: border-box;
 }
 
-.editor-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  align-items: stretch;
+.editor-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--p-content-border-color);
 }
 
-@media (max-width: 640px) {
-  .editor-split { grid-template-columns: 1fr; }
+.editor-tabs .tab {
+  background: none;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.editor-tabs .tab:hover {
+  color: var(--p-text-color);
+}
+
+.editor-tabs .tab.active {
+  color: var(--p-primary-color);
+  border-bottom-color: var(--p-primary-color);
 }
 
 .editor-preview {
   padding: 0.5rem 0.75rem;
-  border: 1px dashed var(--p-content-border-color);
+  border: 1px solid var(--p-content-border-color);
   border-radius: 0.375rem;
   background: var(--p-content-background);
   overflow-y: auto;
-  min-height: 100%;
+  min-height: 9rem;
 }
 
 .editor-preview.empty {
