@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, nextTick } from 'vue'
+import { ref, watch, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import type { Task, Employee } from '../../types'
 import { getTask, createTask, updateTask, deleteTask, addTaskNote, updateTaskNote, deleteTaskNote, uploadImage } from '../../api/tasks'
@@ -7,6 +7,7 @@ import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
+import MarkdownEditor from '../MarkdownEditor.vue'
 import { formatDateTime } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -32,26 +33,8 @@ const noteSaving = ref(false)
 const imageUploading = ref(false)
 const descUploading = ref(false)
 const editingDescription = ref(false)
-const descTextarea = ref<HTMLTextAreaElement | null>(null)
-
-// Auto-grow the description textarea: min 7 lines, max 20 (then scroll).
-function autoGrowDesc() {
-  const el = descTextarea.value
-  if (!el) return
-  const cs = getComputedStyle(el)
-  const lineHeight = parseFloat(cs.lineHeight) || 21
-  const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
-  const borderV = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth)
-  el.style.height = 'auto'
-  const content = el.scrollHeight + borderV
-  const min = lineHeight * 7 + padV + borderV
-  const max = lineHeight * 20 + padV + borderV
-  el.style.height = Math.min(Math.max(content, min), max) + 'px'
-}
-
 function startEditDescription() {
   editingDescription.value = true
-  nextTick(autoGrowDesc)
 }
 const showDeleteConfirm = ref(false)
 
@@ -76,7 +59,6 @@ function populateForm(t: Task) {
     assignee_ids: t.assignees?.map(a => a.id) ?? [],
   }
   editingDescription.value = false
-  nextTick(autoGrowDesc)
 }
 
 function onPriorityChange(event: Event) {
@@ -340,7 +322,6 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
     const before = current.slice(0, start)
     const after = current.slice(end)
     form.value.description = before + `![image](${url})` + after
-    nextTick(autoGrowDesc)
   } catch (e) {
     toast.error('Image upload failed: ' + String(e))
   } finally {
@@ -438,14 +419,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
           </button>
         </div>
         <template v-if="editingDescription || !form.description">
-          <textarea
-            ref="descTextarea"
-            v-model="form.description"
-            class="note-edit-textarea description-textarea"
-            placeholder="Add a description..."
-            @paste="handleDescriptionPaste"
-            @input="autoGrowDesc"
-          />
+          <MarkdownEditor v-model="form.description" :rows="7" placeholder="Add a description..." @paste="handleDescriptionPaste" />
           <small v-if="descUploading" class="upload-indicator">Uploading image...</small>
         </template>
         <MarkdownRenderer v-else :content="form.description" class="description-body" @click="editingDescription = true" />
@@ -484,7 +458,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
       <div class="section">
         <label>Notes</label>
         <div class="add-note">
-          <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" @paste="handleNotePaste" />
+          <MarkdownEditor v-model="newNote" :rows="3" placeholder="Add a note..." @paste="handleNotePaste" />
           <small v-if="imageUploading" class="upload-indicator">Uploading image...</small>
           <button class="btn btn-sm btn-primary" :disabled="noteSaving" @click="submitNote">
             {{ noteSaving ? 'Adding...' : 'Add' }}
@@ -499,7 +473,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
               <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
             </div>
             <div v-if="editingNoteId === note.id" class="note-edit">
-              <textarea v-model="editNoteContent" rows="3" class="note-edit-textarea" @keyup.escape="cancelEditNote" />
+              <MarkdownEditor v-model="editNoteContent" :rows="4" />
               <div class="note-edit-actions">
                 <button class="btn btn-sm btn-primary" @click="saveEditNote(note.id)">Save</button>
                 <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>

@@ -10,6 +10,7 @@ import { getEmployees } from '../../api/employees'
 import { getUserSettings } from '../../api/auth'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
+import MarkdownEditor from '../MarkdownEditor.vue'
 import { uploadImage } from '../../api/tasks'
 import type { Employee } from '../../types'
 import { useToast } from '../../composables/useToast'
@@ -1135,7 +1136,7 @@ function formatPercent(value: number): string {
 
     <div v-if="activeTab === 'notes'" class="tab-content">
       <div class="add-note">
-        <textarea v-model="newNote" rows="2" placeholder="Add a note..." class="note-input" @paste="onNotePaste" />
+        <MarkdownEditor v-model="newNote" :rows="3" placeholder="Add a note..." @paste="onNotePaste" />
         <small v-if="noteImageUploading" class="upload-indicator">Uploading image...</small>
         <button class="btn btn-sm btn-primary" :disabled="noteSaving" @click="submitNote">
           {{ noteSaving ? 'Adding...' : 'Add Note' }}
@@ -1167,7 +1168,7 @@ function formatPercent(value: number): string {
             <button class="btn-remove" title="Delete note" @click="removeNote(note.id)">&times;</button>
           </div>
           <div v-if="editingNoteId === note.id" class="note-edit">
-            <textarea v-model="editNoteContent" rows="3" class="note-edit-textarea" />
+            <MarkdownEditor v-model="editNoteContent" :rows="4" />
             <div class="note-edit-actions">
               <button class="btn btn-sm btn-primary" @click="saveEditNote(note.id)">Save</button>
               <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>

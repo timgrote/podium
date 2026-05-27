@@ -7,6 +7,7 @@ import { getProjectNotes, addProjectNote, updateProjectNote, deleteProjectNote }
 import { uploadImage } from '../../api/tasks'
 import type { ProjectNote } from '../../types'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
+import MarkdownEditor from '../MarkdownEditor.vue'
 import { formatDateTime } from '../../utils/dates'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -127,7 +128,7 @@ function formatDate(dateStr: string | null): string {
   >
     <div class="notes-container">
       <div class="add-note">
-        <textarea v-model="newNote" rows="2" placeholder="Add a note..." @paste="handleNotePaste" />
+        <MarkdownEditor v-model="newNote" :rows="3" placeholder="Add a note..." @paste="handleNotePaste" />
         <small v-if="imageUploading" class="upload-indicator">Uploading image...</small>
         <button class="btn btn-primary btn-sm" :disabled="saving" @click="addNote">
           {{ saving ? 'Adding...' : 'Add Note' }}
@@ -146,7 +147,7 @@ function formatDate(dateStr: string | null): string {
             <button class="btn-remove" @click="removeNote(note.id)">&times;</button>
           </div>
           <div v-if="editingNoteId === note.id" class="note-edit">
-            <textarea v-model="editContent" rows="3" />
+            <MarkdownEditor v-model="editContent" :rows="4" />
             <div class="note-edit-actions">
               <button class="btn btn-primary btn-sm" @click="saveEdit(note.id)">Save</button>
               <button class="btn btn-sm" @click="cancelEdit">Cancel</button>
