@@ -205,7 +205,13 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
 <template>
   <div class="project-notes">
     <div class="add-note">
-      <textarea v-model="newNote" rows="7" placeholder="Add a note..." class="note-input" @paste="onNotePaste" />
+      <div class="editor-split">
+        <textarea v-model="newNote" rows="7" placeholder="Add a note... (markdown supported)" class="note-input" @paste="onNotePaste" />
+        <div class="editor-preview" :class="{ empty: !newNote }">
+          <MarkdownRenderer v-if="newNote" :content="newNote" />
+          <span v-else class="preview-placeholder">Preview</span>
+        </div>
+      </div>
       <small v-if="noteImageUploading" class="upload-indicator">Uploading image...</small>
       <div class="add-note-actions">
         <button class="btn btn-sm" :disabled="noteSaving || !newNote" @click="cancelNewNote">Cancel</button>
@@ -243,7 +249,13 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
           </div>
         </div>
         <div v-if="editingNoteId === note.id" class="note-edit">
-          <textarea v-model="editNoteContent" rows="3" class="note-edit-textarea" />
+          <div class="editor-split">
+            <textarea v-model="editNoteContent" rows="5" class="note-edit-textarea" />
+            <div class="editor-preview" :class="{ empty: !editNoteContent }">
+              <MarkdownRenderer v-if="editNoteContent" :content="editNoteContent" />
+              <span v-else class="preview-placeholder">Preview</span>
+            </div>
+          </div>
           <div class="note-edit-actions">
             <button class="btn btn-sm btn-primary" @click="saveEditNote(note.id)">Save</button>
             <button class="btn btn-sm" @click="cancelEditNote">Cancel</button>
@@ -271,6 +283,40 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
   background: var(--p-content-background);
   color: var(--p-text-color);
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.editor-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+@media (max-width: 640px) {
+  .editor-split { grid-template-columns: 1fr; }
+}
+
+.editor-preview {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  overflow-y: auto;
+  min-height: 100%;
+}
+
+.editor-preview.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-placeholder {
+  color: var(--p-text-muted-color);
+  font-style: italic;
+  font-size: 0.75rem;
 }
 
 .add-note-actions {
@@ -420,6 +466,8 @@ defineExpose({ notesCount: computed(() => notes.value.length), loadNotes })
   background: var(--p-form-field-background);
   color: var(--p-text-color);
   font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .note-edit-actions {
