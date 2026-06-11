@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from ..database import get_db
 from ..models.contact import ContactCreate, ContactNoteCreate, ContactNoteResponse, ContactResponse, ContactUpdate
 from ..utils import generate_id
+from ..vcf_parser import parse_vcards
 
 router = APIRouter()
 
@@ -24,6 +25,125 @@ def list_contacts(
             "SELECT * FROM contacts WHERE deleted_at IS NULL ORDER BY name"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.post("/import")
+async def import_vcf(
+    file: UploadFile = File(...),
+    commit: bool = Query(False, description="If true, write changes; otherwise preview only"),
+    db=Depends(get_db),
+):
+    """Import contacts from an uploaded .vcf file.
+
+    Matches on email (case-insensitive): unmatched cards are created, matched
+    cards update the existing contact with any non-empty fields from the card.
+    Company (ORG) is matched to an existing client by name, or created (with the
+    card's address) when there's no match. With commit=false, returns the
+    resolved plan without writing.
+    """
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("utf-8", "replace")
+
+    cards = parse_vcards(text)
+    if not cards:
+        raise HTTPException(status_code=400, detail="No contacts found in file")
+
+    # Existing contacts indexed by lowercased email for matching.
+    existing_rows = db.execute(
+        "SELECT id, name, email, phone, role, notes, client_id FROM contacts WHERE deleted_at IS NULL"
+    ).fetchall()
+    by_email = {r["email"].lower(): dict(r) for r in existing_rows if r["email"]}
+
+    # Companies indexed by lowercased name for ORG matching.
+    client_rows = db.execute(
+        "SELECT id, name FROM clients WHERE deleted_at IS NULL"
+    ).fetchall()
+    clients_by_name = {r["name"].lower(): r["id"] for r in client_rows}
+    created_company_names: set[str] = set()
+    now = datetime.now().isoformat()
+
+    def resolve_company(org: str | None, address: str | None) -> tuple[str | None, bool]:
+        """Return (client_id, is_new) for an ORG name, creating the company if needed."""
+        if not org:
+            return None, False
+        key = org.lower()
+        if key in clients_by_name:
+            return clients_by_name[key], False
+        if not commit:
+            return None, True  # would be created
+        new_id = generate_id("c-")
+        db.execute(
+            "INSERT INTO clients (id, name, address, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (new_id, org, address, now, now),
+        )
+        clients_by_name[key] = new_id
+        created_company_names.add(key)
+        return new_id, True
+
+    plan: list[dict] = []
+    fields = ("email", "phone", "role", "notes")
+    for card in cards:
+        org = card.get("org")
+        client_id, company_new = resolve_company(org, card.get("address"))
+        match = by_email.get(card["email"].lower()) if card.get("email") else None
+        if not commit and company_new and org:
+            created_company_names.add(org.lower())
+
+        plan.append({
+            "name": card["name"],
+            "email": card.get("email"),
+            "phone": card.get("phone"),
+            "role": card.get("role"),
+            "notes": card.get("notes"),
+            "company_name": org,
+            "company_new": company_new,
+            "client_id": client_id,
+            "action": "update" if match else "create",
+            "existing_id": match["id"] if match else None,
+        })
+
+        if not commit:
+            continue
+
+        if match:
+            updates = {f: card.get(f) for f in fields if card.get(f)}
+            # Only set company if the contact doesn't already have one.
+            if client_id and not match["client_id"]:
+                updates["client_id"] = client_id
+            if updates:
+                updates["updated_at"] = now
+                set_clause = ", ".join(f"{k} = %s" for k in updates)
+                db.execute(
+                    f"UPDATE contacts SET {set_clause} WHERE id = %s",
+                    list(updates.values()) + [match["id"]],
+                )
+        else:
+            db.execute(
+                "INSERT INTO contacts (id, name, email, phone, role, notes, client_id, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (generate_id("ct-"), card["name"], card.get("email"), card.get("phone"),
+                 card.get("role"), card.get("notes"), client_id, now, now),
+            )
+
+    if commit:
+        db.commit()
+
+    created = sum(1 for e in plan if e["action"] == "create")
+    updated = sum(1 for e in plan if e["action"] == "update")
+    return {
+        "contacts": plan,
+        "summary": {
+            "create": created,
+            "update": updated,
+            "total": len(plan),
+            "new_companies": len(created_company_names),
+        },
+        "committed": commit,
+    }
 
 
 _NOTE_SELECT = (

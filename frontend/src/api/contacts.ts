@@ -19,6 +19,34 @@ export function createContact(data: {
   })
 }
 
+export interface VcfImportEntry {
+  name: string
+  email: string | null
+  phone: string | null
+  role: string | null
+  notes: string | null
+  company_name: string | null
+  company_new: boolean
+  client_id: string | null
+  action: 'create' | 'update'
+  existing_id: string | null
+}
+
+export interface VcfImportResult {
+  contacts: VcfImportEntry[]
+  summary: { create: number; update: number; total: number; new_companies: number }
+  committed: boolean
+}
+
+export function importContacts(file: File, commit: boolean): Promise<VcfImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  return apiFetch(`/contacts/import?commit=${commit}`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
 export function getContactNotes(contactId: string): Promise<ContactNote[]> {
   return apiFetch(`/contacts/${contactId}/notes`)
 }
