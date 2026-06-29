@@ -41,7 +41,8 @@ def get_exceptions(days: int = Query(default=14, ge=1, le=90)):
     logql = '{app="raindrop"} | json | level="error"'
     entries = query_loki_range(logql, start, end, limit=200)
     exceptions = aggregate_errors(entries, include_stack=True)
-    return {"exceptions": exceptions, "count": len(exceptions)}
+    unique_count = len({e["message"] for e in exceptions})
+    return {"exceptions": exceptions, "count": len(exceptions), "unique_count": unique_count}
 
 
 @router.get("/warnings")

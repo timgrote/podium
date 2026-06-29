@@ -65,6 +65,7 @@ export interface RaindropException {
 export interface RaindropExceptions {
   exceptions: RaindropException[]
   count: number
+  unique_count: number
 }
 
 export interface RaindropWarning {

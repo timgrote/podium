@@ -280,24 +280,12 @@ function formatErrorTime(ts: string): string {
           <div class="stat-value">{{ trials ? trials.active_count : '—' }}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Sessions</div>
-          <div class="stat-value">{{ analytics.summary.total_sessions }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Active Users</div>
-          <div class="stat-value accent">{{ analytics.summary.unique_users }}</div>
+          <div class="stat-label">Unique Exceptions</div>
+          <div class="stat-value">{{ exceptions ? exceptions.unique_count : '—' }}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Work Hours</div>
           <div class="stat-value">{{ analytics.summary.total_work_hours }}h</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Commands</div>
-          <div class="stat-value">{{ analytics.summary.total_commands.toLocaleString() }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Raindrop Adoption</div>
-          <div class="stat-value accent">{{ analytics.summary.raindrop_adoption_pct }}%</div>
         </div>
       </div>
 
