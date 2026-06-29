@@ -129,3 +129,14 @@ export interface RaindropLeaderboard {
 export function getRaindropLeaderboard(): Promise<RaindropLeaderboard> {
   return apiFetch('/raindrop/leaderboard')
 }
+
+export interface RaindropYearly {
+  labels: string[]
+  active_users: number[]
+  licensed_users: number[]
+  active_trials: number[]
+}
+
+export function getRaindropYearly(): Promise<RaindropYearly> {
+  return apiFetch('/raindrop/yearly')
+}

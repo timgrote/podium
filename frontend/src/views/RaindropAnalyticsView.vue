@@ -5,8 +5,8 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import SelectButton from 'primevue/selectbutton'
 import ProgressSpinner from 'primevue/progressspinner'
-import { getRaindropAnalytics, getRaindropExceptions, getRaindropWarnings, getRaindropTrials, getRaindropLeaderboard } from '../api/raindrop'
-import type { RaindropAnalytics, RaindropExceptions, RaindropWarnings, RaindropTrials, RaindropLeaderboard, RaindropException } from '../api/raindrop'
+import { getRaindropAnalytics, getRaindropExceptions, getRaindropWarnings, getRaindropTrials, getRaindropLeaderboard, getRaindropYearly } from '../api/raindrop'
+import type { RaindropAnalytics, RaindropExceptions, RaindropWarnings, RaindropTrials, RaindropLeaderboard, RaindropException, RaindropYearly } from '../api/raindrop'
 import { useToast } from '../composables/useToast'
 
 const days = ref(14)
@@ -29,6 +29,7 @@ const trials = ref<RaindropTrials | null>(null)
 const trialsLoading = ref(true)
 const trialsError = ref('')
 const leaderboard = ref<RaindropLeaderboard | null>(null)
+const yearly = ref<RaindropYearly | null>(null)
 
 interface ExceptionGroup {
   message: string
@@ -130,6 +131,14 @@ async function loadLeaderboard() {
   }
 }
 
+async function loadYearly() {
+  try {
+    yearly.value = await getRaindropYearly()
+  } catch {
+    yearly.value = null
+  }
+}
+
 async function copyToClipboard(text: string, label: string) {
   try {
     await navigator.clipboard.writeText(text)
@@ -171,6 +180,7 @@ onMounted(() => {
   load()
   loadTrials()
   loadLeaderboard()
+  loadYearly()
 })
 watch(days, () => {
   load()
@@ -179,33 +189,60 @@ watch(days, () => {
 
 // Chart configs
 const activeUsersChart = computed(() => {
-  if (!analytics.value) return null
-  const data = analytics.value.daily_active_users
+  if (!yearly.value) return null
+  const y = yearly.value
   return {
     type: 'line' as const,
     data: {
-      labels: data.map(d => formatDateShort(d.date)),
-      datasets: [{
-        label: 'Active Users',
-        data: data.map(d => d.count),
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-      }],
+      labels: y.labels.map(formatMonthLabel),
+      datasets: [
+        {
+          label: 'Active Users',
+          data: y.active_users,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+        },
+        {
+          label: 'Licensed Users',
+          data: y.licensed_users,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+        },
+        {
+          label: 'Active Trials',
+          data: y.active_trials,
+          borderColor: '#16a34a',
+          borderDash: [6, 4],
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+        },
+      ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: true, position: 'bottom' as const } },
       scales: {
         y: { beginAtZero: true, ticks: { stepSize: 1 } },
       },
     },
   }
 })
+
+function formatMonthLabel(label: string): string {
+  const [yr, mo] = label.split('-')
+  return new Date(Number(yr), Number(mo) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+}
 
 const sessionsChart = computed(() => {
   if (!analytics.value) return null
@@ -471,9 +508,12 @@ function formatErrorTime(ts: string): string {
 
       <!-- Active Users Chart -->
       <div class="chart-section">
-        <h2>Active Users Over Time</h2>
+        <h2>Users Over Time (rolling 12 months)</h2>
         <div class="chart-container" v-if="activeUsersChart">
           <Chart type="line" :data="activeUsersChart.data" :options="activeUsersChart.options" />
+        </div>
+        <div class="chart-container chart-loading" v-else>
+          <ProgressSpinner style="width:40px;height:40px" />
         </div>
       </div>
 

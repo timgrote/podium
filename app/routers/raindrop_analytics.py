@@ -1,11 +1,14 @@
+import calendar
 import logging
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Query
 
 from ..config import settings
 from ..services.keygen_client import fetch_licenses, fetch_trial_licenses
-from ..services.loki_analytics import aggregate_dashboard, aggregate_errors, aggregate_events, query_loki_range
+from ..services.loki_analytics import _extract_username, aggregate_dashboard, aggregate_errors, aggregate_events, query_loki_range
 
 logger = logging.getLogger("conductor")
 router = APIRouter()
@@ -38,6 +41,29 @@ def _count_active_at(licenses: list[dict], at: datetime) -> int:
 def _user_key(lic: dict, idx: int) -> str:
     """Best-effort unique-user key for a license: email, else name, else a row fallback."""
     return (lic.get("email") or "").strip().lower() or (lic.get("name") or "").strip().lower() or f"__row{idx}"
+
+
+def _active_users_by_month(logql: str, start: datetime, end: datetime) -> dict[str, set]:
+    """Distinct Drawing-Closed users keyed by 'YYYY-MM' over a range.
+
+    Split into <=25-day chunks because Loki rejects ranges over its ~721h
+    max_query_length (a 31-day month 400s). Loki serialises queries server-side,
+    so this is inherently ~slow over a year — callers should cache it.
+    """
+    by_month: dict[str, set] = defaultdict(set)
+    cs = start
+    while cs < end:
+        ce = min(cs + timedelta(days=25), end)
+        for ts_ns, entry in query_loki_range(logql, cs, ce, limit=5000):
+            if entry.get("Action") != "Drawing Closed":
+                continue
+            try:
+                month = datetime.fromtimestamp(int(ts_ns) / 1e9, tz=timezone.utc).strftime("%Y-%m")
+            except (ValueError, OSError):
+                continue
+            by_month[month].add(_extract_username(entry))
+        cs = ce
+    return by_month
 
 
 def _unique_users_active_at(licenses: list[dict], at: datetime) -> int:
@@ -158,6 +184,61 @@ def get_trials(days: int = Query(default=14, ge=1, le=90)):
     }
 
 
+_yearly_cache: dict = {"data": None, "ts": 0.0}
+_YEARLY_TTL = 1800  # 30 min — this series moves slowly and is expensive to build.
+
+
+@router.get("/yearly")
+def get_yearly():
+    """Rolling 12-month monthly series: active users (Loki) + licensed users and
+    active trials (KeyGen, counted at each month-end). Cached (~30 min) because the
+    Loki side needs ~13 sequential chunked queries (~14s cold)."""
+    if _yearly_cache["data"] is not None and time.monotonic() - _yearly_cache["ts"] < _YEARLY_TTL:
+        return _yearly_cache["data"]
+
+    now = datetime.now(timezone.utc)
+
+    # Build the last 12 (year, month) buckets, oldest first.
+    seq = []
+    y, m = now.year, now.month
+    for _ in range(12):
+        seq.append((y, m))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    seq.reverse()
+
+    logql = '{app="raindrop"} |= "Drawing Closed"'
+    window_start = datetime(seq[0][0], seq[0][1], 1, tzinfo=timezone.utc)
+    users_by_month = _active_users_by_month(logql, window_start, now)
+    trial_licenses = fetch_trial_licenses()
+    yearly_licenses = fetch_licenses(settings.keygen_yearly_policy_id)
+
+    labels, active_users, licensed_users, active_trials = [], [], [], []
+    for yr, mo in seq:
+        label = f"{yr}-{mo:02d}"
+        if (yr, mo) == (now.year, now.month):
+            at = now
+        else:
+            last_day = calendar.monthrange(yr, mo)[1]
+            at = datetime(yr, mo, last_day, 23, 59, 59, tzinfo=timezone.utc)
+
+        labels.append(label)
+        active_users.append(len(users_by_month.get(label, set())))
+        licensed_users.append(_unique_users_active_at(yearly_licenses, at))
+        active_trials.append(_count_active_at(trial_licenses, at))
+
+    result = {
+        "labels": labels,
+        "active_users": active_users,
+        "licensed_users": licensed_users,
+        "active_trials": active_trials,
+    }
+    _yearly_cache["data"] = result
+    _yearly_cache["ts"] = time.monotonic()
+    return result
+
+
 @router.get("/leaderboard")
 def get_leaderboard():
     """User leaderboard for the current calendar month (independent of the day selector)."""
@@ -167,4 +248,5 @@ def get_leaderboard():
     logql = '{app="raindrop"} |= "Drawing Closed"'
     entries = query_loki_range(logql, start, end)
     dashboard = aggregate_dashboard(entries, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
-    return {"user_stats": dashboard["user_stats"], "period": dashboard["period"]}
+    user_stats = [u for u in dashboard["user_stats"] if u.get("raindrop_commands", 0) > 0]
+    return {"user_stats": user_stats, "period": dashboard["period"]}
