@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Query
 
 from ..config import settings
-from ..services.keygen_client import fetch_trial_licenses
+from ..services.keygen_client import count_active_licenses, fetch_trial_licenses
 from ..services.loki_analytics import aggregate_dashboard, aggregate_errors, aggregate_events, query_loki_range
 
 logger = logging.getLogger("conductor")
@@ -68,7 +68,8 @@ def get_trials():
     if not settings.keygen_api_token:
         return {
             "active": [], "expired_recent": [],
-            "active_count": 0, "expired_recent_count": 0, "available": False,
+            "active_count": 0, "expired_recent_count": 0,
+            "licensed_active_count": 0, "available": False,
         }
 
     licenses = fetch_trial_licenses()
@@ -92,8 +93,22 @@ def get_trials():
     active.sort(key=lambda x: x["days_remaining"])
     expired.sort(key=lambda x: x["days_since_expiry"])
 
+    licensed_active_count = count_active_licenses(settings.keygen_yearly_policy_id)
+
     return {
         "active": active, "expired_recent": expired,
         "active_count": len(active), "expired_recent_count": len(expired),
-        "available": True,
+        "licensed_active_count": licensed_active_count, "available": True,
     }
+
+
+@router.get("/leaderboard")
+def get_leaderboard():
+    """User leaderboard for the current calendar month (independent of the day selector)."""
+    now = datetime.now()
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end = now.replace(hour=23, minute=59, second=59)
+    logql = '{app="raindrop"} |= "Drawing Closed"'
+    entries = query_loki_range(logql, start, end)
+    dashboard = aggregate_dashboard(entries, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+    return {"user_stats": dashboard["user_stats"], "period": dashboard["period"]}
