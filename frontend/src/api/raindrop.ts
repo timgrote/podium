@@ -108,9 +108,19 @@ export interface RaindropTrials {
   expired_recent: RaindropTrial[]
   active_count: number
   expired_recent_count: number
+  licensed_active_count: number
   available: boolean
 }
 
 export function getRaindropTrials(): Promise<RaindropTrials> {
   return apiFetch('/raindrop/trials')
+}
+
+export interface RaindropLeaderboard {
+  user_stats: UserStat[]
+  period: { start: string; end: string }
+}
+
+export function getRaindropLeaderboard(): Promise<RaindropLeaderboard> {
+  return apiFetch('/raindrop/leaderboard')
 }
