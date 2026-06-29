@@ -93,3 +93,24 @@ export function getRaindropExceptions(days: number): Promise<RaindropExceptions>
 export function getRaindropWarnings(days: number): Promise<RaindropWarnings> {
   return apiFetch(`/raindrop/warnings?days=${days}`)
 }
+
+export interface RaindropTrial {
+  name: string
+  email: string
+  created: string | null
+  expiry: string | null
+  days_remaining?: number
+  days_since_expiry?: number
+}
+
+export interface RaindropTrials {
+  active: RaindropTrial[]
+  expired_recent: RaindropTrial[]
+  active_count: number
+  expired_recent_count: number
+  available: boolean
+}
+
+export function getRaindropTrials(): Promise<RaindropTrials> {
+  return apiFetch('/raindrop/trials')
+}
