@@ -42,18 +42,24 @@ def test_trials_split_active_and_recent_expired(client, monkeypatch):
     assert body["expired_recent"][0]["days_since_expiry"] in (9, 10)
 
 
-def test_trials_includes_licensed_active_count(client, monkeypatch):
+def test_licensed_counts_unique_non_expired_users(client, monkeypatch):
     now = datetime.now(timezone.utc)
     monkeypatch.setattr(settings, "keygen_api_token", "prod-test")
     monkeypatch.setattr(ra, "fetch_trial_licenses", lambda: [])
+    future, past_exp = _iso(now + timedelta(days=200)), _iso(now - timedelta(days=1))
+    created = _iso(now - timedelta(days=100))
     yearly = [
-        {"name": "L", "email": "l@x.com", "created": _iso(now - timedelta(days=100)),
-         "expiry": _iso(now + timedelta(days=200)), "status": "ACTIVE"}
-        for _ in range(7)
+        # alice holds two non-expired licenses -> counts once
+        {"name": "Alice", "email": "alice@x.com", "created": created, "expiry": future, "status": "ACTIVE"},
+        {"name": "alice@x.com", "email": "", "created": created, "expiry": future, "status": "INACTIVE"},
+        # bob, one non-expired
+        {"name": "Bob", "email": "bob@x.com", "created": created, "expiry": future, "status": "ACTIVE"},
+        # carol's license is expired -> excluded
+        {"name": "Carol", "email": "carol@x.com", "created": created, "expiry": past_exp, "status": "EXPIRED"},
     ]
     monkeypatch.setattr(ra, "fetch_licenses", lambda policy_id: yearly)
     body = client.get("/api/raindrop/trials").json()
-    assert body["licensed_active_count"] == 7
+    assert body["licensed_active_count"] == 2          # alice (deduped) + bob; carol excluded
 
 
 def test_trials_trend_counts(client, monkeypatch):

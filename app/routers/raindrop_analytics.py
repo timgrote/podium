@@ -26,25 +26,29 @@ def _parse_keygen_dt(value: str | None) -> datetime | None:
         return None
 
 
-# Statuses for a license that has been activated and is/was valid (excludes
-# INACTIVE = never activated, and SUSPENDED/BANNED).
-_ACTIVATED_STATUSES = {"ACTIVE", "EXPIRING", "EXPIRED"}
+def _count_active_at(licenses: list[dict], at: datetime) -> int:
+    """Count licenses valid (created <= at < expiry) at a point in time."""
+    return sum(
+        1 for lic in licenses
+        if (c := _parse_keygen_dt(lic.get("created"))) and (e := _parse_keygen_dt(lic.get("expiry")))
+        and c <= at < e
+    )
 
 
-def _count_active_at(licenses: list[dict], at: datetime, statuses: set[str] | None = None) -> int:
-    """Count licenses valid (created <= at < expiry) at a point in time.
+def _user_key(lic: dict, idx: int) -> str:
+    """Best-effort unique-user key for a license: email, else name, else a row fallback."""
+    return (lic.get("email") or "").strip().lower() or (lic.get("name") or "").strip().lower() or f"__row{idx}"
 
-    If ``statuses`` is given, only licenses with one of those current statuses count.
-    """
-    n = 0
-    for lic in licenses:
-        if statuses is not None and lic.get("status") not in statuses:
-            continue
+
+def _unique_users_active_at(licenses: list[dict], at: datetime) -> int:
+    """Count distinct users holding a non-expired (created <= at < expiry) license at a time."""
+    users = set()
+    for i, lic in enumerate(licenses):
         created = _parse_keygen_dt(lic.get("created"))
         expiry = _parse_keygen_dt(lic.get("expiry"))
         if created and expiry and created <= at < expiry:
-            n += 1
-    return n
+            users.add(_user_key(lic, i))
+    return len(users)
 
 
 def _work_hours(entries: list[tuple[str, dict]]) -> float:
@@ -148,8 +152,8 @@ def get_trials(days: int = Query(default=14, ge=1, le=90)):
         "active": active, "expired_recent": expired,
         "active_count": len(active), "expired_recent_count": len(expired),
         "active_trials_prev": _count_active_at(trial_licenses, past),
-        "licensed_active_count": _count_active_at(yearly_licenses, now, _ACTIVATED_STATUSES),
-        "licensed_active_prev": _count_active_at(yearly_licenses, past, _ACTIVATED_STATUSES),
+        "licensed_active_count": _unique_users_active_at(yearly_licenses, now),
+        "licensed_active_prev": _unique_users_active_at(yearly_licenses, past),
         "available": True,
     }
 
