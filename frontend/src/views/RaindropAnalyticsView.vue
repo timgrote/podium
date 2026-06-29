@@ -50,10 +50,12 @@ const exceptionGroups = computed<ExceptionGroup[]>(() => {
       map.set(e.message, g)
     }
     g.count++
-    if (e.timestamp > g.last_seen) {
-      g.last_seen = e.timestamp
-      g.sample = e
-    }
+    if (e.timestamp > g.last_seen) g.last_seen = e.timestamp
+    // Prefer a sample that carries a stack trace; otherwise the most recent occurrence.
+    const better =
+      (!!exceptionStack(e) && !exceptionStack(g.sample)) ||
+      (!!exceptionStack(e) === !!exceptionStack(g.sample) && e.timestamp > g.sample.timestamp)
+    if (better) g.sample = e
     if (e.user) g._users.add(e.user)
     if (e.app_version) g._versions.add(e.app_version)
   }
@@ -152,10 +154,19 @@ function copyEmail(email: string) {
   return copyToClipboard(email, email)
 }
 
+// Best available stack trace: the top-level one, else the inner Exception's stack
+// (the field-logged top-level StackTrace is empty for most exceptions).
+function exceptionStack(exc: RaindropException): string {
+  if (exc.stack_trace) return exc.stack_trace
+  if (typeof exc.exception === 'object' && exc.exception?.StackTrace) return exc.exception.StackTrace
+  return ''
+}
+
 function formatExceptionGroupLog(g: ExceptionGroup): string {
   const ex = typeof g.sample.exception === 'object'
     ? `${g.sample.exception.Type}: ${g.sample.exception.Message}`
     : (g.sample.exception || '')
+  const stack = exceptionStack(g.sample)
   return [
     `Raindrop Exception (logged ${g.count}×)`,
     `Message: ${g.message}`,
@@ -163,7 +174,7 @@ function formatExceptionGroupLog(g: ExceptionGroup): string {
     g.versions.length ? `Versions: ${g.versions.join(', ')}` : '',
     `Last seen: ${g.last_seen}`,
     ex ? `Exception: ${ex}` : '',
-    g.sample.stack_trace ? `\nStack trace:\n${g.sample.stack_trace}` : '',
+    stack ? `\nStack trace:\n${stack}` : '',
   ].filter(Boolean).join('\n')
 }
 
@@ -410,7 +421,7 @@ function formatErrorTime(ts: string): string {
                 <template v-if="typeof g.sample.exception === 'object'">{{ g.sample.exception.Type }}: {{ g.sample.exception.Message }}</template>
                 <template v-else>{{ g.sample.exception }}</template>
               </div>
-              <pre v-if="g.sample.stack_trace" class="stack-trace">{{ g.sample.stack_trace }}</pre>
+              <pre v-if="exceptionStack(g.sample)" class="stack-trace">{{ exceptionStack(g.sample) }}</pre>
               <button class="copy-log-btn" @click.stop="copyExceptionGroupLog(g)">
                 <i class="pi pi-copy"></i> Copy Log
               </button>
