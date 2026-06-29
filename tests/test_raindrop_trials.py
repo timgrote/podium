@@ -85,12 +85,7 @@ def test_trials_trend_counts(client, monkeypatch):
 
 
 def test_yearly_series(client, monkeypatch):
-    ra._yearly_cache["data"] = None          # ignore any cached result
     now = datetime.now(timezone.utc)
-    ts = str(int(now.timestamp() * 1e9))
-    # One Drawing Closed event this month by user 'tim'.
-    monkeypatch.setattr(ra, "query_loki_range",
-                        lambda *a, **k: [(ts, {"Action": "Drawing Closed", "EnvironmentUserName": "PC\\tim"})])
     # A trial + a yearly license, both valid across the whole window.
     span = {"created": _iso(now - timedelta(days=400)), "expiry": _iso(now + timedelta(days=10)), "status": "ACTIVE"}
     monkeypatch.setattr(ra, "fetch_trial_licenses", lambda: [{"name": "T", "email": "t@x.com", **span}])
@@ -98,11 +93,11 @@ def test_yearly_series(client, monkeypatch):
 
     body = client.get("/api/raindrop/yearly").json()
     assert len(body["labels"]) == 12
-    assert len(body["active_users"]) == 12 and len(body["licensed_users"]) == 12 and len(body["active_trials"]) == 12
-    assert body["active_users"][-1] == 1          # current month: 1 active user
+    assert len(body["licensed_users"]) == 12 and len(body["active_trials"]) == 12
     assert body["licensed_users"][-1] == 1
     assert body["active_trials"][-1] == 1
     assert body["active_trials"][0] == 1          # valid across the whole 12-month window
+    assert "active_users" not in body
 
 
 def test_analytics_includes_work_hours_prev(client, monkeypatch):

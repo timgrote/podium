@@ -197,16 +197,6 @@ const activeUsersChart = computed(() => {
       labels: y.labels.map(formatMonthLabel),
       datasets: [
         {
-          label: 'Active Users',
-          data: y.active_users,
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245, 158, 11, 0.1)',
-          fill: false,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 6,
-        },
-        {
           label: 'Licensed Users',
           data: y.licensed_users,
           borderColor: '#3b82f6',
@@ -508,7 +498,7 @@ function formatErrorTime(ts: string): string {
 
       <!-- Active Users Chart -->
       <div class="chart-section">
-        <h2>Users Over Time (rolling 12 months)</h2>
+        <h2>Licensed Users &amp; Active Trials (rolling 12 months)</h2>
         <div class="chart-container" v-if="activeUsersChart">
           <Chart type="line" :data="activeUsersChart.data" :options="activeUsersChart.options" />
         </div>

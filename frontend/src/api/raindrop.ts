@@ -132,7 +132,6 @@ export function getRaindropLeaderboard(): Promise<RaindropLeaderboard> {
 
 export interface RaindropYearly {
   labels: string[]
-  active_users: number[]
   licensed_users: number[]
   active_trials: number[]
 }
