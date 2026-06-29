@@ -30,11 +30,40 @@ const trialsLoading = ref(true)
 const trialsError = ref('')
 const leaderboard = ref<RaindropLeaderboard | null>(null)
 
-const visibleExceptions = computed(() => {
+interface ExceptionGroup {
+  message: string
+  count: number
+  last_seen: string
+  sample: RaindropException
+  users: string[]
+  versions: string[]
+}
+
+const exceptionGroups = computed<ExceptionGroup[]>(() => {
   if (!exceptions.value) return []
-  const list = exceptions.value.exceptions
-  return showAllExceptions.value ? list : list.slice(0, 5)
+  const map = new Map<string, ExceptionGroup & { _users: Set<string>; _versions: Set<string> }>()
+  for (const e of exceptions.value.exceptions) {
+    let g = map.get(e.message)
+    if (!g) {
+      g = { message: e.message, count: 0, last_seen: e.timestamp, sample: e, _users: new Set(), _versions: new Set(), users: [], versions: [] }
+      map.set(e.message, g)
+    }
+    g.count++
+    if (e.timestamp > g.last_seen) {
+      g.last_seen = e.timestamp
+      g.sample = e
+    }
+    if (e.user) g._users.add(e.user)
+    if (e.app_version) g._versions.add(e.app_version)
+  }
+  return Array.from(map.values())
+    .map(g => ({ message: g.message, count: g.count, last_seen: g.last_seen, sample: g.sample, users: [...g._users], versions: [...g._versions] }))
+    .sort((a, b) => b.count - a.count)
 })
+
+const visibleExceptionGroups = computed(() =>
+  showAllExceptions.value ? exceptionGroups.value : exceptionGroups.value.slice(0, 5),
+)
 
 async function load() {
   loading.value = true
@@ -93,25 +122,23 @@ function copyEmail(email: string) {
   return copyToClipboard(email, email)
 }
 
-function formatExceptionLog(exc: RaindropException): string {
-  const ex = typeof exc.exception === 'object'
-    ? `${exc.exception.Type}: ${exc.exception.Message}`
-    : (exc.exception || '')
+function formatExceptionGroupLog(g: ExceptionGroup): string {
+  const ex = typeof g.sample.exception === 'object'
+    ? `${g.sample.exception.Type}: ${g.sample.exception.Message}`
+    : (g.sample.exception || '')
   return [
-    'Raindrop Exception',
-    `Time: ${exc.timestamp}`,
-    `User: ${exc.user}${exc.machine ? ` (${exc.machine})` : ''}`,
-    exc.app_version ? `Version: ${exc.app_version}` : '',
-    exc.drawing ? `Drawing: ${exc.drawing}` : '',
-    `Level: ${exc.level}`,
-    `Message: ${exc.message}`,
+    `Raindrop Exception (logged ${g.count}×)`,
+    `Message: ${g.message}`,
+    g.users.length ? `Affected users: ${g.users.join(', ')}` : '',
+    g.versions.length ? `Versions: ${g.versions.join(', ')}` : '',
+    `Last seen: ${g.last_seen}`,
     ex ? `Exception: ${ex}` : '',
-    exc.stack_trace ? `\nStack trace:\n${exc.stack_trace}` : '',
+    g.sample.stack_trace ? `\nStack trace:\n${g.sample.stack_trace}` : '',
   ].filter(Boolean).join('\n')
 }
 
-function copyExceptionLog(exc: RaindropException) {
-  return copyToClipboard(formatExceptionLog(exc), 'Exception log')
+function copyExceptionGroupLog(g: ExceptionGroup) {
+  return copyToClipboard(formatExceptionGroupLog(g), 'Exception log')
 }
 
 function formatTrialDate(iso: string | null): string {
@@ -301,37 +328,37 @@ function formatErrorTime(ts: string): string {
         </div>
         <div v-if="exceptions.count > 0" class="exceptions-list">
           <div
-            v-for="(exc, i) in visibleExceptions"
-            :key="i"
+            v-for="(g, i) in visibleExceptionGroups"
+            :key="g.message"
             class="exception-item"
             @click="toggleException(i)"
           >
             <div class="exception-summary">
-              <span class="exception-time">{{ formatErrorTime(exc.timestamp) }}</span>
-              <span class="exception-user">{{ exc.user }}</span>
-              <span class="exception-machine">{{ exc.machine }}</span>
-              <span class="exception-msg">{{ exc.message }}</span>
+              <span class="exception-count">×{{ g.count }}</span>
+              <span class="exception-msg">{{ g.message }}</span>
+              <span class="exception-time">last {{ formatErrorTime(g.last_seen) }}</span>
             </div>
             <div v-if="expandedExceptionRows[i]" class="exception-detail">
-              <div v-if="exc.drawing" class="detail-row"><strong>Drawing:</strong> {{ exc.drawing }}</div>
-              <div v-if="exc.app_version" class="detail-row"><strong>Version:</strong> {{ exc.app_version }}</div>
-              <div v-if="exc.exception" class="detail-row">
+              <div class="detail-row"><strong>Occurrences:</strong> {{ g.count }}</div>
+              <div v-if="g.users.length" class="detail-row"><strong>Users:</strong> {{ g.users.join(', ') }}</div>
+              <div v-if="g.versions.length" class="detail-row"><strong>Versions:</strong> {{ g.versions.join(', ') }}</div>
+              <div v-if="g.sample.exception" class="detail-row">
                 <strong>Exception:</strong>
-                <template v-if="typeof exc.exception === 'object'">{{ exc.exception.Type }}: {{ exc.exception.Message }}</template>
-                <template v-else>{{ exc.exception }}</template>
+                <template v-if="typeof g.sample.exception === 'object'">{{ g.sample.exception.Type }}: {{ g.sample.exception.Message }}</template>
+                <template v-else>{{ g.sample.exception }}</template>
               </div>
-              <pre v-if="exc.stack_trace" class="stack-trace">{{ exc.stack_trace }}</pre>
-              <button class="copy-log-btn" @click.stop="copyExceptionLog(exc)">
+              <pre v-if="g.sample.stack_trace" class="stack-trace">{{ g.sample.stack_trace }}</pre>
+              <button class="copy-log-btn" @click.stop="copyExceptionGroupLog(g)">
                 <i class="pi pi-copy"></i> Copy Log
               </button>
             </div>
           </div>
           <button
-            v-if="exceptions.count > 5"
+            v-if="exceptions.unique_count > 5"
             class="show-all-btn"
             @click.stop="showAllExceptions = !showAllExceptions"
           >
-            {{ showAllExceptions ? 'Show less' : `Show all ${exceptions.count} exceptions` }}
+            {{ showAllExceptions ? 'Show less' : `Show all ${exceptions.unique_count} unique exceptions` }}
           </button>
         </div>
       </div>
@@ -683,10 +710,24 @@ function formatErrorTime(ts: string): string {
   font-size: 0.85rem;
 }
 
+.exception-count {
+  flex-shrink: 0;
+  min-width: 2.5rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--p-red-50, #fef2f2);
+  color: var(--p-red-600, #dc2626);
+}
+
 .exception-time {
   color: var(--p-text-muted-color);
   white-space: nowrap;
   min-width: 120px;
+  margin-left: auto;
+  text-align: right;
 }
 
 .exception-user {
@@ -702,6 +743,7 @@ function formatErrorTime(ts: string): string {
 }
 
 .exception-msg {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
