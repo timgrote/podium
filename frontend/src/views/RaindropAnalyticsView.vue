@@ -5,8 +5,9 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import SelectButton from 'primevue/selectbutton'
 import ProgressSpinner from 'primevue/progressspinner'
-import { getRaindropAnalytics, getRaindropExceptions, getRaindropWarnings } from '../api/raindrop'
-import type { RaindropAnalytics, RaindropExceptions, RaindropWarnings } from '../api/raindrop'
+import { getRaindropAnalytics, getRaindropExceptions, getRaindropWarnings, getRaindropTrials } from '../api/raindrop'
+import type { RaindropAnalytics, RaindropExceptions, RaindropWarnings, RaindropTrials } from '../api/raindrop'
+import { useToast } from '../composables/useToast'
 
 const days = ref(14)
 const dayOptions = [
@@ -22,6 +23,11 @@ const exceptions = ref<RaindropExceptions | null>(null)
 const warnings = ref<RaindropWarnings | null>(null)
 const expandedExceptionRows = ref<Record<string, boolean>>({})
 const showAllExceptions = ref(false)
+
+const toast = useToast()
+const trials = ref<RaindropTrials | null>(null)
+const trialsLoading = ref(true)
+const trialsError = ref('')
 
 const visibleExceptions = computed(() => {
   if (!exceptions.value) return []
@@ -53,7 +59,36 @@ function toggleException(idx: number) {
   expandedExceptionRows.value[idx] = !expandedExceptionRows.value[idx]
 }
 
-onMounted(load)
+async function loadTrials() {
+  trialsLoading.value = true
+  trialsError.value = ''
+  try {
+    trials.value = await getRaindropTrials()
+  } catch (err: any) {
+    trialsError.value = err.message || 'Failed to load trials'
+  } finally {
+    trialsLoading.value = false
+  }
+}
+
+async function copyEmail(email: string) {
+  try {
+    await navigator.clipboard.writeText(email)
+    toast.success('Copied', email)
+  } catch {
+    toast.error('Copy failed')
+  }
+}
+
+function formatTrialDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+onMounted(() => {
+  load()
+  loadTrials()
+})
 watch(days, load)
 
 // Chart configs
@@ -183,6 +218,76 @@ function formatErrorTime(ts: string): string {
         optionValue="value"
         :allowEmpty="false"
       />
+    </div>
+
+    <!-- Trials Panel -->
+    <div class="trials-panel">
+      <div class="trials-header">
+        <i class="pi pi-id-card"></i>
+        <h2>Trials</h2>
+        <span class="trials-counts" v-if="trials && trials.available">
+          {{ trials.active_count }} active · {{ trials.expired_recent_count }} expired (30d)
+        </span>
+      </div>
+
+      <div v-if="trialsLoading" class="trials-state"><ProgressSpinner style="width:32px;height:32px" /></div>
+      <div v-else-if="trialsError" class="trials-state">{{ trialsError }}</div>
+      <div v-else-if="trials && !trials.available" class="trials-state">KeyGen not configured.</div>
+      <template v-else-if="trials">
+        <div class="table-section">
+          <h3>Active Trials</h3>
+          <p v-if="!trials.active.length" class="trials-state">No active trials.</p>
+          <DataTable v-else :value="trials.active" stripedRows size="small"
+                     :paginator="trials.active.length > 10" :rows="10" sortField="days_remaining" :sortOrder="1">
+            <Column field="name" header="Name" sortable />
+            <Column field="email" header="Email">
+              <template #body="{ data }">
+                <span class="email-cell">{{ data.email }}
+                  <button class="copy-btn" @click="copyEmail(data.email)" title="Copy email">
+                    <i class="pi pi-copy"></i>
+                  </button>
+                </span>
+              </template>
+            </Column>
+            <Column field="created" header="Started" sortable>
+              <template #body="{ data }">{{ formatTrialDate(data.created) }}</template>
+            </Column>
+            <Column field="expiry" header="Expires" sortable>
+              <template #body="{ data }">{{ formatTrialDate(data.expiry) }}</template>
+            </Column>
+            <Column field="days_remaining" header="Days Left" sortable>
+              <template #body="{ data }">{{ data.days_remaining }}d</template>
+            </Column>
+          </DataTable>
+        </div>
+
+        <div class="table-section">
+          <h3>Recently Expired (last 30 days)</h3>
+          <p v-if="!trials.expired_recent.length" class="trials-state">None expired in the last 30 days.</p>
+          <DataTable v-else :value="trials.expired_recent" stripedRows size="small"
+                     :paginator="trials.expired_recent.length > 10" :rows="10" sortField="days_since_expiry" :sortOrder="1">
+            <Column field="name" header="Name" sortable />
+            <Column field="email" header="Email">
+              <template #body="{ data }">
+                <span class="email-cell">{{ data.email }}
+                  <button class="copy-btn" @click="copyEmail(data.email)" title="Copy email">
+                    <i class="pi pi-copy"></i>
+                  </button>
+                </span>
+              </template>
+            </Column>
+            <Column field="created" header="Started" sortable>
+              <template #body="{ data }">{{ formatTrialDate(data.created) }}</template>
+            </Column>
+            <Column field="expiry" header="Expired On" sortable>
+              <template #body="{ data }">{{ formatTrialDate(data.expiry) }}</template>
+            </Column>
+            <Column field="days_since_expiry" header="Days Ago" sortable>
+              <template #body="{ data }">{{ data.days_since_expiry }}d ago</template>
+            </Column>
+          </DataTable>
+        </div>
+      </template>
     </div>
 
     <!-- Loading -->
@@ -365,6 +470,33 @@ function formatErrorTime(ts: string): string {
   padding: 1.5rem;
   max-width: 1200px;
 }
+
+.trials-panel {
+  background: var(--surface-card, #fff);
+  border: 1px solid var(--surface-border, #e5e7eb);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.trials-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.trials-header h2 { margin: 0; font-size: 1.1rem; }
+.trials-counts { color: var(--text-color-secondary, #6b7280); font-size: 0.85rem; margin-left: 0.25rem; }
+.trials-state { color: var(--text-color-secondary, #6b7280); padding: 0.75rem 0; }
+.email-cell { display: inline-flex; align-items: center; gap: 0.4rem; }
+.copy-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-color-secondary, #6b7280);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.copy-btn:hover { color: var(--primary-color, #3b82f6); background: var(--surface-hover, #f3f4f6); }
 
 .page-header {
   display: flex;
