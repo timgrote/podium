@@ -4,6 +4,7 @@ export interface RaindropSummary {
   total_sessions: number
   unique_users: number
   total_work_hours: number
+  total_work_hours_prev: number
   total_commands: number
   raindrop_adoption_pct: number
   avg_session_minutes: number
@@ -66,6 +67,7 @@ export interface RaindropExceptions {
   exceptions: RaindropException[]
   count: number
   unique_count: number
+  unique_count_prev: number
 }
 
 export interface RaindropWarning {
@@ -109,12 +111,14 @@ export interface RaindropTrials {
   expired_recent: RaindropTrial[]
   active_count: number
   expired_recent_count: number
+  active_trials_prev: number
   licensed_active_count: number
+  licensed_active_prev: number
   available: boolean
 }
 
-export function getRaindropTrials(): Promise<RaindropTrials> {
-  return apiFetch('/raindrop/trials')
+export function getRaindropTrials(days: number): Promise<RaindropTrials> {
+  return apiFetch(`/raindrop/trials?days=${days}`)
 }
 
 export interface RaindropLeaderboard {

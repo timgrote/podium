@@ -93,13 +93,34 @@ async function loadTrials() {
   trialsLoading.value = true
   trialsError.value = ''
   try {
-    trials.value = await getRaindropTrials()
+    trials.value = await getRaindropTrials(days.value)
   } catch (err: any) {
     trialsError.value = err.message || 'Failed to load trials'
   } finally {
     trialsLoading.value = false
   }
 }
+
+// Trend arrow for a stat card: compares current value to the prior-window value.
+// `higherIsBetter` flips the good/bad colour (exceptions going down is good).
+function trend(value: number | undefined, prev: number | undefined, higherIsBetter = true) {
+  if (value == null || prev == null) return null
+  const delta = Math.round((value - prev) * 10) / 10
+  if (delta === 0) return { icon: 'pi-minus', cls: 'trend-flat', text: '0' }
+  const up = delta > 0
+  return {
+    icon: up ? 'pi-arrow-up' : 'pi-arrow-down',
+    cls: (higherIsBetter ? up : !up) ? 'trend-good' : 'trend-bad',
+    text: `${up ? '+' : ''}${delta}`,
+  }
+}
+
+const trends = computed(() => ({
+  licensed: trend(trials.value?.licensed_active_count, trials.value?.licensed_active_prev, true),
+  trials: trend(trials.value?.active_count, trials.value?.active_trials_prev, true),
+  exceptions: trend(exceptions.value?.unique_count, exceptions.value?.unique_count_prev, false),
+  workHours: trend(analytics.value?.summary.total_work_hours, analytics.value?.summary.total_work_hours_prev, true),
+}))
 
 async function loadLeaderboard() {
   try {
@@ -151,7 +172,10 @@ onMounted(() => {
   loadTrials()
   loadLeaderboard()
 })
-watch(days, load)
+watch(days, () => {
+  load()
+  loadTrials()
+})
 
 // Chart configs
 const activeUsersChart = computed(() => {
@@ -301,18 +325,30 @@ function formatErrorTime(ts: string): string {
         <div class="stat-card">
           <div class="stat-label">Licensed Users</div>
           <div class="stat-value accent">{{ trials ? trials.licensed_active_count : '—' }}</div>
+          <div v-if="trends.licensed" class="stat-trend" :class="trends.licensed.cls">
+            <i class="pi" :class="trends.licensed.icon"></i> {{ trends.licensed.text }}
+          </div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Active Trials</div>
           <div class="stat-value">{{ trials ? trials.active_count : '—' }}</div>
+          <div v-if="trends.trials" class="stat-trend" :class="trends.trials.cls">
+            <i class="pi" :class="trends.trials.icon"></i> {{ trends.trials.text }}
+          </div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Unique Exceptions</div>
           <div class="stat-value">{{ exceptions ? exceptions.unique_count : '—' }}</div>
+          <div v-if="trends.exceptions" class="stat-trend" :class="trends.exceptions.cls">
+            <i class="pi" :class="trends.exceptions.icon"></i> {{ trends.exceptions.text }}
+          </div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Work Hours</div>
           <div class="stat-value">{{ analytics.summary.total_work_hours }}h</div>
+          <div v-if="trends.workHours" class="stat-trend" :class="trends.workHours.cls">
+            <i class="pi" :class="trends.workHours.icon"></i> {{ trends.workHours.text }}
+          </div>
         </div>
       </div>
 
@@ -619,6 +655,21 @@ function formatErrorTime(ts: string): string {
 .stat-value.accent {
   color: var(--p-primary-color);
 }
+
+.stat-trend {
+  margin-top: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.stat-trend .pi {
+  font-size: 0.7rem;
+}
+.trend-good { color: var(--p-green-600, #16a34a); }
+.trend-bad { color: var(--p-red-600, #dc2626); }
+.trend-flat { color: var(--p-text-muted-color, #9ca3af); }
 
 /* Exceptions Panel */
 .exceptions-panel {

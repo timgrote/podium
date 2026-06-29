@@ -43,11 +43,53 @@ def test_trials_split_active_and_recent_expired(client, monkeypatch):
 
 
 def test_trials_includes_licensed_active_count(client, monkeypatch):
+    now = datetime.now(timezone.utc)
     monkeypatch.setattr(settings, "keygen_api_token", "prod-test")
     monkeypatch.setattr(ra, "fetch_trial_licenses", lambda: [])
-    monkeypatch.setattr(ra, "count_active_licenses", lambda policy_id: 7)
+    yearly = [
+        {"name": "L", "email": "l@x.com", "created": _iso(now - timedelta(days=100)),
+         "expiry": _iso(now + timedelta(days=200)), "status": "ACTIVE"}
+        for _ in range(7)
+    ]
+    monkeypatch.setattr(ra, "fetch_licenses", lambda policy_id: yearly)
     body = client.get("/api/raindrop/trials").json()
     assert body["licensed_active_count"] == 7
+
+
+def test_trials_trend_counts(client, monkeypatch):
+    now = datetime.now(timezone.utc)
+    monkeypatch.setattr(settings, "keygen_api_token", "prod-test")
+    # A trial created 5 days ago: active now, but did NOT exist 14 days ago.
+    trials = [
+        {"name": "T", "email": "t@x.com", "created": _iso(now - timedelta(days=5)),
+         "expiry": _iso(now + timedelta(days=25)), "status": "ACTIVE"},
+    ]
+    # A yearly license created 100 days ago: active now AND 14 days ago.
+    yearly = [
+        {"name": "L", "email": "l@x.com", "created": _iso(now - timedelta(days=100)),
+         "expiry": _iso(now + timedelta(days=200)), "status": "ACTIVE"},
+    ]
+    monkeypatch.setattr(ra, "fetch_trial_licenses", lambda: trials)
+    monkeypatch.setattr(ra, "fetch_licenses", lambda policy_id: yearly)
+    body = client.get("/api/raindrop/trials?days=14").json()
+    assert body["active_count"] == 1
+    assert body["active_trials_prev"] == 0          # didn't exist 14 days ago
+    assert body["licensed_active_count"] == 1
+    assert body["licensed_active_prev"] == 1        # already active 14 days ago
+
+
+def test_analytics_includes_work_hours_prev(client, monkeypatch):
+    calls = []
+
+    def fake_query(logql, start, end, limit=5000):
+        calls.append(1)
+        mins = 120 if len(calls) == 1 else 60      # current window 2h, previous 1h
+        return [("1700000000000000000", {"Action": "Drawing Closed", "TotalWorkMinutes": mins})]
+
+    monkeypatch.setattr(ra, "query_loki_range", fake_query)
+    body = client.get("/api/raindrop/analytics?days=14").json()
+    assert body["summary"]["total_work_hours"] == 2.0
+    assert body["summary"]["total_work_hours_prev"] == 1.0
 
 
 def test_leaderboard_uses_current_month(client, monkeypatch):

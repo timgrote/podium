@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Query
 
 from ..config import settings
-from ..services.keygen_client import count_active_licenses, fetch_trial_licenses
+from ..services.keygen_client import fetch_licenses, fetch_trial_licenses
 from ..services.loki_analytics import aggregate_dashboard, aggregate_errors, aggregate_events, query_loki_range
 
 logger = logging.getLogger("conductor")
@@ -26,12 +26,48 @@ def _parse_keygen_dt(value: str | None) -> datetime | None:
         return None
 
 
+# Statuses for a license that has been activated and is/was valid (excludes
+# INACTIVE = never activated, and SUSPENDED/BANNED).
+_ACTIVATED_STATUSES = {"ACTIVE", "EXPIRING", "EXPIRED"}
+
+
+def _count_active_at(licenses: list[dict], at: datetime, statuses: set[str] | None = None) -> int:
+    """Count licenses valid (created <= at < expiry) at a point in time.
+
+    If ``statuses`` is given, only licenses with one of those current statuses count.
+    """
+    n = 0
+    for lic in licenses:
+        if statuses is not None and lic.get("status") not in statuses:
+            continue
+        created = _parse_keygen_dt(lic.get("created"))
+        expiry = _parse_keygen_dt(lic.get("expiry"))
+        if created and expiry and created <= at < expiry:
+            n += 1
+    return n
+
+
+def _work_hours(entries: list[tuple[str, dict]]) -> float:
+    """Sum TotalWorkMinutes across Drawing Closed events, in hours."""
+    mins = sum(
+        float(entry.get("TotalWorkMinutes", 0) or 0)
+        for _, entry in entries
+        if entry.get("Action") == "Drawing Closed"
+    )
+    return round(mins / 60, 1)
+
+
 @router.get("/analytics")
 def get_analytics(days: int = Query(default=14, ge=1, le=90)):
     start, end, start_str, end_str = _date_range(days)
     logql = '{app="raindrop"} |= "Drawing Closed"'
     entries = query_loki_range(logql, start, end)
-    return aggregate_dashboard(entries, start_str, end_str)
+    result = aggregate_dashboard(entries, start_str, end_str)
+
+    # Previous equal-length window, for the Work Hours trend.
+    prev_entries = query_loki_range(logql, start - timedelta(days=days), start - timedelta(seconds=1))
+    result["summary"]["total_work_hours_prev"] = _work_hours(prev_entries)
+    return result
 
 
 @router.get("/exceptions")
@@ -42,7 +78,15 @@ def get_exceptions(days: int = Query(default=14, ge=1, le=90)):
     entries = query_loki_range(logql, start, end, limit=200)
     exceptions = aggregate_errors(entries, include_stack=True)
     unique_count = len({e["message"] for e in exceptions})
-    return {"exceptions": exceptions, "count": len(exceptions), "unique_count": unique_count}
+
+    # Previous equal-length window, for the Unique Exceptions trend.
+    prev_entries = query_loki_range(logql, start - timedelta(days=days), start - timedelta(seconds=1), limit=200)
+    unique_count_prev = len({e["message"] for e in aggregate_errors(prev_entries)})
+
+    return {
+        "exceptions": exceptions, "count": len(exceptions),
+        "unique_count": unique_count, "unique_count_prev": unique_count_prev,
+    }
 
 
 @router.get("/warnings")
@@ -64,21 +108,27 @@ def get_events(days: int = Query(default=1, ge=1, le=7), limit: int = Query(defa
 
 
 @router.get("/trials")
-def get_trials():
-    """Active Raindrop trials + trials expired in the last 30 days (from KeyGen)."""
+def get_trials(days: int = Query(default=14, ge=1, le=90)):
+    """Active Raindrop trials + trials expired in the last 30 days (from KeyGen).
+
+    Includes prior-window counts (``days`` ago) for licensed/trial trend arrows,
+    derived from each license's created/expiry dates.
+    """
     if not settings.keygen_api_token:
         return {
             "active": [], "expired_recent": [],
-            "active_count": 0, "expired_recent_count": 0,
-            "licensed_active_count": 0, "available": False,
+            "active_count": 0, "expired_recent_count": 0, "active_trials_prev": 0,
+            "licensed_active_count": 0, "licensed_active_prev": 0, "available": False,
         }
 
-    licenses = fetch_trial_licenses()
+    trial_licenses = fetch_trial_licenses()
+    yearly_licenses = fetch_licenses(settings.keygen_yearly_policy_id)
     now = datetime.now(timezone.utc)
+    past = now - timedelta(days=days)
     cutoff = now - timedelta(days=30)
     active, expired = [], []
 
-    for lic in licenses:
+    for lic in trial_licenses:
         expiry = _parse_keygen_dt(lic.get("expiry"))
         if expiry is None:
             continue
@@ -94,12 +144,13 @@ def get_trials():
     active.sort(key=lambda x: x["days_remaining"])
     expired.sort(key=lambda x: x["days_since_expiry"])
 
-    licensed_active_count = count_active_licenses(settings.keygen_yearly_policy_id)
-
     return {
         "active": active, "expired_recent": expired,
         "active_count": len(active), "expired_recent_count": len(expired),
-        "licensed_active_count": licensed_active_count, "available": True,
+        "active_trials_prev": _count_active_at(trial_licenses, past),
+        "licensed_active_count": _count_active_at(yearly_licenses, now, _ACTIVATED_STATUSES),
+        "licensed_active_prev": _count_active_at(yearly_licenses, past, _ACTIVATED_STATUSES),
+        "available": True,
     }
 
 
