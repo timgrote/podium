@@ -61,3 +61,26 @@ def test_returns_empty_on_http_error(monkeypatch):
 
     monkeypatch.setattr(kc.httpx, "get", boom)
     assert kc.fetch_trial_licenses() == []
+
+
+def test_count_active_licenses(monkeypatch):
+    monkeypatch.setattr(settings, "keygen_api_token", "prod-test")
+    licenses = [
+        {"id": "1", "name": "A", "email": "a@x.com", "created": "2026-01-01T00:00:00.000Z",
+         "expiry": "2027-01-01T00:00:00.000Z", "status": "ACTIVE"},
+        {"id": "2", "name": "B", "email": "b@x.com", "created": "2025-01-01T00:00:00.000Z",
+         "expiry": "2026-01-01T00:00:00.000Z", "status": "EXPIRED"},
+        {"id": "3", "name": "C", "email": "c@x.com", "created": "2026-01-01T00:00:00.000Z",
+         "expiry": "2027-01-01T00:00:00.000Z", "status": "ACTIVE"},
+    ]
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        return _FakeResp(_page(licenses))
+
+    monkeypatch.setattr(kc.httpx, "get", fake_get)
+    assert kc.count_active_licenses("any-policy") == 2
+
+
+def test_count_active_licenses_empty_when_token_unset(monkeypatch):
+    monkeypatch.setattr(settings, "keygen_api_token", "")
+    assert kc.count_active_licenses("any-policy") == 0

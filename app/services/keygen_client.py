@@ -10,15 +10,15 @@ KEYGEN_BASE = "https://api.keygen.sh/v1"
 PAGE_SIZE = 100
 
 
-def fetch_trial_licenses() -> list[dict]:
-    """Fetch all Raindrop trial licenses from KeyGen.
+def fetch_licenses(policy_id: str) -> list[dict]:
+    """Fetch all licenses under a policy from KeyGen.
 
-    Returns a list of normalized dicts ``{name, email, created, expiry, status}``.
+    Returns normalized dicts ``{name, email, created, expiry, status}``.
     Returns ``[]`` if the token is unset or on any HTTP error (never raises).
     """
     token = settings.keygen_api_token
     if not token:
-        logger.warning("CONDUCTOR_KEYGEN_API_TOKEN not set; skipping trial fetch")
+        logger.warning("CONDUCTOR_KEYGEN_API_TOKEN not set; skipping license fetch")
         return []
 
     url = f"{KEYGEN_BASE}/accounts/{settings.keygen_account_id}/licenses"
@@ -32,7 +32,7 @@ def fetch_trial_licenses() -> list[dict]:
     try:
         while True:
             params = {
-                "policy": settings.keygen_trial_policy_id,
+                "policy": policy_id,
                 "page[number]": page,
                 "page[size]": PAGE_SIZE,
             }
@@ -52,7 +52,17 @@ def fetch_trial_licenses() -> list[dict]:
                 break
             page += 1
     except Exception as e:
-        logger.warning(f"KeyGen trial fetch failed: {e}")
+        logger.warning(f"KeyGen license fetch failed: {e}")
         return []
 
     return results
+
+
+def fetch_trial_licenses() -> list[dict]:
+    """Fetch all Raindrop trial licenses (the trial policy)."""
+    return fetch_licenses(settings.keygen_trial_policy_id)
+
+
+def count_active_licenses(policy_id: str) -> int:
+    """Count licenses under a policy whose status is ACTIVE."""
+    return sum(1 for lic in fetch_licenses(policy_id) if lic.get("status") == "ACTIVE")
