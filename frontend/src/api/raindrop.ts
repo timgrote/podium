@@ -48,7 +48,6 @@ export interface RaindropAnalytics {
   daily_work_hours: DailyStat[]
   hourly_distribution: HourlyStat[]
   user_stats: UserStat[]
-  insights: string[]
 }
 
 export interface RaindropException {

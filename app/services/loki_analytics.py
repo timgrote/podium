@@ -164,24 +164,6 @@ def aggregate_dashboard(entries: list[tuple[str, dict]], start_date: str, end_da
         reverse=True,
     )
 
-    # Compute insights
-    insights = []
-    if user_stats:
-        top = user_stats[0]
-        insights.append(f"{top['user'].title()} is the most active user with {top['work_hours']}h")
-    if any(h["count"] > 0 for h in hourly_distribution):
-        peak = max(hourly_distribution, key=lambda x: x["count"])
-        insights.append(f"Peak usage hour: {peak['hour']}:00")
-    if total_sessions > 0:
-        avg_session = round(total_work_mins / total_sessions, 1)
-        insights.append(f"Average session: {avg_session} min active work")
-    if total_open_mins > 0:
-        productivity = round(total_work_mins / total_open_mins * 100, 1)
-        insights.append(f"Productivity ratio: {productivity}% active time")
-    if total_commands > 0:
-        adoption = round(total_raindrop / total_commands * 100, 1)
-        insights.append(f"Raindrop command adoption: {adoption}%")
-
     return {
         "period": {"start": start_date, "end": end_date},
         "summary": {
@@ -200,7 +182,6 @@ def aggregate_dashboard(entries: list[tuple[str, dict]], start_date: str, end_da
         "daily_work_hours": daily_work_hours_list,
         "hourly_distribution": hourly_distribution,
         "user_stats": user_stats,
-        "insights": insights,
     }
 
 

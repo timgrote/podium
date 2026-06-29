@@ -542,17 +542,6 @@ function formatErrorTime(ts: string): string {
         </div>
       </div>
 
-      <!-- Insights -->
-      <div class="insights-section" v-if="analytics.insights.length">
-        <h2>Insights</h2>
-        <div class="insights-grid">
-          <div class="insight-card" v-for="(insight, i) in analytics.insights" :key="i">
-            <i class="pi pi-info-circle"></i>
-            <span>{{ insight }}</span>
-          </div>
-        </div>
-      </div>
-
       <!-- User Leaderboard (current month) -->
       <div class="table-section" v-if="leaderboard && leaderboard.user_stats.length">
         <h2>User Leaderboard (this month)</h2>
@@ -917,41 +906,6 @@ function formatErrorTime(ts: string): string {
 
 .chart-section.half {
   margin-bottom: 1.5rem;
-}
-
-/* Insights */
-.insights-section {
-  margin-bottom: 1.5rem;
-}
-
-.insights-section h2 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--p-text-color);
-  margin: 0 0 0.75rem 0;
-}
-
-.insights-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.insight-card {
-  background: var(--p-content-background);
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--p-text-color);
-}
-
-.insight-card i {
-  color: var(--p-primary-color);
-  font-size: 0.875rem;
 }
 
 /* Tables */
