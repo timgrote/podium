@@ -5,8 +5,8 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import SelectButton from 'primevue/selectbutton'
 import ProgressSpinner from 'primevue/progressspinner'
-import { getRaindropAnalytics, getRaindropExceptions, getRaindropWarnings, getRaindropTrials } from '../api/raindrop'
-import type { RaindropAnalytics, RaindropExceptions, RaindropWarnings, RaindropTrials } from '../api/raindrop'
+import { getRaindropAnalytics, getRaindropExceptions, getRaindropWarnings, getRaindropTrials, getRaindropLeaderboard } from '../api/raindrop'
+import type { RaindropAnalytics, RaindropExceptions, RaindropWarnings, RaindropTrials, RaindropLeaderboard, RaindropException } from '../api/raindrop'
 import { useToast } from '../composables/useToast'
 
 const days = ref(14)
@@ -28,6 +28,7 @@ const toast = useToast()
 const trials = ref<RaindropTrials | null>(null)
 const trialsLoading = ref(true)
 const trialsError = ref('')
+const leaderboard = ref<RaindropLeaderboard | null>(null)
 
 const visibleExceptions = computed(() => {
   if (!exceptions.value) return []
@@ -71,13 +72,46 @@ async function loadTrials() {
   }
 }
 
-async function copyEmail(email: string) {
+async function loadLeaderboard() {
   try {
-    await navigator.clipboard.writeText(email)
-    toast.success('Copied', email)
+    leaderboard.value = await getRaindropLeaderboard()
+  } catch {
+    leaderboard.value = null
+  }
+}
+
+async function copyToClipboard(text: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('Copied', label)
   } catch {
     toast.error('Copy failed')
   }
+}
+
+function copyEmail(email: string) {
+  return copyToClipboard(email, email)
+}
+
+function formatExceptionLog(exc: RaindropException): string {
+  const ex = typeof exc.exception === 'object'
+    ? `${exc.exception.Type}: ${exc.exception.Message}`
+    : (exc.exception || '')
+  return [
+    'Raindrop Exception',
+    `Time: ${exc.timestamp}`,
+    `User: ${exc.user}${exc.machine ? ` (${exc.machine})` : ''}`,
+    exc.app_version ? `Version: ${exc.app_version}` : '',
+    exc.drawing ? `Drawing: ${exc.drawing}` : '',
+    `Level: ${exc.level}`,
+    `Message: ${exc.message}`,
+    ex ? `Exception: ${ex}` : '',
+    exc.stack_trace ? `\nStack trace:\n${exc.stack_trace}` : '',
+  ].filter(Boolean).join('\n')
+}
+
+function copyExceptionLog(exc: RaindropException) {
+  return copyToClipboard(formatExceptionLog(exc), 'Exception log')
 }
 
 function formatTrialDate(iso: string | null): string {
@@ -88,6 +122,7 @@ function formatTrialDate(iso: string | null): string {
 onMounted(() => {
   load()
   loadTrials()
+  loadLeaderboard()
 })
 watch(days, load)
 
@@ -220,76 +255,6 @@ function formatErrorTime(ts: string): string {
       />
     </div>
 
-    <!-- Trials Panel -->
-    <div class="trials-panel">
-      <div class="trials-header">
-        <i class="pi pi-id-card"></i>
-        <h2>Trials</h2>
-        <span class="trials-counts" v-if="trials && trials.available">
-          {{ trials.active_count }} active · {{ trials.expired_recent_count }} expired (30d)
-        </span>
-      </div>
-
-      <div v-if="trialsLoading" class="trials-state"><ProgressSpinner style="width:32px;height:32px" /></div>
-      <div v-else-if="trialsError" class="trials-state">{{ trialsError }}</div>
-      <div v-else-if="trials && !trials.available" class="trials-state">KeyGen not configured.</div>
-      <template v-else-if="trials">
-        <div class="table-section">
-          <h3>Active Trials</h3>
-          <p v-if="!trials.active.length" class="trials-state">No active trials.</p>
-          <DataTable v-else :value="trials.active" stripedRows size="small"
-                     :paginator="trials.active.length > 10" :rows="10" sortField="days_remaining" :sortOrder="1">
-            <Column field="name" header="Name" sortable />
-            <Column field="email" header="Email">
-              <template #body="{ data }">
-                <span class="email-cell">{{ data.email }}
-                  <button class="copy-btn" @click="copyEmail(data.email)" title="Copy email">
-                    <i class="pi pi-copy"></i>
-                  </button>
-                </span>
-              </template>
-            </Column>
-            <Column field="created" header="Started" sortable>
-              <template #body="{ data }">{{ formatTrialDate(data.created) }}</template>
-            </Column>
-            <Column field="expiry" header="Expires" sortable>
-              <template #body="{ data }">{{ formatTrialDate(data.expiry) }}</template>
-            </Column>
-            <Column field="days_remaining" header="Days Left" sortable>
-              <template #body="{ data }">{{ data.days_remaining }}d</template>
-            </Column>
-          </DataTable>
-        </div>
-
-        <div class="table-section">
-          <h3>Recently Expired (last 30 days)</h3>
-          <p v-if="!trials.expired_recent.length" class="trials-state">None expired in the last 30 days.</p>
-          <DataTable v-else :value="trials.expired_recent" stripedRows size="small"
-                     :paginator="trials.expired_recent.length > 10" :rows="10" sortField="days_since_expiry" :sortOrder="1">
-            <Column field="name" header="Name" sortable />
-            <Column field="email" header="Email">
-              <template #body="{ data }">
-                <span class="email-cell">{{ data.email }}
-                  <button class="copy-btn" @click="copyEmail(data.email)" title="Copy email">
-                    <i class="pi pi-copy"></i>
-                  </button>
-                </span>
-              </template>
-            </Column>
-            <Column field="created" header="Started" sortable>
-              <template #body="{ data }">{{ formatTrialDate(data.created) }}</template>
-            </Column>
-            <Column field="expiry" header="Expired On" sortable>
-              <template #body="{ data }">{{ formatTrialDate(data.expiry) }}</template>
-            </Column>
-            <Column field="days_since_expiry" header="Days Ago" sortable>
-              <template #body="{ data }">{{ data.days_since_expiry }}d ago</template>
-            </Column>
-          </DataTable>
-        </div>
-      </template>
-    </div>
-
     <!-- Loading -->
     <div v-if="loading" class="loading-state">
       <ProgressSpinner />
@@ -304,6 +269,38 @@ function formatErrorTime(ts: string): string {
 
     <!-- Dashboard -->
     <template v-else-if="analytics">
+      <!-- Stat Cards -->
+      <div class="stats-bar">
+        <div class="stat-card">
+          <div class="stat-label">Licensed Users</div>
+          <div class="stat-value accent">{{ trials ? trials.licensed_active_count : '—' }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Trials</div>
+          <div class="stat-value">{{ trials ? trials.active_count : '—' }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Sessions</div>
+          <div class="stat-value">{{ analytics.summary.total_sessions }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Users</div>
+          <div class="stat-value accent">{{ analytics.summary.unique_users }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Work Hours</div>
+          <div class="stat-value">{{ analytics.summary.total_work_hours }}h</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Commands</div>
+          <div class="stat-value">{{ analytics.summary.total_commands.toLocaleString() }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Raindrop Adoption</div>
+          <div class="stat-value accent">{{ analytics.summary.raindrop_adoption_pct }}%</div>
+        </div>
+      </div>
+
       <!-- Exceptions Panel -->
       <div class="exceptions-panel" v-if="exceptions">
         <div class="exceptions-header" :class="{ 'has-exceptions': exceptions.count > 0 }">
@@ -336,6 +333,9 @@ function formatErrorTime(ts: string): string {
                 <template v-else>{{ exc.exception }}</template>
               </div>
               <pre v-if="exc.stack_trace" class="stack-trace">{{ exc.stack_trace }}</pre>
+              <button class="copy-log-btn" @click.stop="copyExceptionLog(exc)">
+                <i class="pi pi-copy"></i> Copy Log
+              </button>
             </div>
           </div>
           <button
@@ -348,28 +348,74 @@ function formatErrorTime(ts: string): string {
         </div>
       </div>
 
-      <!-- Stat Cards -->
-      <div class="stats-bar">
-        <div class="stat-card">
-          <div class="stat-label">Sessions</div>
-          <div class="stat-value">{{ analytics.summary.total_sessions }}</div>
+      <!-- Trials Panel -->
+      <div class="trials-panel">
+        <div class="trials-header">
+          <i class="pi pi-id-card"></i>
+          <h2>Trials</h2>
+          <span class="trials-counts" v-if="trials && trials.available">
+            {{ trials.active_count }} active · {{ trials.expired_recent_count }} expired (30d)
+          </span>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Active Users</div>
-          <div class="stat-value accent">{{ analytics.summary.unique_users }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Work Hours</div>
-          <div class="stat-value">{{ analytics.summary.total_work_hours }}h</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Commands</div>
-          <div class="stat-value">{{ analytics.summary.total_commands.toLocaleString() }}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Raindrop Adoption</div>
-          <div class="stat-value accent">{{ analytics.summary.raindrop_adoption_pct }}%</div>
-        </div>
+
+        <div v-if="trialsLoading" class="trials-state"><ProgressSpinner style="width:32px;height:32px" /></div>
+        <div v-else-if="trialsError" class="trials-state">{{ trialsError }}</div>
+        <div v-else-if="trials && !trials.available" class="trials-state">KeyGen not configured.</div>
+        <template v-else-if="trials">
+          <div class="table-section">
+            <h3>Active Trials</h3>
+            <p v-if="!trials.active.length" class="trials-state">No active trials.</p>
+            <DataTable v-else :value="trials.active" stripedRows size="small"
+                       :paginator="trials.active.length > 10" :rows="10" sortField="days_remaining" :sortOrder="1">
+              <Column field="name" header="Name" sortable />
+              <Column field="email" header="Email">
+                <template #body="{ data }">
+                  <span class="email-cell">{{ data.email }}
+                    <button class="copy-btn" @click="copyEmail(data.email)" title="Copy email">
+                      <i class="pi pi-copy"></i>
+                    </button>
+                  </span>
+                </template>
+              </Column>
+              <Column field="created" header="Started" sortable>
+                <template #body="{ data }">{{ formatTrialDate(data.created) }}</template>
+              </Column>
+              <Column field="expiry" header="Expires" sortable>
+                <template #body="{ data }">{{ formatTrialDate(data.expiry) }}</template>
+              </Column>
+              <Column field="days_remaining" header="Days Left" sortable>
+                <template #body="{ data }">{{ data.days_remaining }}d</template>
+              </Column>
+            </DataTable>
+          </div>
+
+          <div class="table-section">
+            <h3>Recently Expired (last 30 days)</h3>
+            <p v-if="!trials.expired_recent.length" class="trials-state">None expired in the last 30 days.</p>
+            <DataTable v-else :value="trials.expired_recent" stripedRows size="small"
+                       :paginator="trials.expired_recent.length > 10" :rows="10" sortField="days_since_expiry" :sortOrder="1">
+              <Column field="name" header="Name" sortable />
+              <Column field="email" header="Email">
+                <template #body="{ data }">
+                  <span class="email-cell">{{ data.email }}
+                    <button class="copy-btn" @click="copyEmail(data.email)" title="Copy email">
+                      <i class="pi pi-copy"></i>
+                    </button>
+                  </span>
+                </template>
+              </Column>
+              <Column field="created" header="Started" sortable>
+                <template #body="{ data }">{{ formatTrialDate(data.created) }}</template>
+              </Column>
+              <Column field="expiry" header="Expired On" sortable>
+                <template #body="{ data }">{{ formatTrialDate(data.expiry) }}</template>
+              </Column>
+              <Column field="days_since_expiry" header="Days Ago" sortable>
+                <template #body="{ data }">{{ data.days_since_expiry }}d ago</template>
+              </Column>
+            </DataTable>
+          </div>
+        </template>
       </div>
 
       <!-- Active Users Chart -->
@@ -415,10 +461,10 @@ function formatErrorTime(ts: string): string {
         </div>
       </div>
 
-      <!-- User Leaderboard -->
-      <div class="table-section" v-if="analytics.user_stats.length">
-        <h2>User Leaderboard</h2>
-        <DataTable :value="analytics.user_stats" stripedRows size="small">
+      <!-- User Leaderboard (current month) -->
+      <div class="table-section" v-if="leaderboard && leaderboard.user_stats.length">
+        <h2>User Leaderboard (this month)</h2>
+        <DataTable :value="leaderboard.user_stats" stripedRows size="small">
           <Column field="user" header="User">
             <template #body="{ data }">
               <span class="user-name">{{ data.user }}</span>
@@ -497,6 +543,20 @@ function formatErrorTime(ts: string): string {
   border-radius: 4px;
 }
 .copy-btn:hover { color: var(--primary-color, #3b82f6); background: var(--surface-hover, #f3f4f6); }
+.copy-log-btn {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--surface-border, #e5e7eb);
+  background: var(--surface-card, #fff);
+  color: var(--text-color, #374151);
+  font-size: 0.8rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.copy-log-btn:hover { border-color: var(--primary-color, #3b82f6); color: var(--primary-color, #3b82f6); }
 
 .page-header {
   display: flex;
