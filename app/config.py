@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     loki_url: str = "https://logging.raindropirrigationsoftware.com"
     loki_api_key: str = ""
 
+    # KeyGen (Raindrop trial licenses)
+    keygen_api_token: str = ""
+    keygen_account_id: str = "40280a53-8cd5-4b54-9813-04727b10810f"
+    keygen_trial_policy_id: str = "42090eb8-6372-40b3-b6b9-fe5e6e6e058b"
+
     # Proposal settings
     proposal_template_id: str = "1PnVd8O3VgQKDLx8YpqY30U-JvXMdEleASRC87qPxZf4"
     proposal_drive_folder_id: str = "1no2lFCwH3xzPgNc5cG5Gei1GrO47-R8H"
