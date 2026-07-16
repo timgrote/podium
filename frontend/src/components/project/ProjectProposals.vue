@@ -123,6 +123,15 @@ function hasGoogleDoc(proposal: { data_path: string | null }): boolean {
             <i class="pi pi-external-link" />
           </a>
           <button
+            v-if="hasGoogleDoc(proposal)"
+            class="btn-icon"
+            title="Regenerate Google Doc (creates a new one)"
+            :disabled="!!proposalBusy[proposal.id]"
+            @click="genProposalDoc(proposal.id)"
+          >
+            <i class="pi" :class="proposalBusy[proposal.id] === 'gen' ? 'pi-spin pi-spinner' : 'pi-refresh'" />
+          </button>
+          <button
             v-if="hasGoogleDoc(proposal) && !proposal.pdf_path"
             class="btn-icon"
             title="Export PDF"

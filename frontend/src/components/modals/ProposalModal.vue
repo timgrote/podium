@@ -23,7 +23,12 @@ const { user } = useAuth()
 const saving = ref(false)
 const loading = ref(false)
 const generateGoogleDoc = ref(true)
+const regenerateDoc = ref(true)
 const dataPath = ref<string | null>(null)
+
+const hasExistingDoc = computed(
+  () => !!dataPath.value && dataPath.value.includes('google.com')
+)
 
 function parseProposalDate(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
@@ -70,6 +75,7 @@ watch(visible, async (val) => {
     if (props.proposalId) {
       // Edit mode
       generateGoogleDoc.value = false
+      regenerateDoc.value = true
       const p = await getProposal(props.proposalId)
       dataPath.value = p.data_path || null
       form.value = {
@@ -173,6 +179,13 @@ const totalFee = computed(() =>
   tasks.value.reduce((s, t) => s + (t.amount || 0), 0)
 )
 
+const saveLabel = computed(() => {
+  if (!props.proposalId) {
+    return generateGoogleDoc.value ? 'Save & Generate Doc' : 'Save'
+  }
+  return regenerateDoc.value && hasExistingDoc.value ? 'Save & Regenerate Doc' : 'Save'
+})
+
 async function save() {
   saving.value = true
   try {
@@ -196,6 +209,24 @@ async function save() {
         tasks: validTasks,
       })
       toast.success('Proposal updated')
+
+      if (regenerateDoc.value && hasExistingDoc.value) {
+        // Open window immediately to avoid popup blocker (doc generation takes ~12s)
+        const docWindow = window.open('about:blank', '_blank')
+        try {
+          toast.success('Regenerating Google Doc...')
+          const result = await generateDoc(props.proposalId)
+          toast.success('Google Doc regenerated')
+          if (result.data_path && docWindow) {
+            docWindow.location.href = result.data_path
+          } else if (result.data_path) {
+            window.open(result.data_path, '_blank')
+          }
+        } catch (e) {
+          if (docWindow) docWindow.close()
+          toast.error('Proposal saved but Google Doc regeneration failed: ' + String(e))
+        }
+      }
     } else {
       const created = await createProposal({
         project_id: props.projectId,
@@ -330,11 +361,15 @@ async function save() {
         <input v-model="generateGoogleDoc" type="checkbox" />
         Generate Google Doc
       </label>
+      <label v-if="proposalId && hasExistingDoc" class="checkbox-row">
+        <input v-model="regenerateDoc" type="checkbox" />
+        Regenerate Google Doc (creates a new one)
+      </label>
     </div>
     <template #footer>
       <button class="btn" @click="visible = false">Cancel</button>
       <button class="btn btn-primary" :disabled="saving" @click="save">
-        {{ saving ? 'Saving...' : (generateGoogleDoc && !proposalId ? 'Save & Generate Doc' : 'Save') }}
+        {{ saving ? 'Saving...' : saveLabel }}
       </button>
     </template>
   </Dialog>
