@@ -56,6 +56,8 @@ const form = ref({
 const tasks = ref<{ name: string; description: string; amount: number }[]>([])
 const engineers = ref<Record<string, { name: string; title: string }>>({})
 const expandedTask = ref<number | null>(null)
+const dragIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
 
 watch(visible, async (val) => {
   if (!val) return
@@ -124,6 +126,8 @@ function onEngineerChange() {
 
 function addTask() {
   tasks.value.push({ name: '', description: '', amount: 0 })
+  // Expand the new task's description so it's ready to fill in
+  expandedTask.value = tasks.value.length - 1
 }
 
 function removeTask(i: number) {
@@ -134,6 +138,35 @@ function removeTask(i: number) {
 
 function toggleDescription(i: number) {
   expandedTask.value = expandedTask.value === i ? null : i
+}
+
+function onDragStart(i: number) {
+  dragIndex.value = i
+  // Collapse any open description so index tracking stays simple during reorder
+  expandedTask.value = null
+}
+
+function onDragOver(i: number) {
+  dragOverIndex.value = i
+}
+
+function onDrop(target: number) {
+  const from = dragIndex.value
+  if (from === null || from === target) {
+    dragIndex.value = null
+    dragOverIndex.value = null
+    return
+  }
+  const [moved] = tasks.value.splice(from, 1)
+  if (!moved) return
+  tasks.value.splice(target, 0, moved)
+  dragIndex.value = null
+  dragOverIndex.value = null
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+  dragOverIndex.value = null
 }
 
 const totalFee = computed(() =>
@@ -209,6 +242,7 @@ async function save() {
     :header="proposalId ? 'Edit Proposal' : 'New Proposal'"
     :modal="true"
     :style="{ width: '640px' }"
+    :pt="{ root: { style: 'resize: both; overflow: auto; min-width: 400px; max-width: 95vw; max-height: 95vh;' } }"
   >
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else class="form">
@@ -254,8 +288,24 @@ async function save() {
           <h4>Tasks</h4>
           <button class="btn btn-sm" @click="addTask">+ Add Task</button>
         </div>
-        <div v-for="(task, i) in tasks" :key="i" class="task-entry">
+        <div
+          v-for="(task, i) in tasks"
+          :key="i"
+          class="task-entry"
+          :class="{ 'drag-over': dragOverIndex === i && dragIndex !== i, dragging: dragIndex === i }"
+          @dragover.prevent="onDragOver(i)"
+          @drop="onDrop(i)"
+        >
           <div class="task-row">
+            <span
+              class="drag-handle"
+              title="Drag to reorder"
+              draggable="true"
+              @dragstart="onDragStart(i)"
+              @dragend="onDragEnd"
+            >
+              <i class="pi pi-bars" />
+            </span>
             <button
               class="btn-expand"
               :title="expandedTask === i ? 'Hide description' : 'Show description'"
@@ -299,11 +349,15 @@ async function save() {
 .tasks-section { margin-top: 0.5rem; }
 .tasks-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
 .tasks-header h4 { margin: 0; font-size: 0.875rem; }
-.task-entry { margin-bottom: 0.375rem; }
+.task-entry { margin-bottom: 0.375rem; border-radius: 0.25rem; border-top: 2px solid transparent; }
+.task-entry.dragging { opacity: 0.5; }
+.task-entry.drag-over { border-top-color: var(--p-primary-color); }
 .task-row { display: flex; gap: 0.5rem; align-items: center; }
+.drag-handle { display: flex; align-items: center; color: var(--p-text-muted-color); cursor: grab; padding: 0.25rem; font-size: 0.75rem; }
+.drag-handle:active { cursor: grabbing; }
 .task-name { flex: 1; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .task-amount { width: 100px; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; text-align: right; background: var(--p-form-field-background); color: var(--p-text-color); }
-.task-description { padding-left: 1.75rem; margin-top: 0.25rem; }
+.task-description { padding-left: 3.25rem; margin-top: 0.25rem; }
 .task-description textarea { width: 100%; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; background: var(--p-form-field-background); color: var(--p-text-color); resize: vertical; font-family: inherit; }
 .btn-expand { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; padding: 0.25rem; font-size: 0.75rem; }
 .btn-remove { background: none; border: none; color: var(--p-red-600); cursor: pointer; font-size: 1.25rem; padding: 0 0.25rem; }
