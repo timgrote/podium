@@ -116,6 +116,7 @@ export interface ProposalTask {
   name: string
   description: string | null
   amount: number
+  billing_type: 'fixed' | 'time_expense'
   created_at: string | null
 }
 

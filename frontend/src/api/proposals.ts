@@ -27,7 +27,7 @@ export function createProposal(data: {
   contact_method?: string
   proposal_date?: string
   status?: string
-  tasks?: { name: string; description?: string; amount?: number }[]
+  tasks?: { name: string; description?: string; amount?: number; billing_type?: 'fixed' | 'time_expense' }[]
 }): Promise<Proposal> {
   return apiFetch('/proposals', {
     method: 'POST',

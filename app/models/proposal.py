@@ -5,6 +5,7 @@ class ProposalTaskCreate(BaseModel):
     name: str
     description: str | None = None
     amount: float = 0
+    billing_type: str = "fixed"
 
 
 class ProposalTaskUpdate(BaseModel):
@@ -12,6 +13,7 @@ class ProposalTaskUpdate(BaseModel):
     description: str | None = None
     amount: float | None = None
     sort_order: int | None = None
+    billing_type: str | None = None
 
 
 class ProposalCreate(BaseModel):
@@ -50,6 +52,7 @@ class ProposalGenerateTask(BaseModel):
     name: str
     description: str | None = None
     amount: float = 0
+    billing_type: str = "fixed"
 
 
 class ProposalGenerate(BaseModel):

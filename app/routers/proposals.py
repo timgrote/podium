@@ -180,9 +180,9 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
     for i, task in enumerate(data.tasks):
         task_id = generate_id("ptask-")
         db.execute(
-            "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (task_id, proposal_id, i + 1, task.name, task.description, task.amount, now),
+            "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, billing_type, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (task_id, proposal_id, i + 1, task.name, task.description, task.amount, task.billing_type, now),
         )
 
     db.commit()
@@ -321,10 +321,11 @@ def update_proposal(
         for i, task in enumerate(tasks):
             task_id = generate_id("ptask-")
             db.execute(
-                "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, created_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                "INSERT INTO proposal_tasks (id, proposal_id, sort_order, name, description, amount, billing_type, created_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                 (task_id, proposal_id, i + 1, task.get("name"),
-                 task.get("description"), task.get("amount") or 0, now),
+                 task.get("description"), task.get("amount") or 0,
+                 task.get("billing_type") or "fixed", now),
             )
 
     db.commit()
@@ -659,10 +660,11 @@ def promote_to_contract(
         ctask_id = generate_id("ctask-")
         db.execute(
             "INSERT INTO contract_tasks (id, contract_id, sort_order, name, description, amount, "
-            "billed_amount, billed_percent, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, 0, 0, %s, %s)",
+            "billing_type, billed_amount, billed_percent, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 0, %s, %s)",
             (ctask_id, contract_id, task["sort_order"], task["name"],
-             task["description"], task["amount"], now, now),
+             task["description"], task["amount"],
+             task.get("billing_type", "fixed"), now, now),
         )
 
     db.execute(

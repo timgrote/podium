@@ -162,6 +162,7 @@ CREATE TABLE proposal_tasks (
     name TEXT NOT NULL,
     description TEXT,
     amount NUMERIC(12,2) DEFAULT 0,
+    billing_type TEXT NOT NULL DEFAULT 'fixed', -- 'fixed' or 'time_expense'
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

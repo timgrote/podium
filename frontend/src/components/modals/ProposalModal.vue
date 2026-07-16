@@ -58,7 +58,7 @@ const form = ref({
   status: 'draft',
 })
 
-const tasks = ref<{ name: string; description: string; amount: number }[]>([])
+const tasks = ref<{ name: string; description: string; amount: number; billing_type: 'fixed' | 'time_expense' }[]>([])
 const engineers = ref<Record<string, { name: string; title: string }>>({})
 const expandedTask = ref<number | null>(null)
 const dragIndex = ref<number | null>(null)
@@ -89,6 +89,7 @@ watch(visible, async (val) => {
         name: t.name,
         description: t.description || '',
         amount: t.amount,
+        billing_type: t.billing_type || 'fixed',
       }))
     } else {
       // Create mode — pre-populate from defaults
@@ -112,6 +113,7 @@ watch(visible, async (val) => {
         name: t.name,
         description: t.description || '',
         amount: t.amount || 0,
+        billing_type: 'fixed',
       }))
     }
   } catch (e) {
@@ -131,7 +133,7 @@ function onEngineerChange() {
 }
 
 function addTask() {
-  tasks.value.push({ name: '', description: '', amount: 0 })
+  tasks.value.push({ name: '', description: '', amount: 0, billing_type: 'fixed' })
   // Expand the new task's description so it's ready to fill in
   expandedTask.value = tasks.value.length - 1
 }
@@ -346,6 +348,10 @@ async function save() {
             </button>
             <input v-model="task.name" placeholder="Task name" class="task-name" />
             <input v-model.number="task.amount" type="number" step="0.01" placeholder="Amount" class="task-amount" />
+            <select v-model="task.billing_type" class="task-type" title="Billing type">
+              <option value="fixed">Fixed</option>
+              <option value="time_expense">T&amp;E</option>
+            </select>
             <button class="btn-remove" @click="removeTask(i)">&times;</button>
           </div>
           <div v-if="expandedTask === i" class="task-description">
@@ -392,6 +398,7 @@ async function save() {
 .drag-handle:active { cursor: grabbing; }
 .task-name { flex: 1; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .task-amount { width: 100px; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; text-align: right; background: var(--p-form-field-background); color: var(--p-text-color); }
+.task-type { width: 72px; padding: 0.375rem 0.25rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.75rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .task-description { padding-left: 3.25rem; margin-top: 0.25rem; }
 .task-description textarea { width: 100%; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem; font-size: 0.8125rem; background: var(--p-form-field-background); color: var(--p-text-color); resize: vertical; font-family: inherit; }
 .btn-expand { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; padding: 0.25rem; font-size: 0.75rem; }
