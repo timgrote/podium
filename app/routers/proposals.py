@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from ..config import settings
 from ..database import get_db
@@ -463,6 +464,48 @@ def export_pdf(proposal_id: str, db=Depends(get_db)):
         return result
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Download PDF (stream to browser as an attachment)
+# ---------------------------------------------------------------------------
+
+@router.get("/{proposal_id}/download-pdf")
+def download_pdf(proposal_id: str, db=Depends(get_db)):
+    """Render the proposal Google Doc to PDF and stream it as a browser download."""
+    proposal = _get_proposal_dict(db, proposal_id)
+
+    if not proposal["data_path"] or "docs.google.com" not in (proposal["data_path"] or ""):
+        raise HTTPException(status_code=400, detail="No Google Doc URL found. Generate doc first.")
+
+    doc_id = _extract_google_doc_id(proposal["data_path"])
+    if not doc_id:
+        raise HTTPException(status_code=400, detail="Could not parse Google Doc ID from URL")
+
+    try:
+        from ..proposal_renderer import export_google_doc_as_pdf
+
+        pdf_bytes = export_google_doc_as_pdf(doc_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    project = db.execute(
+        "SELECT name FROM projects WHERE id = %s AND deleted_at IS NULL", (proposal["project_id"],)
+    ).fetchone()
+    pdf_filename = f"Proposal - {project['name'] if project else proposal_id}.pdf"
+    ascii_filename = pdf_filename.encode("ascii", "ignore").decode("ascii") or "Proposal.pdf"
+    encoded_filename = quote(pdf_filename)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{ascii_filename}"; '
+                f"filename*=UTF-8''{encoded_filename}"
+            )
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

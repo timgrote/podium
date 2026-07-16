@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ProjectDetail } from '../../types'
-import { generateDoc, exportProposalPdf, sendProposal } from '../../api/proposals'
+import { generateDoc, exportProposalPdf, sendProposal, downloadProposalPdf } from '../../api/proposals'
 import { useToast } from '../../composables/useToast'
 
 const props = defineProps<{
@@ -51,6 +51,8 @@ async function exportPdf(proposalId: string) {
     await exportProposalPdf(proposalId)
     toast.success('PDF exported')
     emit('refreshProject')
+    // Also download a copy to the user's local machine
+    await downloadProposalPdf(proposalId, `Proposal - ${props.project.project_name || 'Proposal'}.pdf`)
   } catch (e) {
     toast.error(String(e))
   } finally {

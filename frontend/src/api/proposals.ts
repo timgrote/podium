@@ -49,6 +49,29 @@ export function deleteProposal(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/proposals/${id}`, { method: 'DELETE' })
 }
 
+// Fetches the proposal PDF and triggers a browser download to the local machine.
+export async function downloadProposalPdf(id: string, filename = 'Proposal.pdf'): Promise<void> {
+  const res = await fetch(`/api/proposals/${id}/download-pdf`)
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      detail = (await res.json()).detail || detail
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(detail)
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export function getProposalDefaults(): Promise<{
   tasks: { name: string; description?: string; amount: number }[]
   changes_task: { name: string; description?: string; amount: number }
