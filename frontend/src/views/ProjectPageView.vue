@@ -119,6 +119,8 @@ const projectIdRef = computed(() => project.value?.id || null)
 useProjectUpdates(projectIdRef, (eventType) => {
   if (eventType.startsWith('task_')) {
     tasksRef.value?.loadTasks?.()
+  } else if (eventType === 'deliverable_updated') {
+    tasksRef.value?.loadDeliverables?.()
   } else if (eventType === 'note_added' || eventType === 'note_deleted') {
     notesRef.value?.loadNotes?.()
   } else if (eventType === 'project_updated' || eventType === 'contract_updated' || eventType === 'invoice_updated' || eventType === 'proposal_updated') {

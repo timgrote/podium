@@ -9,6 +9,7 @@ import { useAuth } from '../../composables/useAuth'
 import { formatDate, isOverdue, todayStr } from '../../utils/dates'
 import { copyLink } from '../../utils/clipboard'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
+import ProjectDeliverables from './ProjectDeliverables.vue'
 import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const props = defineProps<{
@@ -40,6 +41,9 @@ const showCompletedTasks = ref(false)
 // Task detail modal
 const taskModalVisible = ref(false)
 const selectedTaskId = ref<string | null>(null)
+
+// Deliverables
+const deliverablesRef = ref<InstanceType<typeof ProjectDeliverables> | null>(null)
 
 const activeTasks = computed(() =>
   tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled')
@@ -220,11 +224,16 @@ function onTaskDescPaste(event: ClipboardEvent) {
   handlePasteImage(event, newTaskDescription)
 }
 
-defineExpose({ totalTaskCount, loadTasks })
+defineExpose({ totalTaskCount, loadTasks, loadDeliverables: () => deliverablesRef.value?.loadDeliverables?.() })
 </script>
 
 <template>
   <div class="section">
+    <ProjectDeliverables
+      ref="deliverablesRef"
+      :project="project"
+      @refresh-project="emit('refreshProject')"
+    />
     <div class="section-header tasks-header">
       <h4>Tasks</h4>
       <button v-if="!showNewTaskForm" class="btn-icon" title="Add task" @click="showNewTaskForm = true; if (user) newTaskAssigneeIds = [user.id]">

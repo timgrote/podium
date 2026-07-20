@@ -9,6 +9,7 @@ from ..events import event_bus
 from ..models.contract import ContractCreate, ContractTaskCreate, ContractTaskUpdate, ContractUpdate
 from ..models.invoice import InvoiceFromContract
 from ..utils import generate_id, next_invoice_number
+from .deliverables import auto_create_deliverables
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,10 @@ def create_contract(data: ContractCreate, db=Depends(get_db)):
                  task.get("billing_type", "fixed"), now, now),
             )
 
+    # Auto-create deliverables if contract is signed on creation
+    if data.signed_at:
+        auto_create_deliverables(db, data.project_id, contract_id, now)
+
     db.commit()
     event_bus.publish(data.project_id, "contract_updated", contract_id)
     return get_contract(contract_id, db)
@@ -131,6 +136,10 @@ def update_contract(contract_id: str, data: ContractUpdate, db=Depends(get_db)):
                  now, now),
             )
         _update_contract_total(db, contract_id)
+
+    # Auto-create deliverables when contract is first signed
+    if "signed_at" in field_updates and not existing["signed_at"]:
+        auto_create_deliverables(db, existing["project_id"], contract_id, now)
 
     db.commit()
     event_bus.publish(existing["project_id"], "contract_updated", contract_id)

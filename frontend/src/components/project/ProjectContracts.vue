@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { ProjectDetail } from '../../types'
-import { formatDate } from '../../utils/dates'
+import { formatDate, todayStr } from '../../utils/dates'
+import { updateContract } from '../../api/contracts'
+import { useToast } from '../../composables/useToast'
 
 const props = defineProps<{
   project: ProjectDetail
@@ -11,7 +14,11 @@ const emit = defineEmits<{
   editContract: [contractId: string]
   deleteContract: [contractId: string]
   createInvoice: [contractId: string]
+  refreshProject: []
 }>()
+
+const toast = useToast()
+const accepting = ref<string | null>(null)
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -21,6 +28,19 @@ function formatCurrency(value: number): string {
 
 function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`
+}
+
+async function acceptContract(contractId: string) {
+  accepting.value = contractId
+  try {
+    await updateContract(contractId, { signed_at: todayStr() })
+    toast.success('Contract accepted — deliverables created')
+    emit('refreshProject')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    accepting.value = null
+  }
 }
 </script>
 
@@ -40,6 +60,15 @@ function formatPercent(value: number): string {
           Signed {{ formatDate(contract.signed_at) }}
         </span>
         <div class="sub-card-actions">
+          <button
+            v-if="!contract.signed_at"
+            class="btn-icon btn-icon-green"
+            :title="accepting === contract.id ? 'Accepting...' : 'Accept Contract'"
+            :disabled="accepting === contract.id"
+            @click="acceptContract(contract.id)"
+          >
+            <i :class="accepting === contract.id ? 'pi pi-spin pi-spinner' : 'pi pi-check'" />
+          </button>
           <button class="btn-icon btn-icon-green" title="Create Invoice" @click="emit('createInvoice', contract.id)">
             <i class="pi pi-dollar" />
           </button>

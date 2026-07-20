@@ -6,6 +6,7 @@ from ..database import get_db
 from ..events import event_bus
 from ..models.project import ProjectContactAdd, ProjectContactResponse, ProjectCreate, ProjectDetail, ProjectNoteCreate, ProjectNoteResponse, ProjectSummary, ProjectUpdate
 from ..utils import generate_id, next_invoice_number, next_project_number
+from .deliverables import auto_create_deliverables
 
 router = APIRouter()
 
@@ -416,6 +417,10 @@ def create_project(data: ProjectCreate, db=Depends(get_db)):
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                 (task_id, contract_id, i + 1, task["name"], task.get("description"), task.get("amount", 0), now, now),
             )
+
+        # Auto-create deliverables if contract is signed at creation
+        if signed_at:
+            auto_create_deliverables(db, project_id, contract_id, now)
 
     db.commit()
     return get_project(project_id, db)

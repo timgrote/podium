@@ -14,6 +14,7 @@ export function useProjectUpdates(
       'task_created', 'task_updated', 'task_deleted',
       'note_added', 'note_deleted', 'project_updated',
       'contract_updated', 'invoice_updated', 'proposal_updated',
+      'deliverable_updated',
     ]
 
     for (const type of eventTypes) {

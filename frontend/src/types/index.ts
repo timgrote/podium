@@ -307,3 +307,17 @@ export interface WikiNote {
   created_at: string | null
   updated_at: string | null
 }
+
+export interface Deliverable {
+  id: string
+  project_id: string
+  contract_task_id: string | null
+  name: string
+  sort_order: number
+  status: 'not_started' | 'in_progress' | 'sent' | 'accepted'
+  progress_percent: number
+  deadline: string | null
+  sent_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}

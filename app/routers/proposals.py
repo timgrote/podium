@@ -16,6 +16,7 @@ from ..models.proposal import (
     ProposalUpdate,
 )
 from ..utils import generate_id
+from .deliverables import auto_create_deliverables
 
 logger = logging.getLogger(__name__)
 
@@ -709,6 +710,9 @@ def promote_to_contract(
              task["description"], task["amount"],
              task.get("billing_type", "fixed"), now, now),
         )
+
+    # Auto-create deliverables for each contract task
+    auto_create_deliverables(db, project_id, contract_id, now)
 
     db.execute(
         "UPDATE proposals SET status = 'accepted', deleted_at = %s, updated_at = %s WHERE id = %s",

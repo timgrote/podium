@@ -41,6 +41,7 @@ const emit = defineEmits<{
       @edit-contract="emit('editContract', $event)"
       @delete-contract="emit('deleteContract', $event)"
       @create-invoice="emit('createInvoice', $event)"
+      @refresh-project="emit('refreshProject')"
     />
 
     <ProjectProposals
