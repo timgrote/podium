@@ -29,6 +29,13 @@ const statusColors: Record<string, string> = {
   accepted: 'green',
 }
 
+const statusLabels: Record<string, string> = {
+  not_started: 'Not Started',
+  in_progress: 'In Progress',
+  sent: 'Sent',
+  accepted: 'Accepted',
+}
+
 watch(() => props.project.id, async () => {
   await loadDeliverables()
 }, { immediate: true })
@@ -154,6 +161,7 @@ defineExpose({ loadDeliverables })
           <i v-else-if="del.status === 'in_progress'" class="pi pi-spinner" />
           <i v-else class="pi pi-circle" />
         </span>
+        <span class="del-status-label" :class="'status-text-' + statusColors[del.status]">{{ statusLabels[del.status] }}</span>
 
         <span class="del-name">{{ del.name }}</span>
 
@@ -320,6 +328,20 @@ defineExpose({ loadDeliverables })
   background: var(--p-green-100);
   color: var(--p-green-600);
 }
+
+.del-status-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  flex-shrink: 0;
+  width: 5.5rem;
+}
+
+.del-status-label.status-text-gray { color: var(--p-surface-500); }
+.del-status-label.status-text-blue { color: var(--p-blue-600); }
+.del-status-label.status-text-amber { color: var(--p-amber-700); }
+.del-status-label.status-text-green { color: var(--p-green-600); }
 
 .del-name {
   flex: 1;
