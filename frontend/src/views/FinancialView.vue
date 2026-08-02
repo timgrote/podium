@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useInvoices } from '../composables/useInvoices'
 import { useToast } from '../composables/useToast'
 import InvoiceEditModal from '../components/modals/InvoiceEditModal.vue'
@@ -7,6 +8,7 @@ import InvoiceActionsModal from '../components/modals/InvoiceActionsModal.vue'
 import { formatDate as formatDateUtil, daysPastDue } from '../utils/dates'
 
 const toast = useToast()
+const router = useRouter()
 const {
   loading,
   searchQuery,
@@ -67,6 +69,10 @@ function formatDate(dateStr: string | null): string {
 function openEdit(invoiceId: string) {
   editingInvoiceId.value = invoiceId
   showEditModal.value = true
+}
+
+function goToProject(projectId: string) {
+  router.push(`/projects/${projectId}`)
 }
 
 function openActions(invoiceId: string) {
@@ -306,7 +312,14 @@ async function doBatchMarkPaid() {
             />
           </td>
           <td class="cell-name">{{ inv.invoice_number }}</td>
-          <td>{{ inv.project_name }}</td>
+          <td class="cell-project">
+            <a
+              v-if="inv.project_id"
+              class="project-link"
+              @click.stop="goToProject(inv.project_id)"
+            >{{ inv.project_name }}</a>
+            <span v-else>{{ inv.project_name }}</span>
+          </td>
           <td>{{ inv.client_name || '' }}</td>
           <td>{{ inv.pm_name || '' }}</td>
           <td>{{ formatDate(inv.invoice_date || inv.sent_at || inv.created_at) }}</td>
@@ -595,6 +608,15 @@ async function doBatchMarkPaid() {
 }
 
 .cell-name { font-weight: 500; }
+
+.cell-project .project-link {
+  color: var(--p-primary-color);
+  cursor: pointer;
+  text-decoration: none;
+}
+.cell-project .project-link:hover {
+  text-decoration: underline;
+}
 
 .row-clickable { cursor: pointer; }
 .row-clickable:hover td { background: var(--p-content-hover-background); }

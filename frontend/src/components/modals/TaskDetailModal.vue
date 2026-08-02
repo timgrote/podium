@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import Dialog from 'primevue/dialog'
-import type { Task, Employee } from '../../types'
-import { getTask, createTask, updateTask, deleteTask, addTaskNote, updateTaskNote, deleteTaskNote, uploadImage } from '../../api/tasks'
+import type { Task, Employee, ProjectSummary } from '../../types'
+import { getTask, createTask, updateTask, deleteTask, addTaskNote, updateTaskNote, deleteTaskNote, uploadImage, getTags, reorderTasks } from '../../api/tasks'
 import { getEmployees } from '../../api/employees'
+import { getProjects } from '../../api/projects'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
 import MarkdownRenderer from '../MarkdownRenderer.vue'
@@ -33,10 +34,20 @@ const noteSaving = ref(false)
 const imageUploading = ref(false)
 const descUploading = ref(false)
 const editingDescription = ref(false)
+const descAutoSaving = ref(false)
+let descSaveTimer: ReturnType<typeof setTimeout> | null = null
 function startEditDescription() {
   editingDescription.value = true
 }
 const showDeleteConfirm = ref(false)
+
+// Create-mode state
+const projects = ref<ProjectSummary[]>([])
+const newProjectId = ref('')
+const isCreateMode = computed(() => !props.taskId)
+const sortedProjects = computed(() =>
+  [...projects.value].sort((a, b) => (a.project_name || '').localeCompare(b.project_name || ''))
+)
 
 // Local form state (buffered until Save)
 const form = ref({
@@ -47,7 +58,13 @@ const form = ref({
   start_date: null as string | null,
   due_date: null as string | null,
   assignee_ids: [] as string[],
+  is_pinned: false,
+  tags: [] as string[],
 })
+const existingTags = ref<string[]>([])
+const newTag = ref('')
+const tagInputVisible = ref(false)
+
 function populateForm(t: Task) {
   form.value = {
     title: t.title,
@@ -57,9 +74,40 @@ function populateForm(t: Task) {
     start_date: t.start_date?.split('T')[0] ?? null,
     due_date: t.due_date?.split('T')[0] ?? null,
     assignee_ids: t.assignees?.map(a => a.id) ?? [],
+    is_pinned: t.is_pinned ?? false,
+    tags: [...(t.tags ?? [])],
   }
   editingDescription.value = false
+  // Track the last saved description so the watcher doesn't fire on populate
+  lastSavedDesc.value = t.description || null
 }
+
+// Auto-save description with debounce
+const lastSavedDesc = ref<string | null>(null)
+watch(() => form.value.description, (newDesc) => {
+  if (!task.value || !editingDescription.value) return
+  if (newDesc === lastSavedDesc.value) return
+  // Clear any pending save
+  if (descSaveTimer) clearTimeout(descSaveTimer)
+  descAutoSaving.value = true
+  descSaveTimer = setTimeout(async () => {
+    if (!task.value) return
+    try {
+      await updateTask(task.value.id, { description: newDesc?.trim() || null })
+      lastSavedDesc.value = newDesc || null
+      emit('saved')
+    } catch (e) {
+      toast.error(String(e))
+    } finally {
+      descAutoSaving.value = false
+    }
+  }, 1500)
+}, { deep: true })
+
+// Clear pending debounce on unmount so it doesn't fire after the modal closes
+onBeforeUnmount(() => {
+  if (descSaveTimer) clearTimeout(descSaveTimer)
+})
 
 function onPriorityChange(event: Event) {
   const val = (event.target as HTMLSelectElement).value
@@ -100,19 +148,45 @@ const sortedNotes = computed(() => {
 })
 
 watch(visible, async (val) => {
-  if (!val || !props.taskId) return
+  if (!val) return
   parentTaskId.value = null
   showDeleteConfirm.value = false
   editingNoteId.value = null
   loading.value = true
   try {
-    const [t, emps] = await Promise.all([
-      getTask(props.taskId),
-      getEmployees(),
-    ])
-    task.value = t
-    employees.value = emps
-    populateForm(t)
+    if (isCreateMode.value) {
+      const [emps, projs, tags] = await Promise.all([
+        getEmployees(),
+        projects.value.length ? Promise.resolve(projects.value) : getProjects(),
+        getTags(),
+      ])
+      employees.value = emps
+      projects.value = projs
+      existingTags.value = tags
+      task.value = null
+      newProjectId.value = props.projectId || ''
+      form.value = {
+        title: '',
+        description: null,
+        status: 'todo',
+        priority: null,
+        start_date: null,
+        due_date: null,
+        assignee_ids: user.value ? [user.value.id] : [],
+        is_pinned: false,
+        tags: [],
+      }
+    } else {
+      const [t, emps, tags] = await Promise.all([
+        getTask(props.taskId!),
+        getEmployees(),
+        getTags(),
+      ])
+      task.value = t
+      employees.value = emps
+      existingTags.value = tags
+      populateForm(t)
+    }
   } catch (e) {
     toast.error(String(e))
     visible.value = false
@@ -122,23 +196,43 @@ watch(visible, async (val) => {
 })
 
 async function saveAll() {
-  if (!task.value) return
   if (!form.value.title.trim()) {
     toast.error('Task title is required')
     return
   }
+  if (isCreateMode.value && !newProjectId.value) {
+    toast.error('Project is required')
+    return
+  }
   saving.value = true
   try {
-    task.value = await updateTask(task.value.id, {
-      title: form.value.title.trim(),
-      description: form.value.description?.trim() || null,
-      status: form.value.status,
-      priority: form.value.priority,
-      start_date: form.value.start_date || null,
-      due_date: form.value.due_date || null,
-      assignee_ids: form.value.assignee_ids,
-    })
-    populateForm(task.value)
+    if (isCreateMode.value) {
+      await createTask(newProjectId.value, {
+        title: form.value.title.trim(),
+        description: form.value.description?.trim() || null,
+        status: form.value.status,
+        priority: form.value.priority,
+        start_date: form.value.start_date || null,
+        due_date: form.value.due_date || null,
+        assignee_ids: form.value.assignee_ids,
+        is_pinned: form.value.is_pinned,
+        tags: form.value.tags,
+      })
+    } else {
+      if (!task.value) return
+      task.value = await updateTask(task.value.id, {
+        title: form.value.title.trim(),
+        description: form.value.description?.trim() || null,
+        status: form.value.status,
+        priority: form.value.priority,
+        start_date: form.value.start_date || null,
+        due_date: form.value.due_date || null,
+        assignee_ids: form.value.assignee_ids,
+        is_pinned: form.value.is_pinned,
+        tags: form.value.tags,
+      })
+      populateForm(task.value)
+    }
     emit('saved')
     visible.value = false
   } catch (e) {
@@ -187,6 +281,29 @@ function toggleAssignee(empId: string) {
   }
 
 }
+
+function togglePin() {
+  form.value.is_pinned = !form.value.is_pinned
+}
+
+function addTag() {
+  const tag = newTag.value.trim().toLowerCase()
+  if (!tag) return
+  if (!form.value.tags.includes(tag)) {
+    form.value.tags = [...form.value.tags, tag]
+  }
+  newTag.value = ''
+  tagInputVisible.value = false
+}
+
+function removeTag(tag: string) {
+  form.value.tags = form.value.tags.filter(t => t !== tag)
+}
+
+// Suggested tags: existing tags not already on the task
+const suggestedTags = computed(() =>
+  existingTags.value.filter(t => !form.value.tags.includes(t))
+)
 
 async function submitNote() {
   if (!newNote.value.trim() || !task.value) return
@@ -252,6 +369,65 @@ async function removeSubtask(subId: string) {
   } catch (e) {
     toast.error(String(e))
   }
+}
+
+// Subtask drag-and-drop reordering
+const draggingSubId = ref<string | null>(null)
+const dragOverSubId = ref<string | null>(null)
+
+function onSubtaskDragStart(subId: string, event: DragEvent) {
+  draggingSubId.value = subId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', subId)
+  }
+}
+
+function onSubtaskDragOver(subId: string, event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverSubId.value = subId
+}
+
+function onSubtaskDragLeave() {
+  dragOverSubId.value = null
+}
+
+async function onSubtaskDrop(targetId: string, event: DragEvent) {
+  event.preventDefault()
+  const sourceId = draggingSubId.value
+  draggingSubId.value = null
+  dragOverSubId.value = null
+  if (!sourceId || sourceId === targetId || !task.value?.subtasks) return
+
+  const subs = [...task.value.subtasks]
+  const fromIdx = subs.findIndex(s => s.id === sourceId)
+  const toIdx = subs.findIndex(s => s.id === targetId)
+  if (fromIdx === -1 || toIdx === -1) return
+
+  // Reorder locally
+  const [moved] = subs.splice(fromIdx, 1)
+  if (!moved) return
+  subs.splice(toIdx, 0, moved)
+
+  // Optimistically update local state
+  task.value.subtasks = subs.map((s, i) => ({ ...s, sort_order: i + 1 }))
+
+  // Persist sort_order updates in a single request
+  const items = subs.map((s, i) => ({ task_id: s.id, sort_order: i + 1 }))
+  try {
+    await reorderTasks(items)
+    emit('saved')
+  } catch (e) {
+    toast.error(String(e))
+    // Reload on failure
+    if (task.value) task.value = await getTask(task.value.id)
+  }
+}
+
+function onSubtaskDragEnd() {
+  draggingSubId.value = null
+  dragOverSubId.value = null
 }
 
 async function openSubtask(id: string) {
@@ -349,11 +525,22 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
     </template>
 
     <div v-if="loading" class="loading">Loading...</div>
-    <div v-else-if="task" class="task-detail">
+    <div v-else-if="task || isCreateMode" class="task-detail">
       <!-- Back to parent -->
       <button v-if="parentTaskId" class="btn btn-sm" @click="goBackToParent">
         <i class="pi pi-arrow-left" /> Back to parent task
       </button>
+
+      <!-- Project selector (create mode only) -->
+      <div v-if="isCreateMode" class="field">
+        <label>Project</label>
+        <select v-model="newProjectId">
+          <option value="" disabled>Select project...</option>
+          <option v-for="p in sortedProjects" :key="p.id" :value="p.id">
+            {{ p.project_name }}{{ p.job_code ? ` (${p.job_code})` : '' }}
+          </option>
+        </select>
+      </div>
 
       <!-- Status & Priority -->
       <div class="field-group">
@@ -368,6 +555,50 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
           <select :value="form.priority ?? ''" @change="onPriorityChange($event)">
             <option v-for="opt in priorityOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
+        </div>
+      </div>
+
+      <!-- Pin & Tags -->
+      <div class="field-group">
+        <div class="field">
+          <label>Pin</label>
+          <button
+            class="pin-toggle"
+            :class="{ active: form.is_pinned }"
+            @click="togglePin"
+          >
+            <i class="pi" :class="form.is_pinned ? 'pi-bookmark-fill' : 'pi-bookmark'" />
+            {{ form.is_pinned ? 'Pinned to top' : 'Pin to top' }}
+          </button>
+        </div>
+        <div class="field">
+          <label>Tags</label>
+          <div class="tag-editor">
+            <span v-for="tag in form.tags" :key="tag" class="tag-chip">
+              {{ tag }}
+              <button class="tag-remove" @click="removeTag(tag)">&times;</button>
+            </span>
+            <button
+              v-if="!tagInputVisible"
+              class="tag-add-btn"
+              @click="tagInputVisible = true"
+            >
+              <i class="pi pi-plus" /> Add tag
+            </button>
+            <input
+              v-else
+              v-model="newTag"
+              type="text"
+              class="tag-input"
+              placeholder="Tag name..."
+              list="tag-suggestions"
+              @keydown.enter="addTag"
+              @blur="addTag"
+            />
+            <datalist id="tag-suggestions">
+              <option v-for="tag in suggestedTags" :key="tag" :value="tag" />
+            </datalist>
+          </div>
         </div>
       </div>
 
@@ -409,6 +640,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
       <div class="field">
         <div class="desc-header">
           <label>Description</label>
+          <small v-if="descAutoSaving" class="auto-save-indicator">Saving…</small>
           <button
             v-if="!editingDescription && form.description"
             class="btn-edit-inline"
@@ -426,7 +658,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
       </div>
 
       <!-- Subtasks -->
-      <div v-if="!task.parent_id" class="section">
+      <div v-if="!isCreateMode && task && !task.parent_id" class="section">
         <div class="section-header">
           <label>Subtasks</label>
           <button class="btn-icon" :title="showSubtaskForm ? 'Cancel' : 'Add subtask'" @click="showSubtaskForm = !showSubtaskForm">
@@ -444,7 +676,15 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
             v-for="sub in task.subtasks"
             :key="sub.id"
             class="subtask-item"
+            :class="{ 'dragging': draggingSubId === sub.id, 'drag-over': dragOverSubId === sub.id }"
+            draggable="true"
+            @dragstart="onSubtaskDragStart(sub.id, $event)"
+            @dragover="onSubtaskDragOver(sub.id, $event)"
+            @dragleave="onSubtaskDragLeave"
+            @drop="onSubtaskDrop(sub.id, $event)"
+            @dragend="onSubtaskDragEnd"
           >
+            <i class="pi pi-bars subtask-grip" title="Drag to reorder" />
             <i class="pi" :class="sub.status === 'done' ? 'pi-check-circle' : 'pi-circle'" @click="openSubtask(sub.id)" />
             <span class="subtask-title" @click="openSubtask(sub.id)">{{ sub.title }}</span>
             <span class="subtask-status">{{ sub.status.replace('_', ' ') }}</span>
@@ -455,7 +695,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
       </div>
 
       <!-- Notes -->
-      <div class="section">
+      <div v-if="!isCreateMode" class="section">
         <label>Notes</label>
         <div class="add-note">
           <MarkdownEditor v-model="newNote" :rows="3" placeholder="Add a note..." @paste="handleNotePaste" />
@@ -485,7 +725,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
       </div>
 
       <!-- Delete -->
-      <div class="delete-section">
+      <div v-if="!isCreateMode" class="delete-section">
         <button v-if="!showDeleteConfirm" class="btn btn-danger btn-sm" @click="showDeleteConfirm = true">
           <i class="pi pi-trash" /> Delete Task
         </button>
@@ -521,6 +761,7 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
 .btn-edit-inline { background: none; border: none; color: var(--p-text-muted-color); cursor: pointer; font-size: 0.75rem; padding: 0.125rem 0.25rem; }
 .btn-edit-inline:hover { color: var(--p-primary-color); }
 .btn-edit-inline .pi { font-size: 0.6875rem; }
+.auto-save-indicator { color: var(--p-primary-color); font-size: 0.6875rem; font-style: italic; margin-left: 0.5rem; }
 
 .assignee-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .chip { padding: 0.25rem 0.625rem; border: 1px solid var(--p-content-border-color); border-radius: 9999px; font-size: 0.75rem; cursor: pointer; background: var(--p-content-background); color: var(--p-text-muted-color); transition: all 0.15s; }
@@ -535,8 +776,11 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
 .subtask-form { display: flex; gap: 0.375rem; align-items: center; margin-bottom: 0.5rem; }
 .subtask-input { flex: 1; padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem; font-size: 0.8125rem; background: var(--p-form-field-background); color: var(--p-text-color); }
 .subtask-list { display: flex; flex-direction: column; gap: 0.25rem; }
-.subtask-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; font-size: 0.8125rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; transition: background 0.15s; }
+.subtask-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; font-size: 0.8125rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; transition: background 0.15s, border-color 0.15s, opacity 0.15s; cursor: grab; }
 .subtask-item:hover { background: var(--p-content-hover-background); }
+.subtask-item.dragging { opacity: 0.4; cursor: grabbing; }
+.subtask-item.drag-over { border-color: var(--p-primary-color); border-top: 2px solid var(--p-primary-color); }
+.subtask-grip { font-size: 0.75rem; color: var(--p-text-muted-color); cursor: grab; }
 .subtask-item .pi { font-size: 0.75rem; color: var(--p-text-muted-color); cursor: pointer; }
 .subtask-title { flex: 1; cursor: pointer; }
 .subtask-status { font-size: 0.6875rem; text-transform: uppercase; color: var(--p-text-muted-color); }
@@ -575,4 +819,68 @@ async function handleDescriptionPaste(event: ClipboardEvent) {
 .upload-indicator { color: var(--p-primary-color); font-size: 0.75rem; font-style: italic; }
 
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+.pin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: all 0.15s;
+}
+.pin-toggle:hover { border-color: var(--p-primary-color); color: var(--p-text-color); }
+.pin-toggle.active { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
+.pin-toggle .pi { font-size: 0.75rem; }
+
+.tag-editor { display: flex; flex-wrap: wrap; gap: 0.375rem; align-items: center; }
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  background: var(--p-content-hover-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  color: var(--p-text-color);
+}
+.tag-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+  padding: 0 0.125rem;
+  line-height: 1;
+}
+.tag-remove:hover { color: var(--p-red-600); }
+.tag-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  border: 1px dashed var(--p-content-border-color);
+  border-radius: 9999px;
+  background: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+}
+.tag-add-btn:hover { border-color: var(--p-primary-color); color: var(--p-primary-color); }
+.tag-add-btn .pi { font-size: 0.625rem; }
+.tag-input {
+  padding: 0.1875rem 0.5rem;
+  border: 1px solid var(--p-form-field-border-color);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  background: var(--p-form-field-background);
+  color: var(--p-text-color);
+  width: 120px;
+}
+.tag-input:focus { outline: none; border-color: var(--p-primary-color); }
 </style>

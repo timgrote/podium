@@ -100,4 +100,11 @@ async def vue_spa_fallback(path: str):
     file_path = vue_dist / path
     if file_path.is_file():
         return FileResponse(file_path)
-    return FileResponse(vue_dist / "index.html")
+    # index.html must always be fetched fresh so the browser picks up new
+    # hashed JS bundles after a deploy.  Without this, browsers use heuristic
+    # caching on the ETag/Last-Modified and serve a stale index.html that
+    # references old chunk hashes.
+    return FileResponse(
+        vue_dist / "index.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )

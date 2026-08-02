@@ -3,11 +3,13 @@ import { ref, onMounted } from 'vue'
 import Toast from 'primevue/toast'
 import { useColorMode } from '../composables/useColorMode'
 import { useAuth } from '../composables/useAuth'
+import { useEnvironment } from '../composables/useEnvironment'
 import { getCompanySettings } from '../api/company'
 
 const sidebarCollapsed = ref(false)
 const { isDark, toggleColorMode } = useColorMode()
 const { user, logout } = useAuth()
+const { isTestServer } = useEnvironment()
 const showUserMenu = ref(false)
 const companyName = ref('')
 
@@ -44,7 +46,10 @@ function handleLogout() {
 
 <template>
   <Toast />
-  <div class="layout">
+  <div v-if="isTestServer" class="test-banner">
+    ⚠️ TEST SERVER — not production
+  </div>
+  <div class="layout" :class="{ 'test-mode': isTestServer }">
     <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
         <div v-if="!sidebarCollapsed" class="sidebar-brand">
@@ -316,5 +321,27 @@ function handleLogout() {
 
 .sidebar.collapsed + .main-content {
   margin-left: 60px;
+}
+
+/* Test server banner */
+.test-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #f59e0b;
+  color: #1a1a1a;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0;
+  letter-spacing: 0.05em;
+}
+.layout.test-mode {
+  padding-top: 1.5rem;
+}
+.layout.test-mode .sidebar {
+  border-left: 3px solid #f59e0b;
 }
 </style>

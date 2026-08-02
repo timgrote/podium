@@ -33,6 +33,8 @@ class TaskCreate(BaseModel):
     priority: int | None = None
     sort_order: int = 0
     assignee_ids: list[str] | None = None
+    is_pinned: bool = False
+    tags: list[str] | None = None
 
 
 class TaskUpdate(BaseModel):
@@ -46,6 +48,8 @@ class TaskUpdate(BaseModel):
     parent_id: str | None = None
     sort_order: int | None = None
     assignee_ids: list[str] | None = None
+    is_pinned: bool | None = None
+    tags: list[str] | None = None
 
 
 class TaskResponse(BaseModel):
@@ -65,6 +69,8 @@ class TaskResponse(BaseModel):
     created_at: datetime | str | None = None
     updated_at: datetime | str | None = None
     is_stale: bool = False
+    is_pinned: bool = False
+    tags: list[str] = []
     assignees: list[dict] = []
     notes: list[dict] = []
     subtasks: list[dict] = []
@@ -75,8 +81,24 @@ class TaskBulkPatch(BaseModel):
     status: str | None = None
     assignee_ids: list[str] | None = None
     priority: int | None = None
+    is_pinned: bool | None = None
+    tags: list[str] | None = None
+    add_tags: list[str] | None = None
 
 
 class TaskBulkRequest(BaseModel):
     task_ids: list[str]
     patch: TaskBulkPatch
+
+
+class TaskBulkDeleteRequest(BaseModel):
+    task_ids: list[str]
+
+
+class TaskReorderItem(BaseModel):
+    task_id: str
+    sort_order: int
+
+
+class TaskReorderRequest(BaseModel):
+    items: list[TaskReorderItem]

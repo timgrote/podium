@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import Dialog from 'primevue/dialog'
-import type { ProjectSummary, Contact, Employee } from '../../types'
+import type { ProjectSummary, Contact, Employee, Client } from '../../types'
 import { useClients } from '../../composables/useClients'
 import { useToast } from '../../composables/useToast'
 import { createProject, updateProject } from '../../api/projects'
 import { getEmployees } from '../../api/employees'
 import { getContacts, createContact } from '../../api/contacts'
+import { getClients } from '../../api/clients'
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -23,10 +24,14 @@ const emit = defineEmits<{
 const { clients } = useClients()
 const toast = useToast()
 const employees = ref<Employee[]>([])
-const contacts = ref<Contact[]>([])
+const allContacts = ref<Contact[]>([])
+const allClients = ref<Client[]>([])
 const showNewContact = ref(false)
-const newContactName = ref('')
+const newContactFirstName = ref('')
+const newContactLastName = ref('')
 const newContactEmail = ref('')
+const newContactPhone = ref('')
+const newContactClientId = ref('')
 const creatingContact = ref(false)
 
 const form = ref({
@@ -47,6 +52,39 @@ const form = ref({
 
 const saving = ref(false)
 
+// Computed: contacts from the project's company, sorted by name
+const projectCompanyContacts = computed(() => {
+  const clientId = form.value.client_id
+  return allContacts.value
+    .filter(c => c.client_id === clientId)
+    .sort((a, b) => a.name.localeCompare(b.name))
+})
+
+// Computed: other contacts grouped by company name
+const otherContactsGrouped = computed(() => {
+  const clientId = form.value.client_id
+  const others = allContacts.value
+    .filter(c => c.client_id !== clientId)
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const groups: { companyName: string; contacts: Contact[] }[] = []
+  for (const c of others) {
+    const client = allClients.value.find(cl => cl.id === c.client_id)
+    const companyName = client?.name ?? 'No Company'
+    let group = groups.find(g => g.companyName === companyName)
+    if (!group) {
+      group = { companyName, contacts: [] }
+      groups.push(group)
+    }
+    group.contacts.push(c)
+  }
+  return groups
+})
+
+const projectCompanyName = computed(() => {
+  const client = allClients.value.find(cl => cl.id === form.value.client_id)
+  return client?.name ?? 'Project Company'
+})
+
 function normalizeDataPath(raw: string): string {
   let p = raw.trim()
   if (p.startsWith('"') && p.endsWith('"')) p = p.slice(1, -1)
@@ -56,23 +94,28 @@ function normalizeDataPath(raw: string): string {
   return p
 }
 
-async function loadContacts(clientId: string) {
-  if (!clientId) {
-    contacts.value = []
-    return
-  }
-  contacts.value = await getContacts(clientId)
+async function loadAllContactsAndClients() {
+  const [contacts, clients] = await Promise.all([
+    getContacts(),
+    getClients(),
+  ])
+  allContacts.value = contacts
+  allClients.value = clients
 }
 
-// Watch client_id changes to load contacts and auto-select first
+// Watch client_id changes to auto-select first contact from that company
 watch(() => form.value.client_id, async (newClientId, oldClientId) => {
   if (newClientId !== oldClientId) {
     showNewContact.value = false
-    newContactName.value = ''
+    newContactFirstName.value = ''
+    newContactLastName.value = ''
     newContactEmail.value = ''
-    await loadContacts(newClientId || '')
-    if (contacts.value.length > 0 && contacts.value[0]) {
-      form.value.client_pm_id = contacts.value[0].id
+    newContactPhone.value = ''
+    newContactClientId.value = newClientId || ''
+    // Auto-select first contact from the project's company if none selected
+    const companyContacts = allContacts.value.filter(c => c.client_id === newClientId)
+    if (companyContacts.length > 0 && companyContacts[0]) {
+      form.value.client_pm_id = companyContacts[0].id
     } else {
       form.value.client_pm_id = ''
     }
@@ -82,6 +125,7 @@ watch(() => form.value.client_id, async (newClientId, oldClientId) => {
 watch(visible, async (val) => {
   if (!val) return
   employees.value = await getEmployees()
+  await loadAllContactsAndClients()
   if (props.project) {
     form.value = {
       project_name: props.project.project_name || '',
@@ -98,10 +142,7 @@ watch(visible, async (val) => {
       data_path: props.project.data_path || '',
       notes: '',
     }
-    // Load contacts for the existing client without overwriting client_pm_id
-    if (props.project.client_id) {
-      await loadContacts(props.project.client_id)
-    }
+    newContactClientId.value = props.project.client_id || ''
   } else {
     form.value = {
       project_name: '',
@@ -118,27 +159,33 @@ watch(visible, async (val) => {
       data_path: '',
       notes: '',
     }
-    contacts.value = []
   }
   showNewContact.value = false
-  newContactName.value = ''
+  newContactFirstName.value = ''
+  newContactLastName.value = ''
   newContactEmail.value = ''
+  newContactPhone.value = ''
 })
 
 async function addContact() {
-  if (!newContactName.value.trim()) return
+  const firstName = newContactFirstName.value.trim()
+  if (!firstName) return
   creatingContact.value = true
   try {
+    const fullName = [firstName, newContactLastName.value.trim()].filter(Boolean).join(' ')
     const contact = await createContact({
-      name: newContactName.value.trim(),
+      name: fullName,
       email: newContactEmail.value.trim() || undefined,
-      client_id: form.value.client_id,
+      phone: newContactPhone.value.trim() || undefined,
+      client_id: newContactClientId.value || form.value.client_id || undefined,
     })
-    contacts.value.push(contact)
+    allContacts.value.push(contact)
     form.value.client_pm_id = contact.id
     showNewContact.value = false
-    newContactName.value = ''
+    newContactFirstName.value = ''
+    newContactLastName.value = ''
     newContactEmail.value = ''
+    newContactPhone.value = ''
   } catch (e) {
     toast.error('Failed to create contact')
   } finally {
@@ -256,27 +303,51 @@ async function save() {
           </div>
           <select v-model="form.client_pm_id">
             <option value="">-- None --</option>
-            <option v-for="ct in contacts" :key="ct.id" :value="ct.id">
-              {{ ct.name }}{{ ct.email ? ` (${ct.email})` : '' }}
-            </option>
+            <optgroup v-if="projectCompanyContacts.length" :label="projectCompanyName">
+              <option v-for="ct in projectCompanyContacts" :key="ct.id" :value="ct.id">
+                {{ ct.name }}{{ ct.email ? ` — ${ct.email}` : '' }}
+              </option>
+            </optgroup>
+            <optgroup v-for="group in otherContactsGrouped" :key="group.companyName" :label="group.companyName">
+              <option v-for="ct in group.contacts" :key="ct.id" :value="ct.id">
+                {{ ct.name }}{{ ct.email ? ` — ${ct.email}` : '' }}
+              </option>
+            </optgroup>
           </select>
           <div v-if="showNewContact" class="new-contact-form">
             <div class="field-row">
               <div class="field">
-                <input v-model="newContactName" type="text" placeholder="Name" />
+                <input v-model="newContactFirstName" type="text" placeholder="First name" />
               </div>
+              <div class="field">
+                <input v-model="newContactLastName" type="text" placeholder="Last name" />
+              </div>
+            </div>
+            <div class="field-row">
               <div class="field">
                 <input v-model="newContactEmail" type="email" placeholder="Email" />
               </div>
-              <button
-                type="button"
-                class="btn btn-sm"
-                :disabled="!newContactName.trim() || creatingContact"
-                @click="addContact"
-              >
-                Add
-              </button>
+              <div class="field">
+                <input v-model="newContactPhone" type="tel" placeholder="Phone" />
+              </div>
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Affiliated Company</label>
+                <select v-model="newContactClientId">
+                  <option value="">-- None --</option>
+                  <option v-for="cl in allClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
+                </select>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary"
+              :disabled="!newContactFirstName.trim() || creatingContact"
+              @click="addContact"
+            >
+              {{ creatingContact ? 'Adding...' : 'Create & Select' }}
+            </button>
           </div>
         </div>
 
@@ -343,9 +414,10 @@ async function save() {
 .contact-header label { font-size: 0.75rem; font-weight: 600; color: var(--p-text-muted-color); text-transform: uppercase; letter-spacing: 0.05em; }
 .btn-icon { background: none; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; cursor: pointer; padding: 0.25rem 0.5rem; color: var(--p-text-muted-color); font-size: 0.75rem; }
 .btn-icon:hover { background: var(--p-content-hover-background); }
-.new-contact-form .field-row { grid-template-columns: 1fr 1fr auto; }
+.new-contact-form { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem; border: 1px dashed var(--p-content-border-color); border-radius: 0.375rem; }
+.new-contact-form .field-row { grid-template-columns: 1fr 1fr; }
 .btn { padding: 0.5rem 1rem; border: 1px solid var(--p-content-border-color); border-radius: 0.375rem; background: var(--p-content-background); cursor: pointer; font-size: 0.875rem; margin-left: 0.5rem; color: var(--p-text-color); }
-.btn-sm { padding: 0.5rem 0.75rem; font-size: 0.8rem; margin-left: 0; }
+.btn-sm { padding: 0.5rem 0.75rem; font-size: 0.8rem; margin-left: 0; margin-top: 0.25rem; }
 .btn-primary { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
 .btn-primary:hover { background: var(--p-primary-hover-color); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }

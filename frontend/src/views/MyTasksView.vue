@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { MyTask, Task, ProjectSummary } from '../types'
-import { getMyTasks, getDoneToday, createTask, updateTask } from '../api/tasks'
+import type { MyTask, Task, ProjectSummary, Employee } from '../types'
+import { getMyTasks, getDoneToday, createTask, updateTask, getTags, bulkUpdateTasks, bulkDeleteTasks, reorderTasks } from '../api/tasks'
+import type { BulkPatchFields } from '../api/tasks'
 import { getProjects } from '../api/projects'
+import { getEmployees } from '../api/employees'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import TaskDetailModal from '../components/modals/TaskDetailModal.vue'
@@ -45,8 +47,31 @@ const showQuickAdd = ref(false)
 const quickAddTitle = ref('')
 const quickAddProjectId = ref('')
 const quickAddDueDate = ref(todayStr())
+const quickAddPriority = ref<number | null>(null)
+const quickAddTags = ref('')
 const quickAddSubmitting = ref(false)
 const projects = ref<ProjectSummary[]>([])
+const sortedProjects = computed(() =>
+  [...projects.value].sort((a, b) =>
+    (a.project_name || '').localeCompare(b.project_name || ''),
+  ),
+)
+const employees = ref<Employee[]>([])
+const allTags = ref<string[]>([])
+
+// Sort mode: 'due_date' (default), 'project', 'assignee', 'tags', 'priority', 'manual'
+type SortMode = 'due_date' | 'project' | 'assignee' | 'tags' | 'priority' | 'manual'
+const sortMode = ref<SortMode>('due_date')
+
+// Assignee filter: 'me' (self), 'everyone' (all), or specific employee IDs
+type AssigneeFilter = 'me' | 'everyone' | 'custom'
+const assigneeFilter = ref<AssigneeFilter>('me')
+const selectedAssigneeIds = ref<Set<string>>(new Set())
+const assigneeFilterOpen = ref(false)
+
+// Tag filter
+const selectedTagIds = ref<Set<string>>(new Set())
+const tagFilterOpen = ref(false)
 
 const activeTasks = computed(() =>
   tasks.value.filter(t => t.status !== 'done' && t.status !== 'canceled')
@@ -96,7 +121,36 @@ const upNextTasks = computed(() => {
 })
 
 function sortForUpNext(list: MyTask[]): MyTask[] {
-  return [...list].sort((a, b) => {
+  const sorted = [...list]
+  // Always pin first
+  sorted.sort((a, b) => {
+    const aPin = a.is_pinned ? 1 : 0
+    const bPin = b.is_pinned ? 1 : 0
+    if (aPin !== bPin) return bPin - aPin
+
+    if (sortMode.value === 'project') {
+      const aP = a.project_name ?? ''
+      const bP = b.project_name ?? ''
+      if (aP !== bP) return aP.localeCompare(bP)
+    } else if (sortMode.value === 'assignee') {
+      const aA = (a.assignees || []).map(e => e.last_name).join(', ')
+      const bA = (b.assignees || []).map(e => e.last_name).join(', ')
+      if (aA !== bA) return aA.localeCompare(bA)
+    } else if (sortMode.value === 'tags') {
+      const aT = (a.tags || []).join(', ')
+      const bT = (b.tags || []).join(', ')
+      if (aT !== bT) return aT.localeCompare(bT)
+    } else if (sortMode.value === 'priority') {
+      const aPri = a.priority ?? 0
+      const bPri = b.priority ?? 0
+      if (aPri !== bPri) return bPri - aPri
+    } else if (sortMode.value === 'manual') {
+      const aSort = a.sort_order ?? 9999
+      const bSort = b.sort_order ?? 9999
+      if (aSort !== bSort) return aSort - bSort
+    }
+
+    // Default: due date, then priority, then created
     const aDue = a.due_date ?? '9999-12-31'
     const bDue = b.due_date ?? '9999-12-31'
     if (aDue !== bDue) return aDue.localeCompare(bDue)
@@ -105,6 +159,7 @@ function sortForUpNext(list: MyTask[]): MyTask[] {
     if (aPri !== bPri) return bPri - aPri
     return (a.created_at ?? '').localeCompare(b.created_at ?? '')
   })
+  return sorted
 }
 
 // The main "Up Next" section content varies by active filter
@@ -208,8 +263,24 @@ async function loadAll() {
   if (!user.value) return
   loading.value = true
   try {
+    // Determine which assignee IDs to filter by
+    let assigneeIds: string[] | undefined
+    if (assigneeFilter.value === 'me') {
+      assigneeIds = [user.value.id]
+    } else if (assigneeFilter.value === 'everyone') {
+      assigneeIds = employees.value.map(e => e.id)
+    } else if (assigneeFilter.value === 'custom' && selectedAssigneeIds.value.size > 0) {
+      assigneeIds = [...selectedAssigneeIds.value]
+    }
+
+    // Determine tag filter
+    const tagFilter = selectedTagIds.value.size > 0 ? [...selectedTagIds.value] : undefined
+
     const [all, today] = await Promise.all([
-      getMyTasks(user.value.id),
+      getMyTasks(user.value.id, {
+        assignee_ids: assigneeIds,
+        tags: tagFilter,
+      }),
       getDoneToday(user.value.id, todayValue.value),
     ])
     tasks.value = all
@@ -332,6 +403,12 @@ function openQuickAdd() {
   if (!projects.value.length) loadProjects()
 }
 
+function openAddTask() {
+  selectedTaskId.value = null
+  selectedProjectId.value = ''
+  taskModalVisible.value = true
+}
+
 async function submitQuickAdd() {
   if (!quickAddTitle.value.trim() || !quickAddProjectId.value) return
   quickAddSubmitting.value = true
@@ -339,10 +416,16 @@ async function submitQuickAdd() {
     await createTask(quickAddProjectId.value, {
       title: quickAddTitle.value.trim(),
       due_date: quickAddDueDate.value || undefined,
+      priority: quickAddPriority.value || undefined,
+      tags: quickAddTags.value.trim()
+        ? quickAddTags.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+        : undefined,
       assignee_ids: user.value ? [user.value.id] : undefined,
     })
     quickAddTitle.value = ''
     quickAddDueDate.value = todayStr()
+    quickAddPriority.value = null
+    quickAddTags.value = ''
     showQuickAdd.value = false
     await loadAll()
     toast.success('Task created')
@@ -357,6 +440,265 @@ async function submitQuickAdd() {
 function openProjectFilter() {
   projectFilterOpen.value = !projectFilterOpen.value
   if (projectFilterOpen.value && !projects.value.length) loadProjects()
+}
+
+// Assignee filter
+function setAssigneeFilter(mode: AssigneeFilter) {
+  assigneeFilter.value = mode
+  selectedAssigneeIds.value.clear()
+  assigneeFilterOpen.value = false
+  loadAll()
+}
+
+function toggleAssigneeFilter(empId: string) {
+  if (selectedAssigneeIds.value.has(empId)) {
+    selectedAssigneeIds.value.delete(empId)
+  } else {
+    selectedAssigneeIds.value.add(empId)
+  }
+  if (selectedAssigneeIds.value.size > 0) {
+    assigneeFilter.value = 'custom'
+  } else if (assigneeFilter.value === 'custom') {
+    // No one selected — fall back to "me" so the list isn't empty
+    assigneeFilter.value = 'me'
+  }
+  loadAll()
+}
+
+const assigneeFilterLabel = computed(() => {
+  if (assigneeFilter.value === 'me') return 'Just me'
+  if (assigneeFilter.value === 'everyone') return 'Everyone'
+  if (selectedAssigneeIds.value.size > 0) return `${selectedAssigneeIds.value.size} people`
+  return 'Custom'
+})
+
+// Tag filter
+function toggleTagFilter(tag: string) {
+  if (selectedTagIds.value.has(tag)) {
+    selectedTagIds.value.delete(tag)
+  } else {
+    selectedTagIds.value.add(tag)
+  }
+  loadAll()
+}
+
+function clearTagFilter() {
+  selectedTagIds.value.clear()
+  loadAll()
+}
+
+// Pin toggle from row
+async function togglePin(task: MyTask | Task, event: Event) {
+  event.stopPropagation()
+  try {
+    await updateTask(task.id, { is_pinned: !task.is_pinned })
+    await loadAll()
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+// Manual reordering — drag and up/down buttons
+const draggingTaskId = ref<string | null>(null)
+const dragOverTaskId = ref<string | null>(null)
+
+async function moveTask(sourceId: string, targetId: string) {
+  const list = sectionTasks.value
+  const fromIdx = list.findIndex(t => t.id === sourceId)
+  const toIdx = list.findIndex(t => t.id === targetId)
+  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return
+
+  // Reorder
+  const reordered = [...list]
+  const [moved] = reordered.splice(fromIdx, 1)
+  if (!moved) return
+  reordered.splice(toIdx, 0, moved)
+
+  // Persist new sort_order for all affected tasks in a single request
+  const items = reordered.map((t, i) => ({ task_id: t.id, sort_order: i + 1 }))
+  try {
+    await reorderTasks(items)
+    await loadAll()
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+function onTaskDragStart(taskId: string, event: DragEvent) {
+  draggingTaskId.value = taskId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', taskId)
+  }
+}
+
+function onTaskDragOver(taskId: string, event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverTaskId.value = taskId
+}
+
+function onTaskDragLeave() {
+  dragOverTaskId.value = null
+}
+
+function onTaskDrop(targetId: string, event: DragEvent) {
+  event.preventDefault()
+  const sourceId = draggingTaskId.value
+  draggingTaskId.value = null
+  dragOverTaskId.value = null
+  if (sourceId && sourceId !== targetId) {
+    moveTask(sourceId, targetId)
+  }
+}
+
+function onTaskDragEnd() {
+  draggingTaskId.value = null
+  dragOverTaskId.value = null
+}
+
+async function moveTaskUp(task: MyTask | Task, event: Event) {
+  event.stopPropagation()
+  const list = sectionTasks.value
+  const idx = list.findIndex(t => t.id === task.id)
+  if (idx <= 0) return
+  const target = list[idx - 1]
+  if (target) await moveTask(task.id, target.id)
+}
+
+async function moveTaskDown(task: MyTask | Task, event: Event) {
+  event.stopPropagation()
+  const list = sectionTasks.value
+  const idx = list.findIndex(t => t.id === task.id)
+  if (idx === -1 || idx >= list.length - 1) return
+  const target = list[idx + 1]
+  if (target) await moveTask(task.id, target.id)
+}
+
+function isTopTask(task: MyTask | Task): boolean {
+  const list = sectionTasks.value
+  return list.length > 0 && list[0]?.id === task.id
+}
+
+function isBottomTask(task: MyTask | Task): boolean {
+  const list = sectionTasks.value
+  return list.length > 0 && list[list.length - 1]?.id === task.id
+}
+
+// Multi-select for bulk actions
+const selectedTaskIds = ref<Set<string>>(new Set())
+const bulkMode = ref(false)
+const bulkPriority = ref<number | null>(null)
+const bulkDueDate = ref<string>('')
+const bulkAddTags = ref('')
+const bulkSaving = ref(false)
+
+function toggleBulkMode() {
+  bulkMode.value = !bulkMode.value
+  if (!bulkMode.value) {
+    selectedTaskIds.value.clear()
+    bulkPriority.value = null
+    bulkDueDate.value = ''
+  }
+}
+
+function toggleTaskSelection(taskId: string, event: Event) {
+  event.stopPropagation()
+  if (selectedTaskIds.value.has(taskId)) {
+    selectedTaskIds.value.delete(taskId)
+  } else {
+    selectedTaskIds.value.add(taskId)
+  }
+}
+
+function selectAllVisible() {
+  for (const t of sectionTasks.value) {
+    selectedTaskIds.value.add(t.id)
+  }
+}
+
+function clearSelection() {
+  selectedTaskIds.value.clear()
+}
+
+async function applyBulkUpdate() {
+  if (selectedTaskIds.value.size === 0) return
+  bulkSaving.value = true
+  try {
+    const patch: BulkPatchFields = {}
+    if (bulkPriority.value !== null) patch.priority = bulkPriority.value
+    if (bulkDueDate.value) patch.due_date = bulkDueDate.value
+    if (bulkAddTags.value.trim()) {
+      patch.add_tags = bulkAddTags.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    }
+    if (bulkPriority.value === null && !bulkDueDate.value && !bulkAddTags.value.trim()) {
+      toast.info('Nothing to update — set a priority, date, or tags first')
+      return
+    }
+    const ids = Array.from(selectedTaskIds.value)
+    await bulkUpdateTasks(ids, patch)
+    bulkPriority.value = null
+    bulkDueDate.value = ''
+    bulkAddTags.value = ''
+    await loadAll()
+    toast.success(`Updated ${ids.length} task${ids.length > 1 ? 's' : ''}`)
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    bulkSaving.value = false
+  }
+}
+
+async function bulkMarkDone() {
+  if (selectedTaskIds.value.size === 0) return
+  bulkSaving.value = true
+  try {
+    const ids = Array.from(selectedTaskIds.value)
+    await bulkUpdateTasks(ids, { status: 'done' })
+    clearSelection()
+    await loadAll()
+    toast.success(`Marked ${ids.length} task${ids.length > 1 ? 's' : ''} done`)
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    bulkSaving.value = false
+  }
+}
+
+const showBulkDeleteConfirm = ref(false)
+
+async function bulkDeleteSelected() {
+  if (selectedTaskIds.value.size === 0) return
+  bulkSaving.value = true
+  try {
+    const ids = Array.from(selectedTaskIds.value)
+    await bulkDeleteTasks(ids)
+    clearSelection()
+    showBulkDeleteConfirm.value = false
+    await loadAll()
+    toast.success(`Deleted ${ids.length} task${ids.length > 1 ? 's' : ''}`)
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    bulkSaving.value = false
+  }
+}
+
+// Load employees and tags
+async function loadEmployees() {
+  try {
+    employees.value = await getEmployees()
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+async function loadAllTags() {
+  try {
+    allTags.value = await getTags()
+  } catch (e) {
+    toast.error(String(e))
+  }
 }
 
 // Deep-link: open task from URL
@@ -376,7 +718,11 @@ watch(taskModalVisible, (visible) => {
   }
 })
 
-onMounted(loadAll)
+onMounted(() => {
+  loadAll()
+  loadEmployees()
+  loadAllTags()
+})
 </script>
 
 <template>
@@ -386,7 +732,19 @@ onMounted(loadAll)
         <h1>My Tasks</h1>
         <div class="header-actions">
           <span class="task-count">{{ activeTasks.length }} active</span>
-          <button class="btn-add-task" @click="openQuickAdd">
+          <button
+            class="btn-bulk-toggle"
+            :class="{ active: bulkMode }"
+            @click="toggleBulkMode"
+          >
+            <i class="pi pi-check-square" />
+            {{ bulkMode ? 'Done' : 'Select' }}
+          </button>
+          <button class="btn-add-task btn-quick-task" @click="openQuickAdd">
+            <i class="pi pi-plus" />
+            Quick Task
+          </button>
+          <button class="btn-add-task" @click="openAddTask">
             <i class="pi pi-plus" />
             Add Task
           </button>
@@ -415,7 +773,7 @@ onMounted(loadAll)
       <div class="quick-add-row">
         <select v-model="quickAddProjectId" class="quick-add-select">
           <option value="" disabled>Select project...</option>
-          <option v-for="p in projects" :key="p.id" :value="p.id">
+          <option v-for="p in sortedProjects" :key="p.id" :value="p.id">
             {{ p.project_name }}{{ p.job_code ? ` (${p.job_code})` : '' }}
           </option>
         </select>
@@ -431,6 +789,19 @@ onMounted(loadAll)
           class="quick-add-date"
           type="date"
         />
+        <select v-model="quickAddPriority" class="quick-add-priority">
+          <option :value="null">Priority...</option>
+          <option :value="1">Low</option>
+          <option :value="2">Medium</option>
+          <option :value="3">High</option>
+        </select>
+        <input
+          v-model="quickAddTags"
+          class="quick-add-tags"
+          type="text"
+          placeholder="Tags (comma-separated)..."
+          @keydown.enter="submitQuickAdd"
+        />
         <button
           class="quick-add-submit"
           :disabled="!quickAddTitle.trim() || !quickAddProjectId || quickAddSubmitting"
@@ -442,6 +813,47 @@ onMounted(loadAll)
           <i class="pi pi-times" />
         </button>
       </div>
+    </div>
+
+    <!-- Bulk action bar -->
+    <div v-if="bulkMode && selectedTaskIds.size > 0" class="bulk-action-bar">
+      <span class="bulk-count">{{ selectedTaskIds.size }} selected</span>
+      <select v-model="bulkPriority" class="bulk-select">
+        <option :value="null">Priority...</option>
+        <option :value="1">Low</option>
+        <option :value="2">Medium</option>
+        <option :value="3">High</option>
+      </select>
+      <input v-model="bulkDueDate" type="date" class="bulk-date" />
+      <input
+        v-model="bulkAddTags"
+        type="text"
+        class="bulk-tags"
+        placeholder="Add tags (comma-separated)..."
+      />
+      <button class="btn btn-sm btn-success" :disabled="bulkSaving" @click="bulkMarkDone">
+        <i class="pi pi-check" /> Mark Done
+      </button>
+      <template v-if="!showBulkDeleteConfirm">
+        <button class="btn btn-sm btn-danger" :disabled="bulkSaving" @click="showBulkDeleteConfirm = true">
+          <i class="pi pi-trash" /> Delete
+        </button>
+      </template>
+      <template v-else>
+        <span class="bulk-confirm-text">Delete {{ selectedTaskIds.size }} task{{ selectedTaskIds.size > 1 ? 's' : '' }}?</span>
+        <button class="btn btn-sm btn-danger" :disabled="bulkSaving" @click="bulkDeleteSelected">
+          {{ bulkSaving ? 'Deleting...' : 'Yes, delete' }}
+        </button>
+        <button class="btn btn-sm" @click="showBulkDeleteConfirm = false">Cancel</button>
+      </template>
+      <span class="bulk-spacer" />
+      <button class="btn btn-sm btn-primary" :disabled="bulkSaving" @click="applyBulkUpdate">
+        {{ bulkSaving ? 'Updating...' : 'Apply' }}
+      </button>
+      <button class="btn btn-sm" @click="clearSelection">Clear</button>
+    </div>
+    <div v-else-if="bulkMode" class="bulk-action-hint">
+      Select tasks to update. <button class="link-btn" @click="selectAllVisible">Select all visible</button>
     </div>
 
     <div v-if="loading" class="loading">Loading tasks...</div>
@@ -514,7 +926,7 @@ onMounted(loadAll)
               <button v-if="selectedProjectIds.size > 0" class="link-btn" @click="clearProjectFilter">Clear</button>
             </div>
             <label
-              v-for="p in projects"
+              v-for="p in sortedProjects"
               :key="p.id"
               class="dropdown-row"
             >
@@ -527,6 +939,85 @@ onMounted(loadAll)
             </label>
             <div v-if="!projects.length" class="dropdown-empty">Loading…</div>
           </div>
+        </div>
+
+        <!-- Assignee filter -->
+        <div class="project-chip-wrap">
+          <button
+            class="chip"
+            :class="{ active: assigneeFilter !== 'me' || selectedAssigneeIds.size > 0 }"
+            @click="assigneeFilterOpen = !assigneeFilterOpen"
+          >
+            <i class="pi pi-users" style="font-size: 0.625rem; margin-right: 0.25rem" />
+            {{ assigneeFilterLabel }}
+          </button>
+          <div v-if="assigneeFilterOpen" class="project-dropdown">
+            <div class="dropdown-header">
+              <span>Filter by assignee</span>
+            </div>
+            <button class="dropdown-row dropdown-row-btn" :class="{ selected: assigneeFilter === 'me' }" @click="setAssigneeFilter('me')">
+              Just me
+            </button>
+            <button class="dropdown-row dropdown-row-btn" :class="{ selected: assigneeFilter === 'everyone' }" @click="setAssigneeFilter('everyone')">
+              Everyone
+            </button>
+            <div class="dropdown-divider" />
+            <label
+              v-for="emp in employees"
+              :key="emp.id"
+              class="dropdown-row"
+            >
+              <input
+                type="checkbox"
+                :checked="selectedAssigneeIds.has(emp.id)"
+                @change="toggleAssigneeFilter(emp.id)"
+              />
+              <span>{{ emp.first_name }} {{ emp.last_name }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Tag filter -->
+        <div v-if="allTags.length > 0" class="project-chip-wrap">
+          <button
+            class="chip"
+            :class="{ active: selectedTagIds.size > 0 }"
+            @click="tagFilterOpen = !tagFilterOpen"
+          >
+            <i class="pi pi-tags" style="font-size: 0.625rem; margin-right: 0.25rem" />
+            Tags
+            <span v-if="selectedTagIds.size > 0" class="chip-count">{{ selectedTagIds.size }}</span>
+          </button>
+          <div v-if="tagFilterOpen" class="project-dropdown">
+            <div class="dropdown-header">
+              <span>Filter by tag</span>
+              <button v-if="selectedTagIds.size > 0" class="link-btn" @click="clearTagFilter">Clear</button>
+            </div>
+            <label
+              v-for="tag in allTags"
+              :key="tag"
+              class="dropdown-row"
+            >
+              <input
+                type="checkbox"
+                :checked="selectedTagIds.has(tag)"
+                @change="toggleTagFilter(tag)"
+              />
+              <span class="tag-label">{{ tag }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Sort dropdown -->
+        <div class="project-chip-wrap sort-wrap">
+          <select v-model="sortMode" class="sort-select" @change="loadAll">
+            <option value="due_date">Sort: Due date</option>
+            <option value="priority">Sort: Priority</option>
+            <option value="project">Sort: Project</option>
+            <option value="assignee">Sort: Assignee</option>
+            <option value="tags">Sort: Tags</option>
+            <option value="manual">Sort: Manual</option>
+          </select>
         </div>
       </div>
 
@@ -544,8 +1035,32 @@ onMounted(loadAll)
             <template v-else-if="activeFilter === 'stale'">No stale tasks (untouched 30+ days).</template>
             <template v-else>Nothing in this view.</template>
           </div>
-          <div v-for="task in sectionTasks" :key="task.id" class="task-block">
+          <div
+            v-for="task in sectionTasks"
+            :key="task.id"
+            class="task-block"
+            :class="{
+              'task-pinned': task.is_pinned,
+              'dragging': draggingTaskId === task.id,
+              'drag-over': dragOverTaskId === task.id,
+              'reorderable': sortMode === 'manual',
+            }"
+            :draggable="sortMode === 'manual'"
+            @dragstart="onTaskDragStart(task.id, $event)"
+            @dragover="onTaskDragOver(task.id, $event)"
+            @dragleave="onTaskDragLeave"
+            @drop="onTaskDrop(task.id, $event)"
+            @dragend="onTaskDragEnd"
+          >
             <div class="task-row" @click="openTask(task)">
+              <button
+                v-if="bulkMode"
+                class="checkbox bulk-checkbox"
+                :class="{ checked: selectedTaskIds.has(task.id) }"
+                @click="toggleTaskSelection(task.id, $event)"
+              >
+                <i class="pi" :class="selectedTaskIds.has(task.id) ? 'pi-check' : ''" />
+              </button>
               <button
                 class="checkbox"
                 :class="{ checked: task.status === 'done' }"
@@ -554,7 +1069,36 @@ onMounted(loadAll)
               >
                 <i class="pi" :class="task.status === 'done' ? 'pi-check' : ''" />
               </button>
+              <button
+                class="pin-btn"
+                :class="{ active: task.is_pinned }"
+                title="Pin to top"
+                @click.stop="togglePin(task, $event)"
+              >
+                <i class="pi" :class="task.is_pinned ? 'pi-bookmark-fill' : 'pi-bookmark'" />
+              </button>
+              <template v-if="sortMode === 'manual'">
+                <button
+                  class="reorder-btn"
+                  :disabled="isTopTask(task)"
+                  title="Move up"
+                  @click.stop="moveTaskUp(task, $event)"
+                >
+                  <i class="pi pi-angle-up" />
+                </button>
+                <button
+                  class="reorder-btn"
+                  :disabled="isBottomTask(task)"
+                  title="Move down"
+                  @click.stop="moveTaskDown(task, $event)"
+                >
+                  <i class="pi pi-angle-down" />
+                </button>
+              </template>
               <span class="task-title" :class="{ completed: task.status === 'done' }">{{ task.title }}</span>
+              <span v-if="task.tags && task.tags.length" class="task-tags">
+                <span v-for="tag in task.tags" :key="tag" class="task-tag-chip">{{ tag }}</span>
+              </span>
               <span class="project-chip" @click.stop="router.push('/projects/' + task.project_id)">
                 {{ task.project_name }}<span v-if="task.job_code" class="job-code"> ({{ task.job_code }})</span>
               </span>
@@ -650,8 +1194,16 @@ onMounted(loadAll)
               <span class="group-count">{{ group.tasks.length }}</span>
             </div>
             <div v-if="!collapsedLaterProjects.has(projectId)" class="task-list">
-              <div v-for="task in group.tasks" :key="task.id" class="task-block">
+              <div v-for="task in group.tasks" :key="task.id" class="task-block" :class="{ 'task-pinned': task.is_pinned }">
                 <div class="task-row" @click="openTask(task)">
+                  <button
+                    v-if="bulkMode"
+                    class="checkbox bulk-checkbox"
+                    :class="{ checked: selectedTaskIds.has(task.id) }"
+                    @click="toggleTaskSelection(task.id, $event)"
+                  >
+                    <i class="pi" :class="selectedTaskIds.has(task.id) ? 'pi-check' : ''" />
+                  </button>
                   <button
                     class="checkbox"
                     :class="{ checked: task.status === 'done' }"
@@ -659,7 +1211,18 @@ onMounted(loadAll)
                   >
                     <i class="pi" :class="task.status === 'done' ? 'pi-check' : ''" />
                   </button>
+                  <button
+                    class="pin-btn"
+                    :class="{ active: task.is_pinned }"
+                    title="Pin to top"
+                    @click.stop="togglePin(task, $event)"
+                  >
+                    <i class="pi" :class="task.is_pinned ? 'pi-bookmark-fill' : 'pi-bookmark'" />
+                  </button>
                   <span class="task-title">{{ task.title }}</span>
+                  <span v-if="task.tags && task.tags.length" class="task-tags">
+                    <span v-for="tag in task.tags" :key="tag" class="task-tag-chip">{{ tag }}</span>
+                  </span>
                   <span class="spacer" />
                   <span class="row-chips">
                     <button class="btn-copy-link row-chip-icon" title="Copy link" @click.stop="copyLink(`/my-tasks/${task.id}`)">
@@ -1135,6 +1698,12 @@ onMounted(loadAll)
 }
 .btn-add-task:hover { filter: brightness(1.1); }
 .btn-add-task .pi { font-size: 0.625rem; }
+.btn-quick-task {
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  border: 1px solid var(--p-content-border-color);
+}
+.btn-quick-task:hover { background: var(--p-content-hover-background); filter: none; }
 
 /* Quick Add Form */
 .quick-add-form {
@@ -1157,6 +1726,26 @@ onMounted(loadAll)
 .quick-add-select { min-width: 160px; max-width: 200px; }
 .quick-add-input { flex: 1; }
 .quick-add-date { width: 140px; }
+.quick-add-priority {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.quick-add-priority:focus { outline: none; border-color: var(--p-primary-color); }
+.quick-add-tags {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+  min-width: 160px;
+}
+.quick-add-tags:focus { outline: none; border-color: var(--p-primary-color); }
 .quick-add-input:focus, .quick-add-select:focus, .quick-add-date:focus {
   outline: none;
   border-color: var(--p-primary-color);
@@ -1231,4 +1820,156 @@ onMounted(loadAll)
   padding: 0.1875rem 0.375rem;
   opacity: 1 !important;
 }
+
+/* Pin button on task rows */
+.pin-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--p-text-muted-color);
+  padding: 0.1875rem 0.25rem;
+  font-size: 0.75rem;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+}
+.pin-btn:hover { opacity: 1; color: var(--p-primary-color); }
+.pin-btn.active { opacity: 1; color: var(--p-primary-color); }
+.task-pinned {
+  background: var(--p-highlight-background);
+  border-left: 3px solid var(--p-primary-color);
+  border-radius: 0.25rem;
+}
+
+/* Tag chips on task rows */
+.task-tags {
+  display: inline-flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.task-tag-chip {
+  font-size: 0.625rem;
+  padding: 0.0625rem 0.375rem;
+  background: var(--p-content-hover-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 9999px;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+}
+
+/* Sort dropdown */
+.sort-wrap { margin-left: auto; }
+.sort-select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.sort-select:focus { outline: none; border-color: var(--p-primary-color); }
+
+/* Dropdown helpers for assignee/tag filter */
+.dropdown-row-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--p-text-color);
+}
+.dropdown-row-btn:hover { background: var(--p-content-hover-background); }
+.dropdown-row-btn.selected { font-weight: 600; color: var(--p-primary-color); }
+.dropdown-divider {
+  height: 1px;
+  background: var(--p-content-border-color);
+  margin: 0.25rem 0;
+}
+.tag-label { text-transform: lowercase; }
+
+/* Bulk action bar */
+.btn-bulk-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.15s;
+}
+.btn-bulk-toggle:hover { border-color: var(--p-primary-color); color: var(--p-text-color); }
+.btn-bulk-toggle.active { background: var(--p-primary-color); color: #fff; border-color: var(--p-primary-color); }
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--p-highlight-background);
+  border: 1px solid var(--p-primary-color);
+  border-radius: 0.5rem;
+}
+.bulk-count { font-size: 0.8125rem; font-weight: 600; color: var(--p-primary-color); }
+.bulk-spacer { flex: 1; }
+.bulk-select, .bulk-date, .bulk-tags {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+}
+.bulk-select:focus, .bulk-date:focus, .bulk-tags:focus { outline: none; border-color: var(--p-primary-color); }
+.bulk-tags { min-width: 180px; }
+.bulk-action-hint {
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--p-content-hover-background);
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--p-primary-color);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  text-decoration: underline;
+  padding: 0;
+}
+.bulk-checkbox { border-color: var(--p-primary-color); }
+.bulk-confirm-text { font-size: 0.8125rem; color: var(--p-red-600); font-weight: 600; }
+.btn-success { background: var(--p-green-600); color: #fff; border-color: var(--p-green-600); }
+.btn-success:hover { background: var(--p-green-700); }
+.btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-danger { color: var(--p-red-600); border-color: var(--p-red-300); }
+.btn-danger:hover { background: var(--p-red-50); }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Manual reordering */
+.reorder-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--p-text-muted-color);
+  padding: 0.125rem 0.1875rem;
+  font-size: 0.8125rem;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+}
+.reorder-btn:hover { opacity: 1; color: var(--p-primary-color); }
+.reorder-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+.task-block.reorderable { cursor: grab; }
+.task-block.reorderable:active { cursor: grabbing; }
+.task-block.dragging { opacity: 0.4; }
+.task-block.drag-over { border-top: 2px solid var(--p-primary-color); }
 </style>
