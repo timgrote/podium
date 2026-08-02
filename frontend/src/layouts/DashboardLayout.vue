@@ -47,10 +47,9 @@ function handleLogout() {
 <template>
   <Toast />
   <div v-if="isTestServer" class="test-banner">
-    <i class="pi pi-exclamation-triangle" />
-    TEST SERVER — not production
+    ⚠️ TEST SERVER — not production
   </div>
-  <div class="layout" :class="{ 'test-env': isTestServer }">
+  <div class="layout" :class="{ 'test-mode': isTestServer }">
     <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
         <div v-if="!sidebarCollapsed" class="sidebar-brand">
@@ -324,7 +323,7 @@ function handleLogout() {
   margin-left: 60px;
 }
 
-/* Test server environment indicator */
+/* Test server banner */
 .test-banner {
   position: fixed;
   top: 0;
@@ -333,18 +332,16 @@ function handleLogout() {
   z-index: 100;
   background: #f59e0b;
   color: #1a1a1a;
+  text-align: center;
   font-size: 0.75rem;
   font-weight: 700;
-  text-align: center;
-  padding: 0.25rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  letter-spacing: 0.025em;
+  padding: 0.25rem 0;
+  letter-spacing: 0.05em;
 }
-
-.test-env .sidebar {
+.layout.test-mode {
+  padding-top: 1.5rem;
+}
+.layout.test-mode .sidebar {
   border-left: 3px solid #f59e0b;
 }
 </style>

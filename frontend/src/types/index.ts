@@ -251,6 +251,8 @@ export interface TaskCreatePayload {
   start_date?: string | null
   due_date?: string | null
   assignee_ids?: string[]
+  is_pinned?: boolean
+  tags?: string[]
 }
 
 export interface TaskUpdatePayload {
@@ -261,6 +263,9 @@ export interface TaskUpdatePayload {
   start_date?: string | null
   due_date?: string | null
   assignee_ids?: string[]
+  is_pinned?: boolean
+  tags?: string[]
+  sort_order?: number
 }
 
 export interface TaskAssignee {
@@ -285,6 +290,8 @@ export interface Task {
   created_at: string | null
   updated_at: string | null
   is_stale?: boolean
+  is_pinned?: boolean
+  tags?: string[]
   assignees?: TaskAssignee[]
   notes?: TaskNote[]
   subtasks?: Task[]

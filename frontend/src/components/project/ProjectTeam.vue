@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import type { ProjectSummary, ProjectContact, Contact } from '../../types'
+import type { ProjectSummary, ProjectContact, Contact, Client } from '../../types'
 import { getProjectContacts, addProjectContact, removeProjectContact } from '../../api/projects'
 import { getContacts, createContact } from '../../api/contacts'
+import { getClients } from '../../api/clients'
 import { useToast } from '../../composables/useToast'
 
 const props = defineProps<{
@@ -15,14 +16,20 @@ const teamContacts = ref<ProjectContact[]>([])
 const teamLoading = ref(false)
 const showAddContact = ref(false)
 const allContacts = ref<Contact[]>([])
+const allClients = ref<Client[]>([])
 const addContactId = ref('')
 const addContactRole = ref('')
 const addContactSaving = ref(false)
 const showNewContactInline = ref(false)
-const newContactName = ref('')
-const newContactEmail = ref('')
-const newContactRole = ref('')
 const creatingNewContact = ref(false)
+
+// New contact form fields
+const newContactFirstName = ref('')
+const newContactLastName = ref('')
+const newContactEmail = ref('')
+const newContactPhone = ref('')
+const newContactRole = ref('')
+const newContactClientId = ref('')
 
 const ROLE_SUGGESTIONS = [
   'Project Manager',
@@ -36,9 +43,50 @@ const ROLE_SUGGESTIONS = [
   'Reviewer',
 ]
 
-const availableContacts = computed(() => {
+// Contacts from the project's company, sorted by name
+const projectCompanyContacts = computed(() => {
   const linked = new Set(teamContacts.value.map(c => c.contact_id))
-  return allContacts.value.filter(c => !linked.has(c.id))
+  const clientId = props.project.client_id
+  return allContacts.value
+    .filter(c => c.client_id === clientId && !linked.has(c.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+})
+
+// Contacts from other companies, sorted by company then name
+const otherContacts = computed(() => {
+  const linked = new Set(teamContacts.value.map(c => c.contact_id))
+  const clientId = props.project.client_id
+  return allContacts.value
+    .filter(c => c.client_id !== clientId && !linked.has(c.id))
+    .sort((a, b) => {
+      const aClient = allClients.value.find(cl => cl.id === a.client_id)
+      const bClient = allClients.value.find(cl => cl.id === b.client_id)
+      const aCompany = aClient?.name ?? 'No Company'
+      const bCompany = bClient?.name ?? 'No Company'
+      if (aCompany !== bCompany) return aCompany.localeCompare(bCompany)
+      return a.name.localeCompare(b.name)
+    })
+})
+
+// Grouped other contacts by company name for optgroup rendering
+const otherContactsGrouped = computed(() => {
+  const groups: { companyName: string; contacts: Contact[] }[] = []
+  for (const c of otherContacts.value) {
+    const client = allClients.value.find(cl => cl.id === c.client_id)
+    const companyName = client?.name ?? 'No Company'
+    let group = groups.find(g => g.companyName === companyName)
+    if (!group) {
+      group = { companyName, contacts: [] }
+      groups.push(group)
+    }
+    group.contacts.push(c)
+  }
+  return groups
+})
+
+const projectCompanyName = computed(() => {
+  const client = allClients.value.find(cl => cl.id === props.project.client_id)
+  return client?.name ?? 'Project Company'
 })
 
 watch(() => props.project.id, async () => {
@@ -61,8 +109,15 @@ async function openAddContact() {
   addContactId.value = ''
   addContactRole.value = ''
   showNewContactInline.value = false
+  // Default the new contact's company to the project's company
+  newContactClientId.value = props.project.client_id || ''
   try {
-    allContacts.value = await getContacts(props.project.client_id || undefined)
+    const [contacts, clients] = await Promise.all([
+      getContacts(),  // no filter — load ALL contacts
+      getClients(),
+    ])
+    allContacts.value = contacts
+    allClients.value = clients
   } catch (e) {
     console.error('Failed to load contacts:', e)
   }
@@ -87,14 +142,18 @@ async function submitAddContact() {
 }
 
 async function submitNewTeamContact() {
-  if (!newContactName.value.trim()) return
+  const firstName = newContactFirstName.value.trim()
+  const lastName = newContactLastName.value.trim()
+  if (!firstName) return
   creatingNewContact.value = true
   try {
+    const fullName = [firstName, lastName].filter(Boolean).join(' ')
     const contact = await createContact({
-      name: newContactName.value.trim(),
+      name: fullName,
       email: newContactEmail.value.trim() || undefined,
+      phone: newContactPhone.value.trim() || undefined,
       role: newContactRole.value || undefined,
-      client_id: props.project.client_id || undefined,
+      client_id: newContactClientId.value || undefined,
     })
     await addProjectContact(props.project.id, {
       contact_id: contact.id,
@@ -102,9 +161,12 @@ async function submitNewTeamContact() {
     })
     showNewContactInline.value = false
     showAddContact.value = false
-    newContactName.value = ''
+    newContactFirstName.value = ''
+    newContactLastName.value = ''
     newContactEmail.value = ''
+    newContactPhone.value = ''
     newContactRole.value = ''
+    newContactClientId.value = ''
     toast.success('Contact created and added to team')
     await loadTeam()
   } catch (e) {
@@ -112,6 +174,15 @@ async function submitNewTeamContact() {
   } finally {
     creatingNewContact.value = false
   }
+}
+
+function resetNewContactForm() {
+  newContactFirstName.value = ''
+  newContactLastName.value = ''
+  newContactEmail.value = ''
+  newContactPhone.value = ''
+  newContactRole.value = ''
+  newContactClientId.value = props.project.client_id || ''
 }
 
 async function removeTeamContact(contactId: string) {
@@ -138,12 +209,20 @@ defineExpose({ teamCount: computed(() => teamContacts.value.length) })
 
     <!-- Add contact form -->
     <div v-if="showAddContact" class="add-contact-form">
+      <!-- Select existing contact -->
       <div class="add-contact-row">
         <select v-model="addContactId" class="contact-select">
           <option value="">-- Select contact --</option>
-          <option v-for="c in availableContacts" :key="c.id" :value="c.id">
-            {{ c.name }}{{ c.email ? ` (${c.email})` : '' }}
-          </option>
+          <optgroup v-if="projectCompanyContacts.length" :label="projectCompanyName">
+            <option v-for="c in projectCompanyContacts" :key="c.id" :value="c.id">
+              {{ c.name }}{{ c.email ? ` — ${c.email}` : '' }}
+            </option>
+          </optgroup>
+          <optgroup v-for="group in otherContactsGrouped" :key="group.companyName" :label="group.companyName">
+            <option v-for="c in group.contacts" :key="c.id" :value="c.id">
+              {{ c.name }}{{ c.email ? ` — ${c.email}` : '' }}
+            </option>
+          </optgroup>
         </select>
         <select v-model="addContactRole" class="role-select">
           <option value="">-- Role --</option>
@@ -153,20 +232,39 @@ defineExpose({ teamCount: computed(() => teamContacts.value.length) })
           Add
         </button>
       </div>
+
+      <div class="new-contact-divider">
+        <span>or</span>
+      </div>
+
       <div class="new-contact-toggle">
-        <button class="btn-link" @click="showNewContactInline = !showNewContactInline">
-          {{ showNewContactInline ? 'Cancel' : '+ New contact' }}
+        <button class="btn-link" @click="showNewContactInline = !showNewContactInline; resetNewContactForm()">
+          {{ showNewContactInline ? 'Cancel new contact' : '+ Add new contact' }}
         </button>
       </div>
-      <div v-if="showNewContactInline" class="add-contact-row">
-        <input v-model="newContactName" type="text" placeholder="Name" class="contact-input" />
-        <input v-model="newContactEmail" type="email" placeholder="Email" class="contact-input" />
-        <select v-model="newContactRole" class="role-select">
-          <option value="">-- Role --</option>
-          <option v-for="r in ROLE_SUGGESTIONS" :key="r" :value="r">{{ r }}</option>
-        </select>
-        <button class="btn btn-sm btn-primary" :disabled="!newContactName.trim() || creatingNewContact" @click="submitNewTeamContact">
-          Create & Add
+
+      <!-- New contact form -->
+      <div v-if="showNewContactInline" class="new-contact-form">
+        <div class="new-contact-row">
+          <input v-model="newContactFirstName" type="text" placeholder="First name" class="contact-input" />
+          <input v-model="newContactLastName" type="text" placeholder="Last name" class="contact-input" />
+        </div>
+        <div class="new-contact-row">
+          <input v-model="newContactEmail" type="email" placeholder="Email" class="contact-input" />
+          <input v-model="newContactPhone" type="tel" placeholder="Phone" class="contact-input" />
+        </div>
+        <div class="new-contact-row">
+          <select v-model="newContactClientId" class="company-select">
+            <option value="">-- Affiliated company --</option>
+            <option v-for="cl in allClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
+          </select>
+          <select v-model="newContactRole" class="role-select">
+            <option value="">-- Role --</option>
+            <option v-for="r in ROLE_SUGGESTIONS" :key="r" :value="r">{{ r }}</option>
+          </select>
+        </div>
+        <button class="btn btn-sm btn-primary" :disabled="!newContactFirstName.trim() || creatingNewContact" @click="submitNewTeamContact">
+          {{ creatingNewContact ? 'Creating...' : 'Create & Add' }}
         </button>
       </div>
     </div>
@@ -357,7 +455,8 @@ defineExpose({ teamCount: computed(() => teamContacts.value.length) })
 
 .contact-select,
 .role-select,
-.contact-input {
+.contact-input,
+.company-select {
   padding: 0.375rem 0.5rem;
   border: 1px solid var(--p-form-field-border-color);
   border-radius: 0.375rem;
@@ -366,9 +465,30 @@ defineExpose({ teamCount: computed(() => teamContacts.value.length) })
   color: var(--p-text-color);
 }
 
-.contact-select { flex: 2; min-width: 0; }
-.role-select { flex: 1; min-width: 0; }
-.contact-input { flex: 1; min-width: 0; }
+.contact-select { flex: 2; min-width: 200px; }
+.role-select { flex: 1; min-width: 120px; }
+.contact-input { flex: 1; min-width: 120px; }
+.company-select { flex: 2; min-width: 180px; }
+
+.new-contact-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  margin: 0.25rem 0;
+}
+
+.new-contact-divider::before,
+.new-contact-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.new-contact-divider span {
+  padding: 0 0.5rem;
+}
 
 .new-contact-toggle {
   display: flex;
@@ -385,5 +505,20 @@ defineExpose({ teamCount: computed(() => teamContacts.value.length) })
 
 .btn-link:hover {
   text-decoration: underline;
+}
+
+.new-contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--p-content-border-color);
+  border-radius: 0.375rem;
+}
+
+.new-contact-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 </style>

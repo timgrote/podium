@@ -5,18 +5,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from ..database import get_db
 from ..events import event_bus
 from ..models.task import (
+    TaskBulkDeleteRequest,
     TaskBulkRequest,
     TaskCreate,
     TaskNoteCreate,
     TaskNoteResponse,
     TaskNoteUpdate,
+    TaskReorderRequest,
     TaskResponse,
     TaskUpdate,
 )
 from ..utils import generate_id
 
 STALE_DAYS = 30
-BULK_ALLOWED_FIELDS = {"due_date", "status", "assignee_ids", "priority"}
+BULK_ALLOWED_FIELDS = {"due_date", "status", "assignee_ids", "priority", "is_pinned", "tags", "add_tags"}
 
 router = APIRouter()
 
@@ -143,7 +145,7 @@ def list_project_tasks(
             "WHERE a.task_id = t.id AND a.employee_id = %s)"
         )
         params.append(assignee)
-    sql += " ORDER BY t.sort_order, t.created_at"
+    sql += " ORDER BY t.is_pinned DESC, t.sort_order, t.created_at"
     rows = db.execute(sql, tuple(params)).fetchall()
     return [_build_task_response(db, row) for row in rows]
 
@@ -162,13 +164,13 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
     start_date = str(data.start_date) if data.start_date else now[:10]  # default to today
     db.execute(
         "INSERT INTO project_tasks "
-        "(id, project_id, parent_id, title, description, status, priority, start_date, due_date, reminder_at, sort_order, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "(id, project_id, parent_id, title, description, status, priority, start_date, due_date, reminder_at, sort_order, is_pinned, tags, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (task_id, project_id, data.parent_id, data.title, data.description,
          data.status, data.priority, start_date,
          str(data.due_date) if data.due_date else None,
          str(data.reminder_at) if data.reminder_at else None,
-         data.sort_order, now, now),
+         data.sort_order, data.is_pinned, data.tags or [], now, now),
     )
 
     if data.assignee_ids:
@@ -191,19 +193,30 @@ def list_my_tasks(
     stale: bool | None = Query(None),
     status: str | None = Query(None),
     no_due_date: bool | None = Query(None),
+    assignee_ids: str | None = Query(None, description="Comma-separated employee IDs to filter by"),
+    tags: str | None = Query(None, description="Comma-separated tags to filter by (ANY match)"),
     db=Depends(get_db),
 ):
+    """Return tasks assigned to the given employee, or to any of the given assignee_ids."""
+    # Build the assignee filter set: if assignee_ids is provided, use those;
+    # otherwise default to employee_id (the original "my tasks" behavior).
+    if assignee_ids:
+        filter_ids = [s.strip() for s in assignee_ids.split(",") if s.strip()]
+    else:
+        filter_ids = [employee_id]
+
+    placeholders = ", ".join(["%s"] * len(filter_ids))
     sql = (
-        "SELECT t.*, p.name AS project_name, p.job_code "
+        "SELECT DISTINCT t.*, p.name AS project_name, p.job_code "
         "FROM project_tasks t "
         "JOIN project_task_assignees a ON a.task_id = t.id "
         "JOIN projects p ON p.id = t.project_id "
-        "WHERE a.employee_id = %s "
+        f"WHERE a.employee_id IN ({placeholders}) "
         "AND t.deleted_at IS NULL "
         "AND p.deleted_at IS NULL "
         "AND t.parent_id IS NULL"
     )
-    params: list = [employee_id]
+    params: list = list(filter_ids)
     if due_before is not None:
         sql += " AND t.due_date <= %s"
         params.append(str(due_before))
@@ -220,7 +233,12 @@ def list_my_tasks(
         cutoff = (datetime.now() - timedelta(days=STALE_DAYS)).isoformat()
         sql += " AND t.updated_at < %s AND t.status NOT IN ('done','archived','canceled')"
         params.append(cutoff)
-    sql += " ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC"
+    # Tag filter: task must have at least one of the specified tags
+    tag_list = _parse_status_csv(tags)  # same CSV parsing logic
+    if tag_list:
+        sql += " AND t.tags && %s::text[]"
+        params.append(tag_list)
+    sql += " ORDER BY t.is_pinned DESC, t.due_date ASC NULLS LAST, t.created_at DESC"
     rows = db.execute(sql, tuple(params)).fetchall()
     result = []
     for row in rows:
@@ -251,7 +269,7 @@ def list_done_today(
         "AND t.parent_id IS NULL "
         "AND t.completed_at >= %s "
         "AND t.completed_at < %s "
-        "ORDER BY t.completed_at DESC",
+        "ORDER BY t.is_pinned DESC, t.completed_at DESC",
         (employee_id, str(day), str(day + timedelta(days=1))),
     ).fetchall()
     result = []
@@ -278,7 +296,7 @@ def bulk_update_tasks(data: TaskBulkRequest, db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="patch must include at least one field")
 
     rows = db.execute(
-        "SELECT id, status FROM project_tasks WHERE id = ANY(%s) AND deleted_at IS NULL",
+        "SELECT id, status, tags FROM project_tasks WHERE id = ANY(%s) AND deleted_at IS NULL",
         (data.task_ids,),
     ).fetchall()
     found = {r["id"]: dict(r) for r in rows}
@@ -296,6 +314,20 @@ def bulk_update_tasks(data: TaskBulkRequest, db=Depends(get_db)):
             updates["due_date"] = str(patch.due_date) if patch.due_date else None
         if "priority" in fields_set:
             updates["priority"] = patch.priority
+        if "is_pinned" in fields_set:
+            updates["is_pinned"] = patch.is_pinned
+        if "tags" in fields_set:
+            updates["tags"] = patch.tags if patch.tags is not None else []
+        if "add_tags" in fields_set and patch.add_tags:
+            # add_tags merges on top of tags (if both sent), then existing DB tags
+            base = updates.get("tags")
+            if base is None:
+                base = found[tid].get("tags") or []
+            merged = list(base)
+            for t in patch.add_tags:
+                if t not in merged:
+                    merged.append(t)
+            updates["tags"] = merged
         if "status" in fields_set:
             updates["status"] = patch.status
             existing_status = found[tid]["status"]
@@ -330,6 +362,71 @@ def bulk_update_tasks(data: TaskBulkRequest, db=Depends(get_db)):
         (updated_ids,),
     ).fetchall()
     return [_build_task_response(db, r) for r in result_rows]
+
+
+@router.patch("/tasks/reorder")
+def reorder_tasks(data: TaskReorderRequest, db=Depends(get_db)):
+    """Set sort_order for multiple tasks in a single request."""
+    if not data.items:
+        raise HTTPException(status_code=400, detail="items cannot be empty")
+    task_ids = [item.task_id for item in data.items]
+    rows = db.execute(
+        "SELECT id FROM project_tasks WHERE id = ANY(%s) AND deleted_at IS NULL",
+        (task_ids,),
+    ).fetchall()
+    found = {r["id"] for r in rows}
+    missing = [tid for tid in task_ids if tid not in found]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Tasks not found: {missing}")
+    now = datetime.now().isoformat()
+    for item in data.items:
+        db.execute(
+            "UPDATE project_tasks SET sort_order = %s, updated_at = %s WHERE id = %s",
+            (item.sort_order, now, item.task_id),
+        )
+    db.commit()
+    project_rows = db.execute(
+        "SELECT DISTINCT project_id FROM project_tasks WHERE id = ANY(%s)",
+        (task_ids,),
+    ).fetchall()
+    for r in project_rows:
+        event_bus.publish(r["project_id"], "task_updated", r["project_id"])
+    return {"success": True}
+
+
+@router.delete("/tasks/bulk")
+def bulk_delete_tasks(data: TaskBulkDeleteRequest, db=Depends(get_db)):
+    """Soft-delete multiple tasks (and their subtasks) in a single request."""
+    if not data.task_ids:
+        raise HTTPException(status_code=400, detail="task_ids cannot be empty")
+
+    rows = db.execute(
+        "SELECT id, project_id FROM project_tasks WHERE id = ANY(%s) AND deleted_at IS NULL",
+        (data.task_ids,),
+    ).fetchall()
+    found = {r["id"]: dict(r) for r in rows}
+    missing = [tid for tid in data.task_ids if tid not in found]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Tasks not found: {missing}")
+
+    now = datetime.now().isoformat()
+    # Soft-delete subtasks of each selected task
+    db.execute(
+        "UPDATE project_tasks SET deleted_at = %s WHERE parent_id = ANY(%s) AND deleted_at IS NULL",
+        (now, data.task_ids),
+    )
+    # Soft-delete the selected tasks themselves
+    db.execute(
+        "UPDATE project_tasks SET deleted_at = %s WHERE id = ANY(%s)",
+        (now, data.task_ids),
+    )
+    db.commit()
+
+    for tid in data.task_ids:
+        pid = found[tid]["project_id"]
+        event_bus.publish(pid, "task_deleted", tid)
+
+    return {"success": True, "deleted_count": len(data.task_ids)}
 
 
 # --- Task Notes (registered before /tasks/{task_id} to avoid route shadowing) ---
@@ -412,6 +509,17 @@ def delete_note(note_id: str, db=Depends(get_db)):
 
 # --- Single-task endpoints ---
 
+@router.get("/tasks/tags")
+def list_all_tags(db=Depends(get_db)):
+    """Return all distinct tags used across non-deleted tasks."""
+    rows = db.execute(
+        "SELECT DISTINCT unnest(tags) AS tag FROM project_tasks "
+        "WHERE deleted_at IS NULL AND tags != '{}' "
+        "ORDER BY tag ASC"
+    ).fetchall()
+    return [r["tag"] for r in rows]
+
+
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
 def get_task(task_id: str, db=Depends(get_db)):
     row = db.execute(
@@ -434,6 +542,9 @@ def update_task(task_id: str, data: TaskUpdate, db=Depends(get_db)):
     dump = data.model_dump(exclude_unset=True)
     for k, v in dump.items():
         if k == "assignee_ids":
+            continue
+        if k == "tags":
+            updates[k] = v if v is not None else []
             continue
         if v is None:
             updates[k] = None
