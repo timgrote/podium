@@ -146,6 +146,38 @@ def update_contract(contract_id: str, data: ContractUpdate, db=Depends(get_db)):
     return get_contract(contract_id, db)
 
 
+@router.post("/{contract_id}/deliverables")
+def generate_deliverables(contract_id: str, db=Depends(get_db)):
+    """Manually trigger deliverable creation for a contract's tasks.
+    Backfills contracts that were signed before the deliverables feature shipped."""
+    contract = db.execute(
+        "SELECT * FROM contracts WHERE id = %s AND deleted_at IS NULL", (contract_id,)
+    ).fetchone()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    before = db.execute(
+        "SELECT COUNT(*) as n FROM project_deliverables "
+        "WHERE project_id = %s AND contract_task_id IN "
+        "(SELECT id FROM contract_tasks WHERE contract_id = %s) "
+        "AND deleted_at IS NULL",
+        (contract["project_id"], contract_id),
+    ).fetchone()["n"]
+
+    now = datetime.now().isoformat()
+    auto_create_deliverables(db, contract["project_id"], contract_id, now)
+    db.commit()
+
+    after = db.execute(
+        "SELECT COUNT(*) as n FROM project_deliverables "
+        "WHERE project_id = %s AND contract_task_id IN "
+        "(SELECT id FROM contract_tasks WHERE contract_id = %s) "
+        "AND deleted_at IS NULL",
+        (contract["project_id"], contract_id),
+    ).fetchone()["n"]
+    return {"created": after - before, "total": after}
+
+
 @router.delete("/{contract_id}")
 def delete_contract(contract_id: str, db=Depends(get_db)):
     existing = db.execute(

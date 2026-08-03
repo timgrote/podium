@@ -38,6 +38,12 @@ export function updateContract(
   })
 }
 
+export function generateDeliverables(
+  contractId: string,
+): Promise<{ created: number; total: number }> {
+  return apiFetch(`/contracts/${contractId}/deliverables`, { method: 'POST' })
+}
+
 export function deleteContract(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/contracts/${id}`, { method: 'DELETE' })
 }

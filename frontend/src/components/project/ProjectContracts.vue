@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import type { ProjectDetail } from '../../types'
 import { formatDate, todayStr } from '../../utils/dates'
-import { updateContract } from '../../api/contracts'
+import { updateContract, generateDeliverables } from '../../api/contracts'
 import { useToast } from '../../composables/useToast'
 
 const props = defineProps<{
@@ -19,6 +19,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const accepting = ref<string | null>(null)
+const generating = ref<string | null>(null)
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -40,6 +41,19 @@ async function acceptContract(contractId: string) {
     toast.error(String(e))
   } finally {
     accepting.value = null
+  }
+}
+
+async function genDeliverables(contractId: string) {
+  generating.value = contractId
+  try {
+    const result = await generateDeliverables(contractId)
+    toast.success(`${result.total} deliverable${result.total === 1 ? '' : 's'} linked`)
+    emit('refreshProject')
+  } catch (e) {
+    toast.error(String(e))
+  } finally {
+    generating.value = null
   }
 }
 </script>
@@ -68,6 +82,15 @@ async function acceptContract(contractId: string) {
             @click="acceptContract(contract.id)"
           >
             <i :class="accepting === contract.id ? 'pi pi-spin pi-spinner' : 'pi pi-check'" />
+          </button>
+          <button
+            v-if="contract.signed_at"
+            class="btn-icon"
+            :title="generating === contract.id ? 'Generating...' : 'Generate Deliverables'"
+            :disabled="generating === contract.id"
+            @click="genDeliverables(contract.id)"
+          >
+            <i :class="generating === contract.id ? 'pi pi-spin pi-spinner' : 'pi pi-box'" />
           </button>
           <button class="btn-icon btn-icon-green" title="Create Invoice" @click="emit('createInvoice', contract.id)">
             <i class="pi pi-dollar" />
