@@ -31,6 +31,7 @@ export function updateDeliverable(
     status?: string
     progress_percent?: number
     deadline?: string
+    updated_by?: string | null
   },
 ): Promise<Deliverable> {
   return apiFetch(`/deliverables/${id}`, {

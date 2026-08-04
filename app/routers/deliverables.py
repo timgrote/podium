@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import get_current_employee
 from ..database import get_db
 from ..events import event_bus
 from ..models.deliverable import DeliverableCreate, DeliverableResponse, DeliverableUpdate
@@ -14,6 +15,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 VALID_STATUSES = {"not_started", "in_progress", "sent", "accepted"}
+
+
+def _attach_employee_name(db, row: dict) -> dict:
+    """Add updated_by_name (first + last) by joining employees table."""
+    if row.get("updated_by"):
+        emp = db.execute(
+            "SELECT first_name, last_name FROM employees WHERE id = %s",
+            (row["updated_by"],),
+        ).fetchone()
+        if emp:
+            row["updated_by_name"] = f"{emp['first_name']} {emp['last_name']}".strip()
+    return row
 
 
 def auto_create_deliverables(db, project_id: str, contract_id: str, now: str | None = None):
@@ -57,7 +70,12 @@ def list_deliverables(project_id: str, db=Depends(get_db)):
         "ORDER BY sort_order, created_at",
         (project_id,),
     ).fetchall()
-    return [dict(r) for r in rows]
+    result = []
+    for r in rows:
+        d = dict(r)
+        _attach_employee_name(db, d)
+        result.append(d)
+    return result
 
 
 # --- Create deliverable ---
@@ -89,13 +107,20 @@ def create_deliverable(project_id: str, data: DeliverableCreate, db=Depends(get_
     event_bus.publish(project_id, "deliverable_updated", del_id)
 
     row = db.execute("SELECT * FROM project_deliverables WHERE id = %s", (del_id,)).fetchone()
-    return dict(row)
+    result = dict(row)
+    _attach_employee_name(db, result)
+    return result
 
 
 # --- Update deliverable ---
 
 @router.patch("/deliverables/{deliverable_id}")
-def update_deliverable(deliverable_id: str, data: DeliverableUpdate, db=Depends(get_db)):
+def update_deliverable(
+    deliverable_id: str,
+    data: DeliverableUpdate,
+    db=Depends(get_db),
+    current_employee: dict | None = Depends(get_current_employee),
+):
     existing = db.execute(
         "SELECT * FROM project_deliverables WHERE id = %s AND deleted_at IS NULL",
         (deliverable_id,),
@@ -103,7 +128,14 @@ def update_deliverable(deliverable_id: str, data: DeliverableUpdate, db=Depends(
     if not existing:
         raise HTTPException(status_code=404, detail="Deliverable not found")
 
-    updates = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    raw = data.model_dump(exclude_unset=True)
+    updates = {k: v for k, v in raw.items() if v is not None}
+
+    # Allow explicitly clearing updated_by (null is filtered by the check above
+    # but we need to distinguish "not sent" from "explicitly null").
+    if "updated_by" in raw and raw["updated_by"] is None:
+        updates["updated_by"] = None
+
     if not updates:
         return dict(existing)
 
@@ -123,6 +155,11 @@ def update_deliverable(deliverable_id: str, data: DeliverableUpdate, db=Depends(
     if "deadline" in updates and updates["deadline"]:
         updates["deadline"] = str(updates["deadline"])
 
+    # Auto-stamp updated_by with the logged-in employee unless caller
+    # explicitly passed a value (including null to clear it).
+    if "updated_by" not in updates and current_employee:
+        updates["updated_by"] = current_employee["id"]
+
     updates["updated_at"] = now
     set_clause = ", ".join(f"{k} = %s" for k in updates)
     values = list(updates.values()) + [deliverable_id]
@@ -131,7 +168,9 @@ def update_deliverable(deliverable_id: str, data: DeliverableUpdate, db=Depends(
     event_bus.publish(existing["project_id"], "deliverable_updated", deliverable_id)
 
     row = db.execute("SELECT * FROM project_deliverables WHERE id = %s", (deliverable_id,)).fetchone()
-    return dict(row)
+    result = dict(row)
+    _attach_employee_name(db, result)
+    return result
 
 
 # --- Delete deliverable (soft) ---

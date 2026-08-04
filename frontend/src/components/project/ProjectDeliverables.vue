@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { Deliverable } from '../../types'
+import type { Deliverable, Employee } from '../../types'
 import { getDeliverables, createDeliverable, updateDeliverable, deleteDeliverable } from '../../api/deliverables'
+import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'
 import { formatDate, isOverdue } from '../../utils/dates'
 
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 const toast = useToast()
 
 const deliverables = ref<Deliverable[]>([])
+const employees = ref<Employee[]>([])
 const loading = ref(false)
 const showNewForm = ref(false)
 const newName = ref('')
@@ -43,7 +45,12 @@ watch(() => props.project.id, async () => {
 async function loadDeliverables() {
   loading.value = true
   try {
-    deliverables.value = await getDeliverables(props.project.id)
+    const [dels, emps] = await Promise.all([
+      getDeliverables(props.project.id),
+      employees.value.length ? Promise.resolve(employees.value) : getEmployees(),
+    ])
+    deliverables.value = dels
+    employees.value = emps
   } catch (e) {
     console.error('Failed to load deliverables:', e)
   } finally {
@@ -115,6 +122,18 @@ async function setDeadline(deliverable: Deliverable, event: Event) {
   }
 }
 
+async function setUpdatedBy(deliverable: Deliverable, event: Event) {
+  const select = event.target as HTMLSelectElement
+  const val = select.value || null
+  try {
+    await updateDeliverable(deliverable.id, { updated_by: val })
+    await loadDeliverables()
+    emit('refreshProject')
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
 async function remove(deliverable: Deliverable) {
   try {
     await deleteDeliverable(deliverable.id)
@@ -177,6 +196,18 @@ defineExpose({ loadDeliverables })
           />
           <span class="progress-text">{{ del.progress_percent }}%</span>
         </span>
+
+        <select
+          class="del-updated-by"
+          :value="del.updated_by || ''"
+          title="Person responsible for this deliverable"
+          @change="setUpdatedBy(del, $event)"
+        >
+          <option value="">—</option>
+          <option v-for="emp in employees" :key="emp.id" :value="emp.id">
+            {{ emp.first_name }} {{ emp.last_name }}
+          </option>
+        </select>
 
         <span class="del-deadline" :class="{ overdue: isOverdue(del.deadline) && del.status !== 'accepted' }">
           <span v-if="del.deadline">{{ formatDate(del.deadline) }}</span>
@@ -370,6 +401,28 @@ defineExpose({ loadDeliverables })
   width: 2rem;
   text-align: right;
   flex-shrink: 0;
+}
+
+.del-updated-by {
+  padding: 0.1875rem 0.375rem;
+  border: 1px solid var(--p-form-field-border-color);
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  background: var(--p-form-field-background);
+  color: var(--p-text-color);
+  flex-shrink: 0;
+  width: 6.5rem;
+  cursor: pointer;
+}
+
+.del-updated-by:hover {
+  border-color: var(--p-primary-color);
+}
+
+.del-updated-by:focus {
+  outline: none;
+  border-color: var(--p-primary-color);
+  box-shadow: 0 0 0 1px var(--p-primary-color);
 }
 
 .del-deadline {

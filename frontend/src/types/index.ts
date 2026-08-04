@@ -325,6 +325,8 @@ export interface Deliverable {
   progress_percent: number
   deadline: string | null
   sent_at: string | null
+  updated_by: string | null
+  updated_by_name: string | null
   created_at: string | null
   updated_at: string | null
 }

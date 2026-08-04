@@ -19,6 +19,7 @@ class DeliverableUpdate(BaseModel):
     status: str | None = None
     progress_percent: float | None = None
     deadline: date | str | None = None
+    updated_by: str | None = None  # employee id; auto-stamped if omitted
 
 
 class DeliverableResponse(BaseModel):
@@ -31,5 +32,7 @@ class DeliverableResponse(BaseModel):
     progress_percent: float = 0
     deadline: date | str | None = None
     sent_at: datetime | str | None = None
+    updated_by: str | None = None
+    updated_by_name: str | None = None
     created_at: datetime | str | None = None
     updated_at: datetime | str | None = None
