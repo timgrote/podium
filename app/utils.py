@@ -30,9 +30,11 @@ def next_invoice_number(db, project_id: str) -> str:
     ).fetchone()
     prefix = (proj["job_code"] or proj["project_number"]) if proj else project_id
 
-    # Check ALL invoices (including deleted) to avoid unique constraint collisions
+    # Only count non-deleted invoices — the partial unique index
+    # (idx_invoices_number WHERE deleted_at IS NULL) allows reusing
+    # numbers from deleted invoices.
     rows = db.execute(
-        "SELECT invoice_number FROM invoices WHERE project_id = %s",
+        "SELECT invoice_number FROM invoices WHERE project_id = %s AND deleted_at IS NULL",
         (project_id,),
     ).fetchall()
     max_num = 0
