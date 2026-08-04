@@ -284,11 +284,11 @@ async function save() {
         </div>
         <div v-if="!form.client_id && !project" class="field-row">
           <div class="field">
-            <label>New Client Name</label>
+            <label>Company Name</label>
             <input v-model="form.client_name" type="text" />
           </div>
           <div class="field">
-            <label>New Client Email</label>
+            <label>Accounting Email</label>
             <input v-model="form.client_email" type="email" />
           </div>
         </div>
