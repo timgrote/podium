@@ -392,14 +392,21 @@ def generate_doc(proposal_id: str, db=Depends(get_db)):
                 client_state = rest[0] if rest else ""
                 client_zip = rest[1] if len(rest) > 1 else ""
 
+    client_name = project["client_name"] if (project and project["client_name"]) else ""
+    if not client_name:
+        raise HTTPException(
+            status_code=400,
+            detail="A client name is required to generate a proposal. Add a client with a name to the project first.",
+        )
+
     try:
         from ..proposal_renderer import generate_proposal_doc
 
         project_name = project["name"] if project else "Untitled"
         doc_url = generate_proposal_doc(
             project_name=project_name,
-            client_name=project["client_name"] if project else "",
-            client_company=proposal["client_company"] or (project["client_name"] if project else ""),
+            client_name=client_name,
+            client_company=proposal["client_company"] or client_name,
             client_address=client_address,
             client_city=client_city,
             client_state=client_state,
