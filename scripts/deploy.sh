@@ -108,6 +108,21 @@ else
     echo "    No migrations directory found, skipping."
 fi
 
+# ── 3b. Ensure systemd drop-in (shutdown hardening — no secrets) ───
+# Prevents the restart from hanging: uvicorn's graceful shutdown can wait
+# forever on a leaked/held-open connection. Cap it at 10s and SIGKILL at 15s.
+DROPIN_DIR="/etc/systemd/system/$SERVICE.service.d"
+DROPIN="$DROPIN_DIR/10-shutdown.conf"
+mkdir -p "$DROPIN_DIR"
+cat > "$DROPIN" <<'EOF'
+[Service]
+TimeoutStopSec=15
+KillMode=mixed
+ExecStart=
+ExecStart=/var/www/conductor/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 3000 --timeout-graceful-shutdown 10
+EOF
+systemctl daemon-reload
+
 # ── 4. Restart services ──────────────────────────────────────────────
 echo "==> Restarting $SERVICE..."
 systemctl restart "$SERVICE"
