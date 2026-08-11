@@ -392,12 +392,37 @@ def generate_doc(proposal_id: str, db=Depends(get_db)):
                 client_state = rest[0] if rest else ""
                 client_zip = rest[1] if len(rest) > 1 else ""
 
-    client_name = project["client_name"] if (project and project["client_name"]) else ""
-    if not client_name:
+    company_name = project["client_name"] if (project and project["client_name"]) else ""
+    if not company_name:
         raise HTTPException(
             status_code=400,
             detail="A client name is required to generate a proposal. Add a client with a name to the project first.",
         )
+
+    # Resolve the project's client contact (a person) for the salutation.
+    # Preferred: the contact linked to the project via project_contacts.
+    # Fallback: first contact on the client. Last fallback: the company name.
+    contact_name = ""
+    if project:
+        row = db.execute(
+            "SELECT c.name FROM project_contacts pc "
+            "JOIN contacts c ON pc.contact_id = c.id "
+            "WHERE pc.project_id = %s AND c.deleted_at IS NULL "
+            "ORDER BY c.name LIMIT 1",
+            (project["id"],),
+        ).fetchone()
+        if row:
+            contact_name = row["name"]
+        else:
+            row = db.execute(
+                "SELECT name FROM contacts WHERE client_id = %s AND deleted_at IS NULL "
+                "ORDER BY name LIMIT 1",
+                (project["client_id"],),
+            ).fetchone()
+            if row:
+                contact_name = row["name"]
+
+    person_name = contact_name or company_name
 
     try:
         from ..proposal_renderer import generate_proposal_doc
@@ -405,8 +430,8 @@ def generate_doc(proposal_id: str, db=Depends(get_db)):
         project_name = project["name"] if project else "Untitled"
         doc_url = generate_proposal_doc(
             project_name=project_name,
-            client_name=client_name,
-            client_company=proposal["client_company"] or client_name,
+            client_name=person_name,
+            client_company=proposal["client_company"] or company_name,
             client_address=client_address,
             client_city=client_city,
             client_state=client_state,
