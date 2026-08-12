@@ -256,8 +256,9 @@ onMounted(load)
         <div class="grid-body">
           <div v-for="d in row" :key="d" class="grid-day" :class="{ 'is-today': d === todayStr(), 'is-past': isPast(d) }">
             <template v-for="it in itemsOn(d)" :key="it.kind + it.id">
-              <div class="grid-item" :class="[kindClass(it), priorityClass(it.priority)]" @click="openItem(it)">
-                {{ it.title }}
+              <div class="grid-item" :class="[kindClass(it), priorityClass(it.priority)]" :title="it.title" @click="openItem(it)">
+                <span class="grid-item-company">{{ it.client_name || it.project_name }}</span>
+                <span class="grid-item-title">{{ it.title }}</span>
               </div>
             </template>
           </div>
@@ -275,7 +276,8 @@ onMounted(load)
           <span class="month-date">{{ d.slice(8) }}</span>
           <template v-for="it in itemsOn(d).slice(0, 3)" :key="it.kind + it.id">
             <div class="month-item" :class="[kindClass(it), priorityClass(it.priority)]" :title="it.title" @click="openItem(it)">
-              {{ it.title }}
+              <span class="grid-item-company">{{ it.client_name || it.project_name }}</span>
+              <span class="grid-item-title">{{ it.title }}</span>
             </div>
           </template>
           <span v-if="itemsOn(d).length > 3" class="month-more">+{{ itemsOn(d).length - 3 }} more</span>
@@ -353,8 +355,14 @@ onMounted(load)
 .grid-day.is-today { background: color-mix(in srgb, var(--p-primary-color) 8%, transparent); }
 .grid-item {
   font-size: 0.6875rem; padding: 0.125rem 0.25rem; border-radius: 0.25rem; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--p-surface-200); color: var(--p-text-color);
+  overflow: hidden; background: var(--p-surface-200); color: var(--p-text-color);
+  display: flex; flex-direction: column; line-height: 1.2;
 }
+.grid-item-company {
+  font-size: 0.5625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--p-text-muted-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grid-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kind-task.grid-item { background: color-mix(in srgb, var(--p-primary-color) 14%, transparent); }
 .kind-deliverable.grid-item { background: color-mix(in srgb, var(--p-purple-400) 16%, transparent); }
 .grid-item:hover { filter: brightness(0.95); }
@@ -376,8 +384,10 @@ onMounted(load)
 }
 .month-item {
   font-size: 0.625rem; padding: 0.0625rem 0.25rem; border-radius: 0.25rem; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden; display: flex; flex-direction: column; line-height: 1.2;
 }
+.month-item .grid-item-company { font-size: 0.5rem; }
+.month-item .grid-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kind-task.month-item { background: color-mix(in srgb, var(--p-primary-color) 14%, transparent); }
 .kind-deliverable.month-item { background: color-mix(in srgb, var(--p-purple-400) 16%, transparent); }
 .month-more { font-size: 0.625rem; color: var(--p-text-muted-color); }

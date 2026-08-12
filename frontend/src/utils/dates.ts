@@ -101,12 +101,6 @@ export function monthEnd(dateStr?: string): string {
   return fmt(new Date(d.getFullYear(), d.getMonth() + 1, 0))
 }
 
-// Number of days in the month containing dateStr
-export function daysInMonth(dateStr?: string): number {
-  const d = parseLocalDate(dateStr || todayStr())
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-}
-
 // Standard Monday-start month grid (6 weeks) as rows of date strings.
 // Leading/trailing cells bleed into adjacent months so the grid is rectangular.
 export function monthGrid(dateStr?: string): string[][] {
@@ -133,10 +127,6 @@ export function startOfWeek(dateStr?: string): string {
 export function addMonthsStr(dateStr: string, months: number): string {
   const d = parseLocalDate(dateStr)
   return fmt(new Date(d.getFullYear(), d.getMonth() + months, d.getDate()))
-}
-
-export function addDays(dateStr: string, days: number): string {
-  return addDaysStr(dateStr, days)
 }
 
 // Human label for a column header: 'Mon' | 'Tue' ... from a date string
