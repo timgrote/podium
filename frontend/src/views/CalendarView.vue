@@ -167,10 +167,6 @@ function isDone(it: CalendarItem): boolean {
   return it.status === DONE_STATUSES[it.kind]
 }
 
-function checkboxId(it: CalendarItem): string {
-  return `cal-check-${it.kind}-${it.id}`
-}
-
 async function toggleDone(it: CalendarItem, event: Event) {
   event.stopPropagation()
   if (toggling.value.has(it.id)) return
@@ -280,7 +276,6 @@ onMounted(load)
             <input
               type="checkbox"
               class="cal-checkbox"
-              :id="checkboxId(it)"
               :checked="isDone(it)"
               :disabled="toggling.has(it.id)"
               @click="toggleDone(it, $event)"

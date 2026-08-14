@@ -4,6 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 
+from ..auth import require_auth
 from ..database import get_db
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ def get_calendar(
     from_date: date | None = Query(None, description="Inclusive lower bound (YYYY-MM-DD)"),
     to_date: date | None = Query(None, description="Inclusive upper bound (YYYY-MM-DD)"),
     db=Depends(get_db),
+    _employee: dict = Depends(require_auth),
 ):
     """Return unified calendar items: task due dates + deliverable deadlines.
 
@@ -105,15 +107,22 @@ def get_calendar(
     )
     del_rows = db.execute(del_sql, tuple(del_params)).fetchall()
 
+    # Batch lookup of updated_by employees for all deliverables
+    updated_by_ids = list({r["updated_by"] for r in del_rows if r["updated_by"]})
+    emp_map: dict[str, dict] = {}
+    if updated_by_ids:
+        emp_rows = db.execute(
+            "SELECT id, first_name, last_name FROM employees "
+            "WHERE id = ANY(%s) AND deleted_at IS NULL",
+            (updated_by_ids,),
+        ).fetchall()
+        for er in emp_rows:
+            emp_map[er["id"]] = {"id": er["id"], "first_name": er["first_name"], "last_name": er["last_name"]}
+
     for r in del_rows:
         assignees = []
-        if r["updated_by"]:
-            emp = db.execute(
-                "SELECT id, first_name, last_name FROM employees WHERE id = %s AND deleted_at IS NULL",
-                (r["updated_by"],),
-            ).fetchone()
-            if emp:
-                assignees.append({"id": emp["id"], "first_name": emp["first_name"], "last_name": emp["last_name"]})
+        if r["updated_by"] and r["updated_by"] in emp_map:
+            assignees.append(emp_map[r["updated_by"]])
         items.append({
             "id": r["id"],
             "kind": "deliverable",

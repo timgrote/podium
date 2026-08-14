@@ -93,6 +93,7 @@ vue_dist = static_root / "frontend" / "dist"
 
 app.mount("/uploads", StaticFiles(directory=static_root / "uploads"), name="uploads")
 app.mount("/flows", StaticFiles(directory=static_root / "flows", html=True), name="flows")
+app.mount("/ops", StaticFiles(directory=static_root / "ops", html=True), name="ops")
 app.mount("/assets", StaticFiles(directory=vue_dist / "assets"), name="vue-assets")
 
 

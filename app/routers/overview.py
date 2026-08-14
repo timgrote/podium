@@ -1,6 +1,7 @@
 """Overview endpoint: unfinished tasks + deliverables for a set of projects."""
 from fastapi import APIRouter, Depends, Query
 
+from ..auth import require_auth
 from ..database import get_db
 
 router = APIRouter()
@@ -10,6 +11,7 @@ router = APIRouter()
 def get_overview_items(
     project_ids: str = Query(..., description="Comma-separated project IDs"),
     db=Depends(get_db),
+    _employee: dict = Depends(require_auth),
 ):
     """Return unfinished tasks and deliverables for the given projects.
 
