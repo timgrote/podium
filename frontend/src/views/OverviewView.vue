@@ -6,6 +6,8 @@ import { useToast } from '../composables/useToast'
 import { getActivityLog, type ActivityItem } from '../api/activityLog'
 import { getCalendar, type CalendarItem } from '../api/calendar'
 import { getOverviewItems, type OverviewItems } from '../api/overview'
+import { getEmployees } from '../api/employees'
+import type { Employee } from '../types'
 import { todayStr, addDaysStr, formatDateShort } from '../utils/dates'
 
 const router = useRouter()
@@ -19,9 +21,14 @@ const loading = ref(true)
 const activity = ref<ActivityItem[]>([])
 const deadlines = ref<CalendarItem[]>([])
 const overviewItems = ref<OverviewItems>({ tasks: [], deliverables: [] })
+const employees = ref<Employee[]>([])
+const selectedEmployeeId = ref('')
 
 const rangeDays = computed(() => rangeMode.value === '1d' ? 1 : rangeMode.value === '3d' ? 3 : 7)
 const fromDate = computed(() => addDaysStr(todayStr(), -(rangeDays.value - 1)))
+
+// Effective employee: explicit selection > logged-in user
+const effectiveEmployeeId = computed(() => selectedEmployeeId.value || user.value?.id || '')
 
 // Unique projects from activity feed — used to fetch unfinished work
 const activeProjectIds = computed(() => {
@@ -43,27 +50,33 @@ const activityByDay = computed(() => {
   return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
 })
 
-// Upcoming deadlines (today onward, not done)
+// Upcoming deadlines (today onward, not done), filtered by selected employee
 const upcomingDeadlines = computed(() => {
   const t = todayStr()
   return deadlines.value
     .filter(it => it.date >= t && it.status !== 'done' && it.status !== 'accepted')
+    .filter(it => !effectiveEmployeeId.value || it.assignees.some(a => a.id === effectiveEmployeeId.value))
     .sort((a, b) => a.date.localeCompare(b.date))
 })
 
-// Overdue items
+// Overdue items, filtered by selected employee
 const overdueItems = computed(() => {
   const t = todayStr()
   return deadlines.value
     .filter(it => it.date < t && it.status !== 'done' && it.status !== 'accepted')
+    .filter(it => !effectiveEmployeeId.value || it.assignees.some(a => a.id === effectiveEmployeeId.value))
     .sort((a, b) => a.date.localeCompare(b.date))
 })
 
-// Unfinished work grouped by project
+// Unfinished work grouped by project, filtered by selected employee.
+// Tasks are filtered by assignee; deliverables are project-level so always shown.
 const unfinishedByProject = computed(() => {
+  const empId = effectiveEmployeeId.value
   const map = new Map<string, { project_id: string; project_name: string; items: (OverviewItems['tasks'][0] | OverviewItems['deliverables'][0])[] }>()
   const all = [...overviewItems.value.tasks, ...overviewItems.value.deliverables] as (OverviewItems['tasks'][0] | OverviewItems['deliverables'][0])[]
   for (const it of all) {
+    // Tasks: filter by assignee match; Deliverables: always include (project-level)
+    if (empId && it.kind === 'task' && !it.assignees.some(a => a.id === empId)) continue
     if (!map.has(it.project_id)) {
       map.set(it.project_id, { project_id: it.project_id, project_name: it.project_name, items: [] })
     }
@@ -118,6 +131,11 @@ function rangeLabel(r: RangeMode): string {
 async function load() {
   loading.value = true
   try {
+    // Fetch employee list on first load
+    if (employees.value.length === 0) {
+      try { employees.value = await getEmployees() } catch { /* ignore */ }
+    }
+
     const today = todayStr()
     const from = fromDate.value
 
@@ -125,9 +143,10 @@ async function load() {
     const promises: Promise<unknown>[] = []
 
     // Activity log
-    if (user.value?.id) {
+    const empId = effectiveEmployeeId.value
+    if (empId) {
       promises.push(
-        getActivityLog({ employee_id: user.value.id, date_from: from, date_to: today })
+        getActivityLog({ employee_id: empId, date_from: from, date_to: today })
           .then(data => { activity.value = data })
           .catch(() => { activity.value = [] }),
       )
@@ -161,8 +180,9 @@ async function load() {
   }
 }
 
-// Reload when range changes
+// Reload when range or employee changes
 watch(rangeMode, () => { load() })
+watch(selectedEmployeeId, () => { load() })
 
 onMounted(load)
 </script>
@@ -172,14 +192,22 @@ onMounted(load)
     <!-- Header -->
     <div class="overview-header">
       <h1>Overview</h1>
-      <div class="range-switcher">
-        <button
-          v-for="r in (['1d','3d','7d'] as RangeMode[])"
-          :key="r"
-          class="btn range-btn"
-          :class="{ active: rangeMode === r }"
-          @click="rangeMode = r"
-        >{{ rangeLabel(r) }}</button>
+      <div class="header-controls">
+        <select v-model="selectedEmployeeId" class="employee-select" title="Filter by employee">
+          <option value="">All employees</option>
+          <option v-for="emp in employees" :key="emp.id" :value="emp.id">
+            {{ [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.email }}
+          </option>
+        </select>
+        <div class="range-switcher">
+          <button
+            v-for="r in (['1d','3d','7d'] as RangeMode[])"
+            :key="r"
+            class="btn range-btn"
+            :class="{ active: rangeMode === r }"
+            @click="rangeMode = r"
+          >{{ rangeLabel(r) }}</button>
+        </div>
       </div>
     </div>
 
@@ -281,6 +309,11 @@ onMounted(load)
 .overview-view { display: flex; flex-direction: column; gap: 1rem; }
 .overview-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .overview-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; }
+.header-controls { display: flex; align-items: center; gap: 0.75rem; }
+.employee-select {
+  padding: 0.375rem 0.5rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.375rem;
+  background: var(--p-form-field-background); color: var(--p-text-color); font-size: 0.8125rem;
+}
 
 .range-switcher { display: flex; gap: 0.25rem; }
 .btn {
