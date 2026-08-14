@@ -35,7 +35,19 @@ Multi-tenant SaaS platform for service businesses. Start with irrigation design,
 └── index.html              # Landing page
 ```
 
-## Quick Start
+## Local test server
+
+The canonical local, browser-ready server is **http://127.0.0.1:3100/**. It runs FastAPI and the built Vue SPA together against a local PostgreSQL database (`conductor_dev`), never the production database.
+
+```bash
+bash scripts/start-local.sh
+```
+
+See [docs/local-test-server.md](docs/local-test-server.md) for one-time PostgreSQL setup, reset safety, troubleshooting, and the verification workflow agents must use.
+
+## Legacy quick start
+
+The commands below predate the PostgreSQL/Vue architecture and are retained only as historical context; use the local test-server workflow above for current development.
 
 ```bash
 # 1. Create and activate virtual environment

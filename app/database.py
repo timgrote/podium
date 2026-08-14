@@ -12,7 +12,10 @@ _CONNECTION_FILE = os.path.join(os.path.dirname(__file__), "..", "db", "connecti
 
 
 def get_database_url() -> str:
-    """Resolve the active database URL. Priority: connection.json > env var > default."""
+    """Resolve the active database URL. An explicit environment value wins."""
+    environment_url = os.environ.get("CONDUCTOR_DATABASE_URL")
+    if environment_url:
+        return environment_url
     try:
         with open(_CONNECTION_FILE) as f:
             data = json.load(f)

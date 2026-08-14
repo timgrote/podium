@@ -1,5 +1,6 @@
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 test-results/
@@ -20,6 +21,8 @@ db/*.db-journal
 db/*.db-wal
 db/*.db-shm
 db/connection.json
+# Local-only PostgreSQL snapshot for the test server (may contain business data).
+db/local-test-server.sql
 ops/*.db
 
 # Logs
