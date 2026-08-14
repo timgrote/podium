@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..auth import require_auth
 from ..database import get_db
 from ..events import event_bus
 from ..models.task import (
@@ -151,7 +152,7 @@ def list_project_tasks(
 
 
 @router.post("/projects/{project_id}/tasks", response_model=TaskResponse, status_code=201)
-def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
+def create_task(project_id: str, data: TaskCreate, db=Depends(get_db), employee: dict = Depends(require_auth)):
     # Verify project exists
     proj = db.execute(
         "SELECT id FROM projects WHERE id = %s AND deleted_at IS NULL", (project_id,)
@@ -164,17 +165,18 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db)):
     start_date = str(data.start_date) if data.start_date else now[:10]  # default to today
     db.execute(
         "INSERT INTO project_tasks "
-        "(id, project_id, parent_id, title, description, status, priority, start_date, due_date, reminder_at, sort_order, is_pinned, tags, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "(id, project_id, parent_id, title, description, status, priority, start_date, due_date, reminder_at, sort_order, is_pinned, tags, created_by, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (task_id, project_id, data.parent_id, data.title, data.description,
          data.status, data.priority, start_date,
          str(data.due_date) if data.due_date else None,
          str(data.reminder_at) if data.reminder_at else None,
-         data.sort_order, data.is_pinned, data.tags or [], now, now),
+         data.sort_order, data.is_pinned, data.tags or [], employee["id"], now, now),
     )
 
-    if data.assignee_ids:
-        _set_assignees(db, task_id, data.assignee_ids)
+    # Auto-assign creator if no assignees specified
+    assignee_ids = data.assignee_ids if data.assignee_ids else [employee["id"]]
+    _set_assignees(db, task_id, assignee_ids)
 
     db.commit()
     event_bus.publish(project_id, "task_created", task_id)
