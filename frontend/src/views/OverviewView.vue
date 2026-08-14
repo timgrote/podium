@@ -7,6 +7,7 @@ import { getActivityLog, type ActivityItem } from '../api/activityLog'
 import { getCalendar, type CalendarItem } from '../api/calendar'
 import { getOverviewItems, type OverviewItems } from '../api/overview'
 import { getEmployees } from '../api/employees'
+import { bulkUpdateTasks, bulkDeleteTasks } from '../api/tasks'
 import type { Employee } from '../types'
 import { todayStr, addDaysStr, formatDateShort } from '../utils/dates'
 
@@ -53,6 +54,124 @@ function isEmployeeSelected(id: string): boolean {
 
 function clearEmployeeFilter() {
   selectedEmployeeIds.value = []
+}
+
+// --- Task selection + bulk actions ---
+const selectedTaskIds = ref<Set<string>>(new Set())
+const bulkAction = ref<'none' | 'reschedule' | 'assign'>('none')
+const rescheduleDate = ref('')
+const assignDropdownOpen = ref(false)
+const bulkAssigneeIds = ref<string[]>([])
+const acting = ref(false)
+
+function itemKey(it: { kind: string; id: string }): string {
+  return it.kind + it.id
+}
+
+function toggleSelectTask(taskId: string) {
+  if (selectedTaskIds.value.has(taskId)) {
+    selectedTaskIds.value.delete(taskId)
+  } else {
+    selectedTaskIds.value.add(taskId)
+  }
+  selectedTaskIds.value = new Set(selectedTaskIds.value)
+  if (selectedTaskIds.value.size === 0) bulkAction.value = 'none'
+}
+
+function selectAllTasks() {
+  for (const t of overviewItems.value.tasks) {
+    selectedTaskIds.value.add(t.id)
+  }
+  selectedTaskIds.value = new Set(selectedTaskIds.value)
+}
+
+function clearSelection() {
+  selectedTaskIds.value = new Set()
+  bulkAction.value = 'none'
+  rescheduleDate.value = ''
+  bulkAssigneeIds.value = []
+}
+
+function toggleBulkAssignee(id: string) {
+  if (bulkAssigneeIds.value.includes(id)) {
+    bulkAssigneeIds.value = bulkAssigneeIds.value.filter(eid => eid !== id)
+  } else {
+    bulkAssigneeIds.value = [...bulkAssigneeIds.value, id]
+  }
+}
+
+function isBulkAssigneeSelected(id: string): boolean {
+  return bulkAssigneeIds.value.includes(id)
+}
+
+const selectedCount = computed(() => selectedTaskIds.value.size)
+
+async function bulkMarkDone() {
+  if (selectedTaskIds.value.size === 0) return
+  acting.value = true
+  try {
+    const ids = [...selectedTaskIds.value]
+    await bulkUpdateTasks(ids, { status: 'done' })
+    // Update local state
+    for (const t of overviewItems.value.tasks) {
+      if (selectedTaskIds.value.has(t.id)) t.status = 'done'
+    }
+    toast.success(`${ids.length} task${ids.length === 1 ? '' : 's'} marked done`)
+    clearSelection()
+  } catch (e) {
+    toast.error(`Failed: ${e}`)
+  } finally {
+    acting.value = false
+  }
+}
+
+async function bulkReschedule() {
+  if (selectedTaskIds.value.size === 0 || !rescheduleDate.value) return
+  acting.value = true
+  try {
+    const ids = [...selectedTaskIds.value]
+    await bulkUpdateTasks(ids, { due_date: rescheduleDate.value })
+    for (const t of overviewItems.value.tasks) {
+      if (selectedTaskIds.value.has(t.id)) t.due_date = rescheduleDate.value
+    }
+    toast.success(`${ids.length} task${ids.length === 1 ? '' : 's'} rescheduled to ${rescheduleDate.value}`)
+    clearSelection()
+  } catch (e) {
+    toast.error(`Failed: ${e}`)
+  } finally {
+    acting.value = false
+  }
+}
+
+async function bulkAssign() {
+  if (selectedTaskIds.value.size === 0 || bulkAssigneeIds.value.length === 0) return
+  acting.value = true
+  try {
+    const ids = [...selectedTaskIds.value]
+    await bulkUpdateTasks(ids, { assignee_ids: bulkAssigneeIds.value })
+    toast.success(`${ids.length} task${ids.length === 1 ? '' : 's'} assigned`)
+    clearSelection()
+  } catch (e) {
+    toast.error(`Failed: ${e}`)
+  } finally {
+    acting.value = false
+  }
+}
+
+async function bulkDelete() {
+  if (selectedTaskIds.value.size === 0) return
+  acting.value = true
+  try {
+    const ids = [...selectedTaskIds.value]
+    await bulkDeleteTasks(ids)
+    overviewItems.value.tasks = overviewItems.value.tasks.filter(t => !selectedTaskIds.value.has(t.id))
+    toast.success(`${ids.length} task${ids.length === 1 ? '' : 's'} deleted`)
+    clearSelection()
+  } catch (e) {
+    toast.error(`Failed: ${e}`)
+  } finally {
+    acting.value = false
+  }
 }
 
 // Unique projects from activity feed — used to fetch unfinished work
@@ -325,7 +444,57 @@ onMounted(load)
 
         <!-- RIGHT: Unfinished Work on Active Projects -->
         <section class="overview-section">
-          <h2 class="section-title">Unfinished Work</h2>
+          <div class="section-header">
+            <h2 class="section-title">Unfinished Work</h2>
+            <div v-if="overviewItems.tasks.length > 0" class="select-controls">
+              <button v-if="selectedCount === 0" class="link-btn" @click="selectAllTasks">Select all tasks</button>
+              <button v-else class="link-btn" @click="clearSelection">Clear</button>
+            </div>
+          </div>
+
+          <!-- Bulk action bar -->
+          <div v-if="selectedCount > 0" class="bulk-bar">
+            <span class="bulk-count">{{ selectedCount }} selected</span>
+            <button class="bulk-btn" :disabled="acting" @click="bulkMarkDone">
+              <i class="pi pi-check" /> Mark Done
+            </button>
+            <button class="bulk-btn" :disabled="acting" @click="bulkAction = bulkAction === 'reschedule' ? 'none' : 'reschedule'">
+              <i class="pi pi-calendar" /> Reschedule
+            </button>
+            <button class="bulk-btn" :disabled="acting" @click="bulkAction = bulkAction === 'assign' ? 'none' : 'assign'; assignDropdownOpen = false">
+              <i class="pi pi-users" /> Assign
+            </button>
+            <button class="bulk-btn bulk-danger" :disabled="acting" @click="bulkDelete">
+              <i class="pi pi-trash" /> Delete
+            </button>
+
+            <!-- Reschedule inline input -->
+            <div v-if="bulkAction === 'reschedule'" class="bulk-inline">
+              <input type="date" v-model="rescheduleDate" class="bulk-date-input">
+              <button class="bulk-btn bulk-primary" :disabled="acting || !rescheduleDate" @click="bulkReschedule">Apply</button>
+              <button class="bulk-btn" @click="bulkAction = 'none'">Cancel</button>
+            </div>
+
+            <!-- Assign inline dropdown -->
+            <div v-if="bulkAction === 'assign'" class="bulk-inline">
+              <div class="emp-dropdown">
+                <button class="emp-dropdown-btn" @click="assignDropdownOpen = !assignDropdownOpen">
+                  <i class="pi pi-users" />
+                  <span>{{ bulkAssigneeIds.length === 0 ? 'Select assignees' : `${bulkAssigneeIds.length} selected` }}</span>
+                  <i class="pi pi-chevron-down" :class="{ rotated: assignDropdownOpen }" />
+                </button>
+                <div v-if="assignDropdownOpen" class="emp-dropdown-panel">
+                  <label v-for="emp in employees" :key="emp.id" class="emp-option">
+                    <input type="checkbox" :checked="isBulkAssigneeSelected(emp.id)" @change="toggleBulkAssignee(emp.id)">
+                    <span>{{ [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.email }}</span>
+                  </label>
+                </div>
+              </div>
+              <button class="bulk-btn bulk-primary" :disabled="acting || bulkAssigneeIds.length === 0" @click="bulkAssign">Apply</button>
+              <button class="bulk-btn" @click="bulkAction = 'none'">Cancel</button>
+            </div>
+          </div>
+
           <div v-if="unfinishedByProject.length === 0" class="empty">No active projects with unfinished work in this range.</div>
           <div v-for="proj in unfinishedByProject" :key="proj.project_id" class="project-group">
             <div class="project-head" @click="openProject(proj.project_id)">
@@ -334,11 +503,18 @@ onMounted(load)
             </div>
             <div
               v-for="it in proj.items"
-              :key="it.kind + it.id"
+              :key="itemKey(it)"
               class="work-item"
-              :class="kindClass(it.kind)"
+              :class="[kindClass(it.kind), { selected: it.kind === 'task' && selectedTaskIds.has(it.id) }]"
               @click="openProject(proj.project_id)"
             >
+              <input
+                v-if="it.kind === 'task'"
+                type="checkbox"
+                class="task-checkbox"
+                :checked="selectedTaskIds.has(it.id)"
+                @click.stop="toggleSelectTask(it.id)"
+              >
               <span class="work-kind">{{ kindLabel(it.kind) }}</span>
               <span class="work-title">{{ it.title }}</span>
               <span v-if="'progress_percent' in it" class="work-progress">
@@ -480,4 +656,36 @@ onMounted(load)
 .work-status.status-sent { background: var(--p-amber-100); color: var(--p-amber-700); }
 .work-status.status-in_progress { background: var(--p-blue-100); color: var(--p-blue-700); }
 .work-status.status-not_started { background: var(--p-surface-200); color: var(--p-text-muted-color); }
+
+/* BULK ACTIONS */
+.section-header { display: flex; align-items: center; justify-content: space-between; }
+.select-controls { display: flex; gap: 0.5rem; }
+.link-btn { font-size: 0.6875rem; color: var(--p-primary-color); background: none; border: none; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+
+.bulk-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem;
+  padding: 0.5rem; border-radius: 0.375rem; background: var(--p-surface-100);
+  border: 1px solid var(--p-content-border-color); margin-bottom: 0.5rem;
+}
+.bulk-count { font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; }
+.bulk-btn {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.25rem 0.5rem; border: 1px solid var(--p-form-field-border-color);
+  border-radius: 0.25rem; background: var(--p-form-field-background); color: var(--p-text-color);
+  font-size: 0.75rem; cursor: pointer;
+}
+.bulk-btn:hover:not(:disabled) { border-color: var(--p-primary-color); }
+.bulk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.bulk-primary { background: var(--p-primary-color); border-color: var(--p-primary-color); color: #fff; }
+.bulk-danger { color: var(--p-red-600); border-color: var(--p-red-300); }
+.bulk-danger:hover:not(:disabled) { background: var(--p-red-50); border-color: var(--p-red-500); }
+.bulk-inline { display: flex; align-items: center; gap: 0.375rem; width: 100%; margin-top: 0.25rem; }
+.bulk-date-input {
+  padding: 0.25rem 0.375rem; border: 1px solid var(--p-form-field-border-color); border-radius: 0.25rem;
+  background: var(--p-form-field-background); color: var(--p-text-color); font-size: 0.75rem;
+}
+
+.task-checkbox { flex-shrink: 0; width: 0.875rem; height: 0.875rem; cursor: pointer; }
+.work-item.selected { background: color-mix(in srgb, var(--p-primary-color) 12%, transparent); }
 </style>
