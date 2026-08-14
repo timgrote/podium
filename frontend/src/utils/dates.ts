@@ -81,3 +81,62 @@ export function isoWeekRange(fromDateStr?: string): { start: string; end: string
   }
   return { start: fmt(monday), end: fmt(sunday) }
 }
+
+const fmt = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// First day of the month containing dateStr
+export function monthStart(dateStr?: string): string {
+  const d = parseLocalDate(dateStr || todayStr())
+  return fmt(new Date(d.getFullYear(), d.getMonth(), 1))
+}
+
+// Last day of the month containing dateStr
+export function monthEnd(dateStr?: string): string {
+  const d = parseLocalDate(dateStr || todayStr())
+  return fmt(new Date(d.getFullYear(), d.getMonth() + 1, 0))
+}
+
+// Standard Monday-start month grid (6 weeks) as rows of date strings.
+// Leading/trailing cells bleed into adjacent months so the grid is rectangular.
+export function monthGrid(dateStr?: string): string[][] {
+  const d = parseLocalDate(dateStr || todayStr())
+  const first = new Date(d.getFullYear(), d.getMonth(), 1)
+  const start = startOfWeek(fmt(first))
+  const cells: string[] = []
+  const startDate = parseLocalDate(start)
+  for (let i = 0; i < 42; i++) {
+    const c = new Date(startDate)
+    c.setDate(startDate.getDate() + i)
+    cells.push(fmt(c))
+  }
+  // split into 6 rows of 7
+  const rows: string[][] = []
+  for (let i = 0; i < 6; i++) rows.push(cells.slice(i * 7, i * 7 + 7))
+  return rows
+}
+
+export function startOfWeek(dateStr?: string): string {
+  return isoWeekRange(dateStr).start
+}
+
+export function addMonthsStr(dateStr: string, months: number): string {
+  const d = parseLocalDate(dateStr)
+  return fmt(new Date(d.getFullYear(), d.getMonth() + months, d.getDate()))
+}
+
+// Human label for a column header: 'Mon' | 'Tue' ... from a date string
+export function weekdayShort(dateStr: string): string {
+  return parseLocalDate(dateStr).toLocaleDateString('en-US', { weekday: 'short' })
+}
+
+// Range of consecutive days from start, count days long.
+export function dayRange(start: string, count: number): string[] {
+  const out: string[] = []
+  for (let i = 0; i < count; i++) out.push(addDaysStr(start, i))
+  return out
+}

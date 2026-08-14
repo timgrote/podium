@@ -6,7 +6,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/projects',
+      redirect: '/overview',
     },
     {
       path: '/login',
@@ -15,7 +15,12 @@ const router = createRouter({
     },
     {
       path: '/dashboard',
-      redirect: '/projects',
+      redirect: '/overview',
+    },
+    {
+      path: '/overview',
+      component: () => import('../views/OverviewView.vue'),
+      meta: { layout: 'dashboard' },
     },
     {
       path: '/projects',
@@ -55,6 +60,11 @@ const router = createRouter({
     {
       path: '/my-tasks/:taskId',
       component: () => import('../views/MyTasksView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/calendar',
+      component: () => import('../views/CalendarView.vue'),
       meta: { layout: 'dashboard' },
     },
     {
@@ -115,7 +125,7 @@ router.beforeEach(async (to) => {
 
   if (to.meta.public) {
     if (isAuthenticated.value && to.path === '/login') {
-      return '/projects'
+      return '/overview'
     }
     return true
   }
