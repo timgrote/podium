@@ -19,14 +19,14 @@ def _seed_project(db, project_id="TEST01", client_id="c-test1"):
     """Insert a client and project so other entities can reference them."""
     now = datetime.now().isoformat()
     db.execute(
-        "INSERT INTO clients (id, name, email, created_at, updated_at) "
+        "INSERT INTO clients (id, name, accounting_email, created_at, updated_at) "
         "VALUES (%s, 'Test Client', 'test@example.com', %s, %s)",
         (client_id, now, now),
     )
     db.execute(
-        "INSERT INTO projects (id, name, client_id, status, created_at, updated_at) "
-        "VALUES (%s, 'Test Project', %s, 'contract', %s, %s)",
-        (project_id, client_id, now, now),
+        "INSERT INTO projects (id, name, client_id, job_code, status, created_at, updated_at) "
+        "VALUES (%s, 'Test Project', %s, %s, 'contract', %s, %s)",
+        (project_id, client_id, project_id, now, now),
     )
     db.commit()
 
@@ -66,6 +66,26 @@ def test_by_number_route_returns_404_for_missing(client, db):
     """Nonexistent invoice number should return 404, not 500."""
     resp = client.get("/api/invoices/by-number/NONEXISTENT-99")
     assert resp.status_code == 404
+
+
+def test_flow_proposal_creates_client_using_accounting_email(client, db):
+    """A new public-flow client must use the schema's accounting_email column."""
+    resp = client.post(
+        "/api/flows/proposals",
+        data={
+            "job_id": "NEW01",
+            "client_name": "New Client",
+            "client_email": "new@example.com",
+            "project_name": "New Project",
+            "amount": "1000",
+        },
+    )
+
+    assert resp.status_code == 200, resp.text
+    row = db.execute(
+        "SELECT accounting_email FROM clients WHERE name = 'New Client'"
+    ).fetchone()
+    assert row["accounting_email"] == "new@example.com"
 
 
 # ===========================================================================

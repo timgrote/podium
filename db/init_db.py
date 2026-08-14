@@ -67,7 +67,7 @@ def seed_data(conn):
     ]
     for c in clients:
         cur.execute('''
-            INSERT INTO clients (id, name, email, phone, address, notes, created_at, updated_at, deleted_at)
+            INSERT INTO clients (id, name, accounting_email, phone, address, notes, created_at, updated_at, deleted_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', c)
     print(f"Added {len(clients)} clients")
