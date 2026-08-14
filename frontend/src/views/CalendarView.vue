@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { CalendarItem } from '../api/calendar'
 import { getCalendar } from '../api/calendar'
+import { updateTask } from '../api/tasks'
+import { updateDeliverable } from '../api/deliverables'
 import { useToast } from '../composables/useToast'
 import {
   todayStr, addDaysStr, addMonthsStr, isoWeekRange, monthStart, monthEnd, dayRange,
@@ -156,6 +158,50 @@ function isPast(dateStr: string): boolean {
   return dateStr < todayStr()
 }
 
+// --- Checkbox / completion toggle ---
+const DONE_STATUSES = { task: 'done', deliverable: 'accepted' } as const
+const NOT_DONE_STATUSES = { task: 'todo', deliverable: 'not_started' } as const
+const toggling = ref<Set<string>>(new Set())
+
+function isDone(it: CalendarItem): boolean {
+  return it.status === DONE_STATUSES[it.kind]
+}
+
+function checkboxId(it: CalendarItem): string {
+  return `cal-check-${it.kind}-${it.id}`
+}
+
+async function toggleDone(it: CalendarItem, event: Event) {
+  event.stopPropagation()
+  if (toggling.value.has(it.id)) return
+  toggling.value.add(it.id)
+  const done = isDone(it)
+  const newStatus = done ? NOT_DONE_STATUSES[it.kind] : DONE_STATUSES[it.kind]
+  try {
+    if (it.kind === 'task') {
+      await updateTask(it.id, { status: newStatus })
+    } else {
+      // When marking a deliverable done, set progress to 100%;
+      // when un-checking, revert to whatever it was before completion.
+      const patch: { status: string; progress_percent?: number } = { status: newStatus }
+      if (!done) {
+        patch.progress_percent = 100
+      } else if (it.progress_percent === 100) {
+        patch.progress_percent = 0
+      }
+      await updateDeliverable(it.id, patch)
+      if ('progress_percent' in patch) {
+        it.progress_percent = patch.progress_percent!
+      }
+    }
+    it.status = newStatus
+  } catch (e) {
+    toast.error(`Failed to update: ${e}`)
+  } finally {
+    toggling.value.delete(it.id)
+  }
+}
+
 function openItem(it: CalendarItem) {
   router.push(`/projects/${it.project_id}`)
 }
@@ -231,8 +277,16 @@ onMounted(load)
             :class="kindClass(it)"
             @click="openItem(it)"
           >
+            <input
+              type="checkbox"
+              class="cal-checkbox"
+              :id="checkboxId(it)"
+              :checked="isDone(it)"
+              :disabled="toggling.has(it.id)"
+              @click="toggleDone(it, $event)"
+            >
             <span class="item-kind">{{ kindLabel(it) }}</span>
-            <span class="item-title">{{ it.title }}</span>
+            <span class="item-title" :class="{ 'done-text': isDone(it) }">{{ it.title }}</span>
             <span v-if="it.priority" class="pill" :class="priorityClass(it.priority)">{{ priorityLabel(it.priority) }}</span>
             <span class="item-project">{{ it.project_name }}</span>
             <span v-if="it.client_name" class="item-company">{{ it.client_name }}</span>
@@ -257,8 +311,17 @@ onMounted(load)
           <div v-for="d in row" :key="d" class="grid-day" :class="{ 'is-today': d === todayStr(), 'is-past': isPast(d) }">
             <template v-for="it in itemsOn(d)" :key="it.kind + it.id">
               <div class="grid-item" :class="[kindClass(it), priorityClass(it.priority)]" :title="it.title" @click="openItem(it)">
-                <span class="grid-item-company">{{ it.client_name || it.project_name }}</span>
-                <span class="grid-item-title">{{ it.title }}</span>
+                <div class="grid-item-row">
+                  <input
+                    type="checkbox"
+                    class="cal-checkbox cal-checkbox-sm"
+                    :checked="isDone(it)"
+                    :disabled="toggling.has(it.id)"
+                    @click="toggleDone(it, $event)"
+                  >
+                  <span class="grid-item-company">{{ it.client_name || it.project_name }}</span>
+                </div>
+                <span class="grid-item-title" :class="{ 'done-text': isDone(it) }">{{ it.title }}</span>
               </div>
             </template>
           </div>
@@ -276,8 +339,17 @@ onMounted(load)
           <span class="month-date">{{ d.slice(8) }}</span>
           <template v-for="it in itemsOn(d).slice(0, 3)" :key="it.kind + it.id">
             <div class="month-item" :class="[kindClass(it), priorityClass(it.priority)]" :title="it.title" @click="openItem(it)">
-              <span class="grid-item-company">{{ it.client_name || it.project_name }}</span>
-              <span class="grid-item-title">{{ it.title }}</span>
+              <div class="grid-item-row">
+                <input
+                  type="checkbox"
+                  class="cal-checkbox cal-checkbox-sm"
+                  :checked="isDone(it)"
+                  :disabled="toggling.has(it.id)"
+                  @click="toggleDone(it, $event)"
+                >
+                <span class="grid-item-company">{{ it.client_name || it.project_name }}</span>
+              </div>
+              <span class="grid-item-title" :class="{ 'done-text': isDone(it) }">{{ it.title }}</span>
             </div>
           </template>
           <span v-if="itemsOn(d).length > 3" class="month-more">+{{ itemsOn(d).length - 3 }} more</span>
@@ -391,4 +463,11 @@ onMounted(load)
 .kind-task.month-item { background: color-mix(in srgb, var(--p-primary-color) 14%, transparent); }
 .kind-deliverable.month-item { background: color-mix(in srgb, var(--p-purple-400) 16%, transparent); }
 .month-more { font-size: 0.625rem; color: var(--p-text-muted-color); }
+
+/* CHECKBOX */
+.cal-checkbox { flex-shrink: 0; cursor: pointer; width: 1rem; height: 1rem; margin: 0; }
+.cal-checkbox-sm { width: 0.75rem; height: 0.75rem; }
+.cal-checkbox:disabled { cursor: wait; opacity: 0.6; }
+.grid-item-row { display: flex; align-items: center; gap: 0.1875rem; min-width: 0; }
+.done-text { text-decoration: line-through; opacity: 0.5; }
 </style>
