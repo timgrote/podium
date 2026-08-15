@@ -19,7 +19,7 @@ Multi-tenant SaaS platform for service businesses. Start with irrigation design,
 │       ├── projects.py
 │       └── proposals.py
 ├── db/
-│   ├── schema.sql          # Full database schema
+│   ├── baseline.sql       # Full database schema (single source of truth)
 │   ├── init_db.py          # Initialize/seed local database
 │   └── conductor.db        # SQLite database (created by init_db.py)
 ├── ops/                    # Project management dashboard (HTML/JS)
@@ -89,7 +89,7 @@ Settings are loaded from environment variables with the `CONDUCTOR_` prefix:
 
 ## Database
 
-Key tables (see `db/schema.sql` for full schema):
+Key tables (see `db/baseline.sql` for the full schema):
 - `clients` - Companies/people we bill
 - `contacts` - Individual people (PMs, engineers)
 - `projects` - Jobs with status workflow

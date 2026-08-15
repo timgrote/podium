@@ -13,6 +13,7 @@ This means tests never touch your real conductor database.
 """
 
 import os
+import sys
 from pathlib import Path
 
 import psycopg2
@@ -23,9 +24,9 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.database import get_db, PgConnection
 
-
-# Path to the SQL schema file
-SCHEMA_PATH = Path(__file__).parent.parent / "db" / "schema.sql"
+# db/ is not a package; make the shared schema builder importable.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "db"))
+from schema_loader import apply_schema  # noqa: E402
 
 # Test database URL — uses a separate database to avoid clobbering dev data
 TEST_DATABASE_URL = os.environ.get(
@@ -37,27 +38,7 @@ TEST_DATABASE_URL = os.environ.get(
 def _create_test_db() -> PgConnection:
     """Create a fresh test database connection with the full Conductor schema."""
     conn = psycopg2.connect(TEST_DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
-    conn.autocommit = True
-    cur = conn.cursor()
-
-    # Drop all existing tables/views for a clean slate
-    cur.execute("""
-        DO $$ DECLARE
-            r RECORD;
-        BEGIN
-            FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
-                EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
-            END LOOP;
-            FOR r IN (SELECT viewname FROM pg_views WHERE schemaname = 'public') LOOP
-                EXECUTE 'DROP VIEW IF EXISTS ' || quote_ident(r.viewname) || ' CASCADE';
-            END LOOP;
-        END $$;
-    """)
-
-    conn.autocommit = False
-    cur.execute(SCHEMA_PATH.read_text())
-    conn.commit()
-
+    apply_schema(conn)  # drops existing objects, builds from baseline + active migrations
     return PgConnection(conn)
 
 

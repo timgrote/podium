@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS _migrations (
 );
 " >/dev/null
 
-# Seed tracking table on first run (migrations already applied via schema.sql)
+# Seed tracking table on first run (migrations already applied via the baseline)
 ROW_COUNT=$(run_sql -tAc "SELECT COUNT(*) FROM _migrations")
 if [ "$ROW_COUNT" -eq 0 ] && [ -d "$MIGRATIONS_DIR" ]; then
     echo "    First run — seeding tracking table with existing migrations..."

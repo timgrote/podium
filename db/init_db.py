@@ -20,39 +20,12 @@ DATABASE_URL = os.environ.get(
     'CONDUCTOR_DATABASE_URL',
     'postgresql://conductor:conductor@localhost:5432/conductor',
 )
-SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema.sql')
+from schema_loader import apply_schema
 
 def generate_id(prefix=''):
     """Generate a short unique ID"""
     short_id = uuid.uuid4().hex[:8]
     return f"{prefix}{short_id}" if prefix else short_id
-
-def init_schema(conn):
-    """Initialize database with schema"""
-    with open(SCHEMA_PATH, 'r') as f:
-        schema = f.read()
-    cur = conn.cursor()
-    cur.execute(schema)
-    conn.commit()
-    print("Schema initialized")
-
-def drop_all(conn):
-    """Drop all tables and views for a fresh start"""
-    cur = conn.cursor()
-    cur.execute("""
-        DO $$ DECLARE
-            r RECORD;
-        BEGIN
-            FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
-                EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
-            END LOOP;
-            FOR r IN (SELECT viewname FROM pg_views WHERE schemaname = 'public') LOOP
-                EXECUTE 'DROP VIEW IF EXISTS ' || quote_ident(r.viewname) || ' CASCADE';
-            END LOOP;
-        END $$;
-    """)
-    conn.commit()
-    print("Dropped all existing tables and views")
 
 def seed_data(conn):
     """Add sample data for development/testing"""
@@ -270,9 +243,9 @@ def verify_data(conn):
 
     # Test the project summary view
     print("\n--- Project Summary View ---")
-    cur.execute("SELECT id, name, status, total_invoiced, total_paid, total_outstanding FROM v_project_summary")
+    cur.execute("SELECT id, project_name, status, total_invoiced, total_paid, total_outstanding FROM v_project_summary")
     for row in cur.fetchall():
-        print(f"  {row['id']}: {row['name']} ({row['status']}) - Invoiced: ${float(row['total_invoiced']):,.2f}, Paid: ${float(row['total_paid']):,.2f}, Outstanding: ${float(row['total_outstanding']):,.2f}")
+        print(f"  {row['id']}: {row['project_name']} ({row['status']}) - Invoiced: ${float(row['total_invoiced']):,.2f}, Paid: ${float(row['total_paid']):,.2f}, Outstanding: ${float(row['total_outstanding']):,.2f}")
 
 def main():
     args = sys.argv[1:]
@@ -284,8 +257,7 @@ def main():
 
     try:
         if not seed_only:
-            drop_all(conn)
-            init_schema(conn)
+            apply_schema(conn)
 
         if not no_seed:
             seed_data(conn)
