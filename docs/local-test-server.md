@@ -8,6 +8,25 @@ It runs the production-style FastAPI app and serves the built Vue SPA from the s
 
 ## One-time workstation setup (Windows)
 
+### Prerequisites
+
+Install these once on the machine before running the launcher. Only PostgreSQL is
+required for the app itself; `uv` and `Node.js` are required by
+`scripts/start-local.sh` (it uses `uv` to build the Python venv and `npm` to
+install/build the frontend).
+
+- **Node.js (includes `npm`)** — version 18+ recommended:
+  ```bash
+  winget install --id OpenJS.NodeJS.LTS --exact --silent --accept-package-agreements --accept-source-agreements
+  ```
+- **`uv` (Python package/venv manager)** — install with the Windows installer:
+  ```bash
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+  ```
+  (Alternatively install via `pip install uv`, or use the `uv` binary from
+  https://github.com/astral-sh/uv/releases.)
+- **PostgreSQL 17** — the database server, installed and run as a Windows service (see step 1 below).
+
 1. Install PostgreSQL 17, accepting its default local port (`5432`). The local development-only PostgreSQL password used below is `conductor`.
 
    ```bash
