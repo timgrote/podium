@@ -28,14 +28,14 @@ async def submit_proposal(
 
     # Find or create client
     client_row = db.execute(
-        "SELECT id FROM clients WHERE email = %s AND deleted_at IS NULL", (client_email,)
+        "SELECT id FROM clients WHERE accounting_email = %s AND deleted_at IS NULL", (client_email,)
     ).fetchone()
     if client_row:
         client_id = client_row["id"]
     else:
         client_id = generate_id("c-")
         db.execute(
-            "INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO clients (id, name, accounting_email, created_at, updated_at) VALUES (%s, %s, %s, %s, %s)",
             (client_id, client_name, client_email, now, now),
         )
 

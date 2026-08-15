@@ -292,6 +292,8 @@ CREATE TABLE project_tasks (
     due_date DATE,
     reminder_at TIMESTAMPTZ,               -- for future cron, not implemented yet
     sort_order INTEGER DEFAULT 0,
+    is_pinned BOOLEAN DEFAULT FALSE,        -- pinned tasks sort to the top
+    tags TEXT[] DEFAULT '{}',               -- array of tag strings
     created_by TEXT REFERENCES employees(id),
     completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -302,6 +304,8 @@ CREATE TABLE project_tasks (
 CREATE INDEX idx_project_tasks_project ON project_tasks(project_id);
 CREATE INDEX idx_project_tasks_parent ON project_tasks(parent_id);
 CREATE INDEX idx_project_tasks_status ON project_tasks(status);
+CREATE INDEX idx_project_tasks_pinned ON project_tasks(is_pinned);
+CREATE INDEX idx_project_tasks_tags ON project_tasks USING GIN (tags);
 
 -- ============================================================================
 -- PROJECT TASK ASSIGNEES
