@@ -34,11 +34,11 @@ python3 db/init_db.py              # Fresh DB with seed data
 python3 db/init_db.py --no-seed    # Fresh DB, schema only
 python3 db/init_db.py --seed-only  # Add seed data to existing DB
 
-# Start server
-source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
+# Start the local test server (canonical workflow)
+bash scripts/start-local.sh
 
-# Open: http://localhost:3000
+# Open: http://127.0.0.1:3100
+# Full setup, prerequisites, and troubleshooting: docs/local-test-server.md
 ```
 
 ### PostgreSQL Setup (Local Dev)
@@ -95,12 +95,13 @@ Migrations in `db/migrations/` are tracked via a `_migrations` table in PostgreS
 
 To add a new migration, create a numbered `.sql` file in `db/migrations/` (e.g., `003_add_feature.sql`). Use `IF NOT EXISTS` / `IF EXISTS` guards for idempotency. The next deploy will apply it automatically.
 
-### Test Server (Thorin)
+### Test Server
 
-A local test server with a copy of the production database runs on Thorin for prototyping. See [`docs/test-server.md`](docs/test-server.md) for full setup, access, and refresh instructions.
-
-- **URL:** `http://100.86.206.66:3001` (Tailscale only)
-- **DB:** Docker container `conductor-test-db` on `127.0.0.1:5433`
+A local test server runs from any checkout via `bash scripts/start-local.sh`. It
+serves the built Vue SPA and API on **http://127.0.0.1:3100** against an isolated
+PostgreSQL database, and shows an orange "TEST SERVER" banner/frame so it cannot
+be confused with production. See [`docs/local-test-server.md`](docs/local-test-server.md)
+for prerequisites, snapshot data, and troubleshooting.
 
 ### Backups
 
@@ -187,8 +188,7 @@ Vue 3 + Vite + TypeScript + PrimeVue single-page app. This is the primary (and o
 ```bash
 cd frontend
 npm install
-npm run dev    # Dev server on :5173, proxies /api to :3000
-npm run build  # Production build to dist/
+npm run build  # Production build to dist/ (served by the local test server)
 npm run test   # Vitest unit tests
 ```
 
