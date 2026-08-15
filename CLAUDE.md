@@ -95,12 +95,13 @@ Migrations in `db/migrations/` are tracked via a `_migrations` table in PostgreS
 
 To add a new migration, create a numbered `.sql` file in `db/migrations/` (e.g., `003_add_feature.sql`). Use `IF NOT EXISTS` / `IF EXISTS` guards for idempotency. The next deploy will apply it automatically.
 
-### Test Server (Thorin)
+### Test Server
 
-A local test server with a copy of the production database runs on Thorin for prototyping. See [`docs/test-server.md`](docs/test-server.md) for full setup, access, and refresh instructions.
-
-- **URL:** `http://100.86.206.66:3001` (Tailscale only)
-- **DB:** Docker container `conductor-test-db` on `127.0.0.1:5433`
+Run a local test server from any checkout with `bash scripts/start-local.sh`. It
+serves the API and built Vue SPA on **http://127.0.0.1:3001** against an isolated
+PostgreSQL database and shows an amber "TEST SERVER" banner so it cannot be
+confused with production. See [`docs/local-test-server.md`](docs/local-test-server.md)
+for prerequisites, test data, and verification.
 
 ### Backups
 
