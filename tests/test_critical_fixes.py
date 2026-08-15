@@ -19,14 +19,14 @@ def _seed_project(db, project_id="TEST01", client_id="c-test1"):
     """Insert a client and project so other entities can reference them."""
     now = datetime.now().isoformat()
     db.execute(
-        "INSERT INTO clients (id, name, email, created_at, updated_at) "
+        "INSERT INTO clients (id, name, accounting_email, created_at, updated_at) "
         "VALUES (%s, 'Test Client', 'test@example.com', %s, %s)",
         (client_id, now, now),
     )
     db.execute(
-        "INSERT INTO projects (id, name, client_id, status, created_at, updated_at) "
-        "VALUES (%s, 'Test Project', %s, 'contract', %s, %s)",
-        (project_id, client_id, now, now),
+        "INSERT INTO projects (id, name, client_id, job_code, status, created_at, updated_at) "
+        "VALUES (%s, 'Test Project', %s, %s, 'contract', %s, %s)",
+        (project_id, client_id, project_id, now, now),
     )
     db.commit()
 

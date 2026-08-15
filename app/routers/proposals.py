@@ -95,7 +95,7 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
     client_id = None
     if data.client_email:
         row = db.execute(
-            "SELECT id FROM clients WHERE email = %s AND deleted_at IS NULL",
+            "SELECT id FROM clients WHERE accounting_email = %s AND deleted_at IS NULL",
             (data.client_email,),
         ).fetchone()
         if row:
@@ -124,7 +124,7 @@ def generate_proposal(data: ProposalGenerate, db=Depends(get_db)):
         address = "\n".join(address_parts) if address_parts else None
 
         db.execute(
-            "INSERT INTO clients (id, name, email, address, created_at, updated_at) "
+            "INSERT INTO clients (id, name, accounting_email, address, created_at, updated_at) "
             "VALUES (%s, %s, %s, %s, %s, %s)",
             (client_id, data.client_company or data.client_name, data.client_email,
              address, now, now),

@@ -30,11 +30,11 @@ def next_invoice_number(db, project_id: str) -> str:
     ).fetchone()
     prefix = (proj["job_code"] or proj["project_number"]) if proj else project_id
 
-    # Only count non-deleted invoices — the partial unique index
-    # (idx_invoices_number WHERE deleted_at IS NULL) allows reusing
-    # numbers from deleted invoices.
+    # Compute the max across ALL invoices for the project (including soft-deleted)
+    # so deleted invoice numbers are not reused. The test
+    # test_invoice_number_survives_deletion requires numbers to be monotonic.
     rows = db.execute(
-        "SELECT invoice_number FROM invoices WHERE project_id = %s AND deleted_at IS NULL",
+        "SELECT invoice_number FROM invoices WHERE project_id = %s",
         (project_id,),
     ).fetchall()
     max_num = 0

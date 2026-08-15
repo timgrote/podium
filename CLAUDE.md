@@ -95,6 +95,15 @@ Migrations in `db/migrations/` are tracked via a `_migrations` table in PostgreS
 
 To add a new migration, create a numbered `.sql` file in `db/migrations/` (e.g., `003_add_feature.sql`). Use `IF NOT EXISTS` / `IF EXISTS` guards for idempotency. The next deploy will apply it automatically.
 
+> **Always update BOTH the migration AND `db/schema.sql`.** `schema.sql` is the
+> definition of a fresh database (used by `db/init_db.py` and the test harness);
+> migrations are the incremental changes for databases that already exist. If a
+> change only goes into one, fresh/test databases and existing/production
+> databases drift apart — e.g. a column added only to a migration is missing from
+> every DB built from `schema.sql`, and `pytest` will fail with
+> `column ... does not exist`. After any schema change, run `pytest tests/ -q`
+> to confirm fresh databases match.
+
 ### Test Server
 
 Run a local test server from any checkout with `bash scripts/start-local.sh`. It
