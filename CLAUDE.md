@@ -93,16 +93,20 @@ For browser testing via Playwright:
 
 Migrations in `db/migrations/` are tracked via a `_migrations` table in PostgreSQL. The deploy script only runs new migrations (by filename) and fails fast on errors — no silent `|| true`. On first run it seeds the tracking table with existing migration filenames so they aren't re-applied.
 
-To add a new migration, create a numbered `.sql` file in `db/migrations/` (e.g., `003_add_feature.sql`). Use `IF NOT EXISTS` / `IF EXISTS` guards for idempotency. The next deploy will apply it automatically.
+The schema has **one source of truth**:
+- `db/baseline.sql` — the complete current schema (all tables/views/indexes).
+- `db/migrations/*.sql` — incremental **future** changes applied on top.
 
-> **Always update BOTH the migration AND `db/schema.sql`.** `schema.sql` is the
-> definition of a fresh database (used by `db/init_db.py` and the test harness);
-> migrations are the incremental changes for databases that already exist. If a
-> change only goes into one, fresh/test databases and existing/production
-> databases drift apart — e.g. a column added only to a migration is missing from
-> every DB built from `schema.sql`, and `pytest` will fail with
-> `column ... does not exist`. After any schema change, run `pytest tests/ -q`
-> to confirm fresh databases match.
+Fresh databases (dev/test, built by `db/init_db.py` and the test harness) are
+constructed from baseline + all active migrations. Historical migrations
+(001-033) live in `db/migrations/archive/` and are baked into the baseline —
+they are not replayed.
+
+To change the schema, add a NEW numbered migration in `db/migrations/` (e.g.,
+`034_add_feature.sql`) with `IF NOT EXISTS` / `IF EXISTS` guards. Do not edit
+`baseline.sql` or archived migrations. After any schema change, run
+`pytest tests/ -q` — the suite builds a fresh database from the migrations, so a
+broken schema fails immediately.
 
 ### Test Server
 
@@ -160,7 +164,7 @@ Standard CRUD pattern: `GET /` (list), `GET /{id}`, `POST /`, `PATCH /{id}`, `DE
 
 ## Database Schema
 
-Key tables (see `db/schema.sql` for full schema):
+Key tables (see `db/baseline.sql` for the full schema):
 - `clients` - Companies/entities we bill (name = company name)
 - `contacts` - Individual people at client companies (PMs, engineers)
 - `projects` - Jobs with status workflow; IDs are human-readable job codes (e.g., `JBHL21`)

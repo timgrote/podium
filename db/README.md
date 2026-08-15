@@ -28,7 +28,7 @@ curl 'https://n8n.irrigationengineers.com/webhook/podium-api?action=list'
 
 ## Files
 
-- `schema.sql` - Database schema (tables, indexes, views)
+- `baseline.sql` - Database schema (tables, indexes, views) — single source of truth
 - `migrations/` - SQL migration scripts
 - `init_db.py` - Initialize database with schema and optional seed data
 - `podium.db` - Local database file (gitignored)
@@ -104,7 +104,7 @@ Use the `podium-db-export` n8n workflow to dump tables to Google Sheets for manu
 
 When adding columns or tables:
 
-1. Update `schema.sql` with the change
+1. Update `baseline.sql` with the change, and/or add a numbered migration in `db/migrations/`
 2. Create a migration script in `migrations/` (e.g., `002_add_my_column.sql`)
 3. Run migration on server:
    ```bash
