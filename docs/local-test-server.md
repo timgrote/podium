@@ -48,11 +48,47 @@ The launcher will:
 
 Stop it with `Ctrl+C`. A later start does not reseed or wipe `conductor_dev`.
 
+## Test-server indicator (orange border)
+
+Once you are logged in, a test server is always visually marked so it cannot be
+mistaken for production:
+
+- an **orange banner** across the top reading **"⚠️ TEST SERVER — not production"**, and
+- an **orange frame** around the edges of the page.
+
+This is driven by `frontend/src/composables/useEnvironment.ts`: the indicator
+shows whenever the app is served on a non-standard port. Production runs through
+Caddy on port 80 (so `window.location.port` is empty) and never shows it. The
+local test server on port 3100 (and staging on 3001) shows it automatically —
+no extra configuration is needed when you run `scripts/start-local.sh`.
+
+If you start the backend manually on another non-80 port, the border still
+appears, which is the desired safety behavior.
+
 ## Local snapshot data
 
 A plain PostgreSQL dump at `db/local-test-server.sql` is the local test-data contract. It is deliberately gitignored because it may contain business data. On a new clone, copy the approved dump to that exact path **before** the first start; the launcher restores it only when `conductor_dev` has no schema.
 
 The current workstation snapshot is a PostgreSQL 15 plain dump and restores successfully into local PostgreSQL 17. It currently contains 24 clients, 88 projects, and 4 employees.
+
+> **Password gotcha:** the dump carries over the **production bcrypt hashes** for
+> Tim/Ally/Matara, so your real production password will not match them — they
+> are stale. After restoring the snapshot, reset local passwords to known test
+> values. The QA account `qa_test@conductor.test` / `testtest` always works. To
+> reset an employee's local password:
+>
+> ```bash
+> .venv/Scripts/python.exe -c "
+> import psycopg2
+> from app.auth import hash_password
+> conn = psycopg2.connect('postgresql://conductor:conductor@127.0.0.1:5432/conductor_dev')
+> cur = conn.cursor()
+> cur.execute('UPDATE employees SET password_hash = %s WHERE email = %s',
+>             (hash_password('testtest'), 'tim@irrigationengineers.com'))
+> conn.commit()
+> conn.close()
+> "
+> ```
 
 ## Safety and reset
 
