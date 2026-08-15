@@ -187,6 +187,67 @@ def create_task(project_id: str, data: TaskCreate, db=Depends(get_db), employee:
 
 # --- Cross-project "My Tasks" endpoint (before /tasks/{task_id} to avoid shadowing) ---
 
+
+@router.get("/tasks")
+def list_all_tasks(
+    assignee: str | None = Query(None, description="Filter by assignee employee ID"),
+    status: str | None = Query(None, description="Comma-separated statuses (e.g. todo,done)"),
+    due_before: date | None = Query(None),
+    due_after: date | None = Query(None),
+    completed_after: date | None = Query(None, description="Tasks completed on or after this date"),
+    project_id: str | None = Query(None, description="Filter by project ID"),
+    stale: bool | None = Query(None),
+    no_due_date: bool | None = Query(None),
+    tags: str | None = Query(None, description="Comma-separated tags to filter by (ANY match)"),
+    db=Depends(get_db),
+):
+    """Return all tasks across all projects, with optional filters."""
+    sql = (
+        "SELECT t.*, p.name AS project_name, p.job_code "
+        "FROM project_tasks t "
+        "JOIN projects p ON p.id = t.project_id "
+        "WHERE t.deleted_at IS NULL "
+        "AND p.deleted_at IS NULL "
+        "AND t.parent_id IS NULL"
+    )
+    params: list = []
+    if assignee:
+        sql += (
+            " AND EXISTS (SELECT 1 FROM project_task_assignees a "
+            "WHERE a.task_id = t.id AND a.employee_id = %s)"
+        )
+        params.append(assignee)
+    if project_id:
+        sql += " AND t.project_id = %s"
+        params.append(project_id)
+    if due_before is not None:
+        sql += " AND t.due_date <= %s"
+        params.append(str(due_before))
+    if due_after is not None:
+        sql += " AND t.due_date >= %s"
+        params.append(str(due_after))
+    if no_due_date is True:
+        sql += " AND t.due_date IS NULL"
+    if completed_after is not None:
+        sql += " AND t.completed_at >= %s"
+        params.append(str(completed_after))
+    statuses = _parse_status_csv(status)
+    if statuses:
+        sql += " AND t.status = ANY(%s)"
+        params.append(statuses)
+    if stale is True:
+        cutoff = (datetime.now() - timedelta(days=STALE_DAYS)).isoformat()
+        sql += " AND t.updated_at < %s AND t.status NOT IN ('done','archived','canceled')"
+        params.append(cutoff)
+    tag_list = _parse_status_csv(tags)  # reuse CSV parsing
+    if tag_list:
+        sql += " AND t.tags && %s::text[]"
+        params.append(tag_list)
+    sql += " ORDER BY t.is_pinned DESC, t.due_date ASC NULLS LAST, t.created_at DESC"
+    rows = db.execute(sql, tuple(params)).fetchall()
+    return [_build_task_response(db, row) for row in rows]
+
+
 @router.get("/tasks/my")
 def list_my_tasks(
     employee_id: str,
