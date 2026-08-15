@@ -45,7 +45,6 @@ api.py
 /api/
 api-proposal-endpoint.py
 v2_api.py
-main.py
 gary-test.py
 discord-bot-clean.py
 discord-proposal-bot.py
