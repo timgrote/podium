@@ -136,7 +136,7 @@ async function doBatchMarkPaid() {
 </script>
 
 <template>
-  <div class="financial-page">
+  <div class="financial-page" :class="{ 'board-mode': viewMode === 'kanban' }">
     <div class="page-header">
       <div class="header-row">
         <h2>Financial</h2>
@@ -391,6 +391,11 @@ async function doBatchMarkPaid() {
 .financial-page {
   max-width: 1200px;
   margin: 0 auto;
+}
+.financial-page.board-mode {
+  /* Kanban board fills the full main content width. */
+  max-width: none;
+  width: 100%;
 }
 
 .page-header {

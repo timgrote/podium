@@ -736,7 +736,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="my-tasks">
+  <div class="my-tasks" :class="{ 'board-mode': viewMode === 'kanban' }">
     <div class="page-header">
       <div class="header-top">
         <h1>My Tasks</h1>
@@ -1305,6 +1305,11 @@ onMounted(() => {
 .my-tasks {
   max-width: 900px;
   margin: 0 auto;
+}
+.my-tasks.board-mode {
+  /* Kanban board fills the full main content width. */
+  max-width: none;
+  width: 100%;
 }
 
 .page-header { margin-bottom: 1rem; }

@@ -23,7 +23,6 @@ onMounted(async () => {
 const navItems = [
   { label: 'Overview', icon: 'pi pi-chart-line', route: '/overview' },
   { label: 'Projects', icon: 'pi pi-home', route: '/projects' },
-  { label: 'Kanban', icon: 'pi pi-table', route: '/kanban' },
   { label: 'My Tasks', icon: 'pi pi-check-square', route: '/my-tasks' },
   { label: 'Calendar', icon: 'pi pi-calendar', route: '/calendar' },
   { label: 'Timesheet', icon: 'pi pi-clock', route: '/timesheet' },

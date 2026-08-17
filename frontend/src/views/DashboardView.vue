@@ -7,12 +7,16 @@ import { useClients } from '../composables/useClients'
 import { getCompanySettings } from '../api/company'
 import { useToast } from '../composables/useToast'
 import ProjectList from '../components/dashboard/ProjectList.vue'
+import ProjectsBoard from '../components/kanban/ProjectsBoard.vue'
 import ProjectModal from '../components/modals/ProjectModal.vue'
 import DeleteConfirmModal from '../components/modals/DeleteConfirmModal.vue'
 import CompanySettingsModal from '../components/modals/CompanySettingsModal.vue'
 import ErrorModal from '../components/modals/ErrorModal.vue'
 
 const router = useRouter()
+
+// View mode: 'list' (default) or 'kanban'
+const viewMode = ref<'list' | 'kanban'>('list')
 
 const {
   filtered,
@@ -103,18 +107,32 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="dashboard">
+  <div class="dashboard" :class="{ 'board-mode': viewMode === 'kanban' }">
     <div class="dashboard-header">
       <div class="dashboard-title">
         <img v-if="company.logo_url" :src="company.logo_url" alt="" class="company-logo" />
         <h1>{{ company.company_name || 'Projects' }}</h1>
       </div>
-      <button class="btn-settings" @click="showSettingsModal = true">
-        <i class="pi pi-cog" />
-      </button>
+      <div class="header-actions">
+        <button
+          class="btn-view-toggle"
+          :class="{ active: viewMode === 'kanban' }"
+          @click="viewMode = viewMode === 'list' ? 'kanban' : 'list'"
+          :title="viewMode === 'list' ? 'Switch to Kanban board' : 'Switch to list view'"
+        >
+          <i class="pi pi-th-large" />
+          {{ viewMode === 'list' ? 'Board' : 'List' }}
+        </button>
+        <button class="btn-settings" @click="showSettingsModal = true">
+          <i class="pi pi-cog" />
+        </button>
+      </div>
     </div>
 
+    <ProjectsBoard v-if="viewMode === 'kanban'" class="projects-board" />
+
     <ProjectList
+      v-if="viewMode === 'list'"
       :projects="filtered"
       :pinned-ids="pinnedIds"
       :search-query="searchQuery"
@@ -171,12 +189,48 @@ onMounted(async () => {
   max-width: 1200px;
   margin: 0 auto;
 }
+.dashboard.board-mode {
+  /* Kanban board fills the full main content width. */
+  max-width: none;
+  width: 100%;
+}
 
 .dashboard-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+}
+.btn-view-toggle:hover {
+  background: var(--p-content-hover-background);
+  color: var(--p-text-color);
+}
+.btn-view-toggle.active {
+  color: var(--p-primary-color);
+  border-color: var(--p-primary-color);
+}
+
+.projects-board {
+  width: 100%;
 }
 
 .dashboard-title {

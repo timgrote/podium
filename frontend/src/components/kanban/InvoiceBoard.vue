@@ -191,9 +191,9 @@ function deadlineBadge(inv: InvoiceListItem) {
 }
 
 .kanban-column {
+  /* Stretch columns to fill the available width — no narrow cap. */
   flex: 1 1 0;
   min-width: 240px;
-  max-width: 280px;
   background: var(--p-surface-100);
   border-radius: 0.625rem;
   padding: 0.75rem;

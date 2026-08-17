@@ -1,42 +1,44 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import type { KanbanTaskBoard, KanbanTaskCard, KanbanTaskColumn } from '../../types'
-import { getTaskBoard, moveTaskCard } from '../../api/kanban'
+import type { KanbanBoard, KanbanCard, KanbanColumn } from '../../types'
+import { getBoard, moveCard } from '../../api/kanban'
 import { useToast } from '../../composables/useToast'
 import { parseLocalDate, formatDateShort } from '../../utils/dates'
-
-const props = defineProps<{
-  assignee?: string
-}>()
 
 const router = useRouter()
 const toast = useToast()
 
-const board = ref<KanbanTaskBoard | null>(null)
+const board = ref<KanbanBoard | null>(null)
 const loading = ref(false)
 
 // Drag state
-const dragging = ref<KanbanTaskCard | null>(null)
+const dragging = ref<KanbanCard | null>(null)
 const dragOverStatus = ref<string | null>(null)
 
-const columns = computed<KanbanTaskColumn[]>(() => board.value?.columns ?? [])
+const columns = computed<KanbanColumn[]>(() => board.value?.columns ?? [])
 
-function taskCount(col: KanbanTaskColumn): number {
-  return col.tasks.length
+function cardCount(col: KanbanColumn): number {
+  return col.projects.length
 }
 
-function deadlineInfo(task: KanbanTaskCard) {
-  const dl = task.due_date
+function deadlineInfo(card: KanbanCard) {
+  const dl = card.next_task_deadline
   if (!dl) return null
-  if (task.status === 'done' || task.status === 'canceled') return null
   const now = new Date()
   now.setHours(0, 0, 0, 0)
   const due = parseLocalDate(dl)
   const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, severity: 'overdue' as const }
-  if (diffDays <= 7) return { label: `Due ${formatDateShort(dl)}`, severity: 'soon' as const }
+  if (diffDays <= 14) return { label: `Due in ${diffDays}d`, severity: 'soon' as const }
   return { label: formatDateShort(dl), severity: 'normal' as const }
+}
+
+function formatCurrency(value: number): string {
+  if (Math.abs(value) >= 1000) {
+    return '$' + (value / 1000).toFixed(value % 1000 === 0 ? 0 : 1) + 'k'
+  }
+  return '$' + value.toFixed(0)
 }
 
 function initials(name: string | null): string {
@@ -45,27 +47,24 @@ function initials(name: string | null): string {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?'
 }
 
-function navigateToTask(task: KanbanTaskCard) {
-  router.push(`/projects/${task.project_number || task.project_id}`)
+function navigateToProject(card: KanbanCard) {
+  router.push(`/projects/${card.project_number || card.id}`)
 }
 
 async function load() {
   loading.value = true
   try {
-    board.value = await getTaskBoard(props.assignee)
+    board.value = await getBoard()
   } catch (e) {
-    toast.error('Failed to load task board', e instanceof Error ? e.message : undefined)
+    toast.error('Failed to load board', e instanceof Error ? e.message : undefined)
   } finally {
     loading.value = false
   }
 }
 
-watch(() => props.assignee, () => load())
-onMounted(load)
-
 // --- Drag & drop ---
-function onDragStart(task: KanbanTaskCard) {
-  dragging.value = task
+function onDragStart(card: KanbanCard) {
+  dragging.value = card
 }
 function onDragEnd() {
   dragging.value = null
@@ -77,27 +76,30 @@ function onDragEnter(status: string) {
 }
 
 async function onDrop(status: string) {
-  const task = dragging.value
+  const card = dragging.value
   dragOverStatus.value = null
-  if (!task) return
+  if (!card) return
 
-  if (task.status === status) {
+  // No-op: dropped back into its own column.
+  if (card.status === status) {
     dragging.value = null
     return
   }
 
   const targetCol = columns.value.find((c) => c.status === status)
-  const insertIndex = targetCol ? targetCol.tasks.length : 0
+  const insertIndex = targetCol ? targetCol.projects.length : 0
 
   try {
-    board.value = await moveTaskCard({ task_id: task.id, status, sort_order: insertIndex })
-    toast.success('Moved', `${task.title} → ${status}`)
+    board.value = await moveCard({ project_id: card.id, status, board_order: insertIndex })
+    toast.success('Moved', `${card.project_name} → ${status}`)
   } catch (e) {
     toast.error('Move failed', e instanceof Error ? e.message : undefined)
   } finally {
     dragging.value = null
   }
 }
+
+onMounted(load)
 </script>
 
 <template>
@@ -118,54 +120,52 @@ async function onDrop(status: string) {
       <div class="kanban-column-header">
         <span class="kanban-dot" :class="col.status"></span>
         <span class="kanban-column-label">{{ col.label }}</span>
-        <span class="kanban-count">{{ taskCount(col) }}</span>
+        <span class="kanban-count">{{ cardCount(col) }}</span>
       </div>
 
       <div class="kanban-column-body">
         <div
-          v-for="task in col.tasks"
-          :key="task.id"
+          v-for="card in col.projects"
+          :key="card.id"
           class="kanban-card"
-          :class="{ dragging: dragging?.id === task.id }"
+          :class="{ dragging: dragging?.id === card.id }"
           draggable="true"
-          @dragstart="onDragStart(task)"
+          @dragstart="onDragStart(card)"
           @dragend="onDragEnd"
-          @click="navigateToTask(task)"
+          @click="navigateToProject(card)"
         >
           <div class="card-title-row">
-            <span class="card-title">{{ task.title }}</span>
+            <span class="card-title">{{ card.project_name }}</span>
+            <span v-if="card.job_code" class="card-job">{{ card.job_code }}</span>
           </div>
 
           <div class="card-meta">
-            <span class="card-project">
-              <i class="pi pi-briefcase" />
-              {{ task.project_name }}
-              <span v-if="task.job_code" class="card-job">({{ task.job_code }})</span>
-            </span>
-          </div>
-
-          <div class="card-tags" v-if="task.tags && task.tags.length">
-            <span v-for="tag in task.tags.slice(0, 3)" :key="tag" class="tag-chip">{{ tag }}</span>
+            <span v-if="card.client_name" class="card-client">{{ card.client_name }}</span>
+            <span v-if="card.location" class="card-location">{{ card.location }}</span>
           </div>
 
           <div class="card-footer">
-            <div class="card-footer-left">
-              <span v-if="task.subtask_count > 0" class="subtask-badge">
-                <i class="pi pi-list" /> {{ task.subtask_count }}
-              </span>
-              <span v-if="deadlineInfo(task)" class="deadline-badge" :class="deadlineInfo(task)!.severity">
-                {{ deadlineInfo(task)!.label }}
-              </span>
-            </div>
+            <span v-if="deadlineInfo(card)" class="deadline-badge" :class="deadlineInfo(card)!.severity">
+              {{ deadlineInfo(card)!.label }}
+            </span>
             <div class="card-right">
-              <span v-if="task.assignee_name" class="pm-avatar" :title="task.assignee_name">
-                {{ initials(task.assignee_name) }}
+              <span v-if="card.total_outstanding > 0" class="card-outstanding">
+                {{ formatCurrency(card.total_outstanding) }}
+              </span>
+              <span
+                v-if="card.pm_name"
+                class="pm-avatar"
+                :class="{ 'has-image': card.pm_avatar_url }"
+                :title="card.pm_name"
+              >
+                <img v-if="card.pm_avatar_url" :src="card.pm_avatar_url" :alt="initials(card.pm_name)" />
+                <span v-else>{{ initials(card.pm_name) }}</span>
               </span>
             </div>
           </div>
         </div>
 
-        <div v-if="col.tasks.length === 0" class="kanban-empty">No tasks</div>
+        <div v-if="col.projects.length === 0" class="kanban-empty">No projects</div>
       </div>
     </div>
   </div>
@@ -195,7 +195,7 @@ async function onDrop(status: string) {
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 180px);
   transition: background 0.15s, outline 0.15s;
 }
 .app-dark .kanban-column {
@@ -220,16 +220,18 @@ async function onDrop(status: string) {
   flex-shrink: 0;
   background: var(--p-surface-400);
 }
-.kanban-dot.todo { background: var(--p-surface-400); }
-.kanban-dot.in_progress { background: var(--p-blue-500); }
-.kanban-dot.blocked { background: var(--p-red-500); }
-.kanban-dot.done { background: var(--p-green-600); }
-.kanban-dot.canceled { background: var(--p-surface-500); }
+.kanban-dot.lead { background: var(--p-amber-500); }
+.kanban-dot.proposal { background: var(--p-cyan-500); }
+.kanban-dot.contract { background: var(--p-blue-500); }
+.kanban-dot.active { background: var(--p-green-600); }
+.kanban-dot.complete { background: var(--p-primary-color); }
+.kanban-dot.archive { background: var(--p-surface-500); }
 
 .kanban-column-label {
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--p-text-color);
+  text-transform: capitalize;
 }
 
 .kanban-count {
@@ -280,6 +282,12 @@ async function onDrop(status: string) {
   line-height: 1.3;
   word-break: break-word;
 }
+.card-job {
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+  margin-top: 0.125rem;
+}
 
 .card-meta {
   margin-top: 0.375rem;
@@ -287,37 +295,13 @@ async function onDrop(status: string) {
   flex-direction: column;
   gap: 0.125rem;
 }
-.card-project {
+.card-client {
   font-size: 0.75rem;
   color: var(--p-text-muted-color);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
 }
-.card-project .pi {
-  font-size: 0.6875rem;
-}
-.card-job {
+.card-location {
   font-size: 0.6875rem;
   color: var(--p-text-muted-color);
-}
-
-.card-tags {
-  margin-top: 0.375rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-.tag-chip {
-  background: var(--p-surface-100);
-  color: var(--p-text-muted-color);
-  font-size: 0.625rem;
-  font-weight: 500;
-  padding: 0.0625rem 0.375rem;
-  border-radius: 0.25rem;
-}
-.app-dark .tag-chip {
-  background: var(--p-surface-800);
 }
 
 .card-footer {
@@ -327,28 +311,11 @@ async function onDrop(status: string) {
   justify-content: space-between;
   gap: 0.5rem;
 }
-.card-footer-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
 .card-right {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
-}
-
-.subtask-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.6875rem;
-  color: var(--p-text-muted-color);
-}
-.subtask-badge .pi {
-  font-size: 0.625rem;
 }
 
 .deadline-badge {
@@ -370,6 +337,12 @@ async function onDrop(status: string) {
   color: var(--p-text-muted-color);
 }
 
+.card-outstanding {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--p-red-600);
+}
+
 .pm-avatar {
   width: 24px;
   height: 24px;
@@ -382,6 +355,15 @@ async function onDrop(status: string) {
   font-size: 0.6rem;
   font-weight: 600;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.pm-avatar.has-image {
+  background: transparent;
+}
+.pm-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .kanban-empty {
