@@ -119,6 +119,7 @@ const editingNoteId = ref<string | null>(null)
 const editNoteContent = ref('')
 
 const statusOptions = [
+  { value: 'triage', label: 'Triage' },
   { value: 'todo', label: 'To Do' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'blocked', label: 'Blocked' },

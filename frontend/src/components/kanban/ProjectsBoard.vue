@@ -5,18 +5,96 @@ import type { KanbanBoard, KanbanCard, KanbanColumn } from '../../types'
 import { getBoard, moveCard } from '../../api/kanban'
 import { useToast } from '../../composables/useToast'
 import { parseLocalDate, formatDateShort } from '../../utils/dates'
+import {
+  PROJECT_SORT_OPTIONS,
+  projectMatchesSearch,
+  sortProjects,
+  type ProjectSortKey,
+} from '../../utils/boardSort'
+import { useCollapsibleColumns } from '../../composables/useCollapsibleColumns'
 
 const router = useRouter()
 const toast = useToast()
 
+const { isCollapsed, toggleColumn } = useCollapsibleColumns()
+
 const board = ref<KanbanBoard | null>(null)
 const loading = ref(false)
+
+// --- Filters ---
+const searchQuery = ref('')
+const clientFilter = ref<string>('all')
+const pmFilter = ref<string>('all')
+const hideCompleteArchive = ref(false)
+
+// --- Per-column sort (view only — never mutates stored board_order) ---
+const columnSort = ref<Record<string, ProjectSortKey>>({})
 
 // Drag state
 const dragging = ref<KanbanCard | null>(null)
 const dragOverStatus = ref<string | null>(null)
 
-const columns = computed<KanbanColumn[]>(() => board.value?.columns ?? [])
+/** Distinct client and PM names present on the board, for filter dropdowns. */
+const clientOptions = computed<string[]>(() => {
+  const set = new Set<string>()
+  for (const col of board.value?.columns ?? []) {
+    for (const c of col.projects) if (c.client_name) set.add(c.client_name)
+  }
+  return [...set].sort((a, b) => a.localeCompare(b))
+})
+
+const pmOptions = computed<string[]>(() => {
+  const set = new Set<string>()
+  for (const col of board.value?.columns ?? []) {
+    for (const c of col.projects) if (c.pm_name) set.add(c.pm_name)
+  }
+  return [...set].sort((a, b) => a.localeCompare(b))
+})
+
+/** Columns after applying the hide-complete/archive toggle. */
+const visibleColumns = computed<KanbanColumn[]>(() => {
+  const cols = board.value?.columns ?? []
+  if (!hideCompleteArchive.value) return cols
+  return cols.filter((c) => c.status !== 'complete' && c.status !== 'archive')
+})
+
+/** Columns with cards filtered (search/client/pm) and sorted per-column. */
+const columns = computed<KanbanColumn[]>(() =>
+  visibleColumns.value.map((col) => {
+    const filtered = col.projects.filter((c) => {
+      if (!projectMatchesSearch(c, searchQuery.value)) return false
+      if (clientFilter.value !== 'all' && c.client_name !== clientFilter.value) return false
+      if (pmFilter.value !== 'all' && c.pm_name !== pmFilter.value) return false
+      return true
+    })
+    const key = columnSort.value[col.status] ?? 'manual'
+    return { ...col, projects: sortProjects(filtered, key) }
+  }),
+)
+
+function columnSortKey(col: KanbanColumn): ProjectSortKey {
+  return columnSort.value[col.status] ?? 'manual'
+}
+
+function setColumnSort(status: string, key: ProjectSortKey) {
+  columnSort.value = { ...columnSort.value, [status]: key }
+}
+
+const activeFilterCount = computed(() => {
+  let n = 0
+  if (searchQuery.value.trim()) n++
+  if (clientFilter.value !== 'all') n++
+  if (pmFilter.value !== 'all') n++
+  if (hideCompleteArchive.value) n++
+  return n
+})
+
+function clearFilters() {
+  searchQuery.value = ''
+  clientFilter.value = 'all'
+  pmFilter.value = 'all'
+  hideCompleteArchive.value = false
+}
 
 function cardCount(col: KanbanColumn): number {
   return col.projects.length
@@ -63,34 +141,77 @@ async function load() {
 }
 
 // --- Drag & drop ---
+// Track where the pointer is over a column so we can place a card at an exact
+// position instead of always appending to the end.
+const dragOverCardId = ref<string | null>(null)
+const dragOverHalf = ref<'top' | 'bottom'>('top')
+
 function onDragStart(card: KanbanCard) {
   dragging.value = card
 }
 function onDragEnd() {
   dragging.value = null
   dragOverStatus.value = null
+  dragOverCardId.value = null
 }
 
 function onDragEnter(status: string) {
   dragOverStatus.value = status
+  // Entering a new column resets the hovered card so a drop in the empty space
+  // appends to that column rather than reusing the previous column's anchor.
+  dragOverCardId.value = null
+}
+
+/** Record which card the pointer is over and whether it's the top or bottom half. */
+function onCardDragOver(status: string, card: KanbanCard, event: DragEvent) {
+  dragOverStatus.value = status
+  const el = event.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  dragOverCardId.value = card.id
+  dragOverHalf.value = event.clientY < rect.top + rect.height / 2 ? 'top' : 'bottom'
+}
+
+/**
+ * Compute the board_order that places the dragged card at the current drop
+ * point (index among the column's other cards). In manual order the displayed
+ * order == board_order, so this is exact; for a non-manual sort it anchors to
+ * the board_order of the card at the drop point, and the drop snaps the column
+ * to manual so the card lands where it was dropped.
+ */
+function computeTargetBoardOrder(col: KanbanColumn, dragged: KanbanCard): number {
+  const hoveredId = dragOverCardId.value
+  const hoveredHalf = dragOverHalf.value
+  const others = col.projects.filter((p) => p.id !== dragged.id)
+  let insertIndex = others.length
+  if (hoveredId) {
+    const hi = others.findIndex((p) => p.id === hoveredId)
+    if (hi >= 0) insertIndex = hoveredHalf === 'top' ? hi : hi + 1
+  }
+  const anchor = others[insertIndex]
+  if (anchor) return anchor.board_order
+  return others.length
 }
 
 async function onDrop(status: string) {
   const card = dragging.value
-  dragOverStatus.value = null
   if (!card) return
 
-  // No-op: dropped back into its own column.
-  if (card.status === status) {
-    dragging.value = null
-    return
-  }
-
   const targetCol = columns.value.find((c) => c.status === status)
-  const insertIndex = targetCol ? targetCol.projects.length : 0
+  // Capture the drop position from the hover state BEFORE clearing it.
+  const targetBoardOrder = targetCol ? computeTargetBoardOrder(targetCol, card) : 0
+
+  dragOverStatus.value = null
+  dragOverCardId.value = null
+
+  // A drag-and-drop is an explicit manual position → snap the column to manual.
+  setColumnSort(status, 'manual')
 
   try {
-    board.value = await moveCard({ project_id: card.id, status, board_order: insertIndex })
+    board.value = await moveCard({
+      project_id: card.id,
+      status,
+      board_order: targetBoardOrder,
+    })
     toast.success('Moved', `${card.project_name} → ${status}`)
   } catch (e) {
     toast.error('Move failed', e instanceof Error ? e.message : undefined)
@@ -107,31 +228,97 @@ onMounted(load)
     <i class="pi pi-spin pi-spinner" /> Loading board…
   </div>
 
-  <div v-else class="kanban-board">
+  <div v-else class="kanban-board-wrap">
+    <!-- Filter toolbar -->
+    <div class="kanban-toolbar">
+      <div class="toolbar-search">
+        <i class="pi pi-search" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search projects, clients, PMs…"
+        />
+        <button v-if="searchQuery" class="search-clear" @click="searchQuery = ''">
+          <i class="pi pi-times" />
+        </button>
+      </div>
+
+      <div class="toolbar-filters">
+        <select v-model="clientFilter" class="toolbar-select" title="Filter by client">
+          <option value="all">All clients</option>
+          <option v-for="name in clientOptions" :key="name" :value="name">{{ name }}</option>
+        </select>
+
+        <select v-model="pmFilter" class="toolbar-select" title="Filter by project manager">
+          <option value="all">All PMs</option>
+          <option v-for="name in pmOptions" :key="name" :value="name">{{ name }}</option>
+        </select>
+
+        <label class="toolbar-toggle" title="Hide complete and archive columns">
+          <input v-model="hideCompleteArchive" type="checkbox" />
+          Hide done/archive
+        </label>
+
+        <button
+          v-if="activeFilterCount > 0"
+          class="toolbar-clear"
+          @click="clearFilters"
+        >
+          Clear ({{ activeFilterCount }})
+        </button>
+      </div>
+    </div>
+
+    <div class="kanban-board">
     <div
       v-for="col in columns"
       :key="col.status"
       class="kanban-column"
-      :class="{ 'drag-over': dragOverStatus === col.status }"
+      :class="{
+        'drag-over': dragOverStatus === col.status,
+        collapsed: isCollapsed(col.status, col.projects.length),
+      }"
+      :title="isCollapsed(col.status, col.projects.length) ? `Expand ${col.label}` : undefined"
       @dragover.prevent
       @dragenter.prevent="onDragEnter(col.status)"
       @drop.prevent="onDrop(col.status)"
+      @click="toggleColumn(col.status)"
     >
       <div class="kanban-column-header">
         <span class="kanban-dot" :class="col.status"></span>
         <span class="kanban-column-label">{{ col.label }}</span>
         <span class="kanban-count">{{ cardCount(col) }}</span>
+        <div v-if="!isCollapsed(col.status, col.projects.length)" class="kanban-sort">
+          <select
+            class="kanban-sort-select"
+            :value="columnSortKey(col)"
+            title="Sort this column"
+            @click.stop
+            @change="setColumnSort(col.status, ($event.target as HTMLSelectElement).value as ProjectSortKey)"
+          >
+            <option
+              v-for="opt in PROJECT_SORT_OPTIONS"
+              :key="opt.key"
+              :value="opt.key"
+            >{{ opt.label }}</option>
+          </select>
+        </div>
       </div>
 
-      <div class="kanban-column-body">
+      <div v-if="!isCollapsed(col.status, col.projects.length)" class="kanban-column-body">
         <div
           v-for="card in col.projects"
           :key="card.id"
           class="kanban-card"
-          :class="{ dragging: dragging?.id === card.id }"
+          :class="{
+            dragging: dragging?.id === card.id,
+            'drop-top': dragOverStatus === col.status && dragOverCardId === card.id && dragOverHalf === 'top',
+            'drop-bottom': dragOverStatus === col.status && dragOverCardId === card.id && dragOverHalf === 'bottom',
+          }"
           draggable="true"
           @dragstart="onDragStart(card)"
           @dragend="onDragEnd"
+          @dragover.prevent="onCardDragOver(col.status, card, $event)"
           @click="navigateToProject(card)"
         >
           <div class="card-title-row">
@@ -168,6 +355,7 @@ onMounted(load)
         <div v-if="col.projects.length === 0" class="kanban-empty">No projects</div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -176,6 +364,95 @@ onMounted(load)
   padding: 3rem;
   text-align: center;
   color: var(--p-text-muted-color);
+}
+
+/* --- Filter toolbar --- */
+.kanban-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.toolbar-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 260px;
+  min-width: 200px;
+}
+.toolbar-search .pi {
+  position: absolute;
+  left: 0.625rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.toolbar-search input {
+  width: 100%;
+  padding: 0.4375rem 2rem 0.4375rem 1.875rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+}
+.toolbar-search input:focus {
+  outline: none;
+  border-color: var(--p-primary-color);
+}
+.search-clear {
+  position: absolute;
+  right: 0.375rem;
+  background: none;
+  border: none;
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+}
+.search-clear:hover {
+  color: var(--p-text-color);
+}
+.toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.toolbar-select {
+  padding: 0.4375rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+  max-width: 200px;
+}
+.toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--p-text-color);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toolbar-toggle input {
+  accent-color: var(--p-primary-color);
+}
+.toolbar-clear {
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  color: var(--p-primary-color);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toolbar-clear:hover {
+  background: var(--p-content-hover-background);
 }
 
 .kanban-board {
@@ -204,6 +481,39 @@ onMounted(load)
 .kanban-column.drag-over {
   background: var(--p-primary-100);
   outline: 2px dashed var(--p-primary-color);
+}
+
+/* Collapsed empty column → thin vertical strip (Hermes-style) */
+.kanban-column.collapsed {
+  flex: 0 0 44px;
+  min-width: 44px;
+  cursor: pointer;
+  justify-content: center;
+  align-items: center;
+  transition: flex-basis 0.15s ease, min-width 0.15s ease;
+}
+.kanban-column.collapsed .kanban-column-header {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.25rem;
+}
+.kanban-column.collapsed .kanban-column-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+}
+.kanban-column.collapsed .kanban-count {
+  margin-left: 0;
+}
+.kanban-column.collapsed:hover {
+  background: var(--p-surface-200);
+}
+.app-dark .kanban-column.collapsed:hover {
+  background: var(--p-surface-800);
 }
 
 .kanban-column-header {
@@ -243,6 +553,28 @@ onMounted(load)
   border-radius: 1rem;
   padding: 0.125rem 0.5rem;
 }
+.kanban-sort {
+  margin-left: 0.375rem;
+  display: flex;
+  align-items: center;
+}
+.kanban-sort-select {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  max-width: 150px;
+}
+.kanban-sort-select:hover,
+.kanban-sort-select:focus {
+  border-color: var(--p-content-border-color);
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  outline: none;
+}
 
 .kanban-column-body {
   display: flex;
@@ -267,6 +599,12 @@ onMounted(load)
 .kanban-card.dragging {
   opacity: 0.5;
   transform: rotate(2deg);
+}
+.kanban-card.drop-top {
+  box-shadow: 0 -3px 0 0 var(--p-primary-color);
+}
+.kanban-card.drop-bottom {
+  box-shadow: 0 3px 0 0 var(--p-primary-color);
 }
 
 .card-title-row {

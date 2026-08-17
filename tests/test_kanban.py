@@ -114,7 +114,7 @@ def test_get_task_board_groups_by_status(client, db):
     assert res.status_code == 200
     data = res.json()
     statuses = [c["status"] for c in data["columns"]]
-    assert statuses == ["todo", "in_progress", "blocked", "done", "canceled"]
+    assert statuses == ["triage", "todo", "in_progress", "blocked", "done", "canceled"]
 
     by_status = {c["status"]: c["tasks"] for c in data["columns"]}
     assert {t["title"] for t in by_status["todo"]} == {"Draft plan", "CDs"}

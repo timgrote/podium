@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { InvoiceListItem } from '../../types'
 import { updateInvoice } from '../../api/invoices'
 import { useToast } from '../../composables/useToast'
+import { useCollapsibleColumns } from '../../composables/useCollapsibleColumns'
 import { daysPastDue } from '../../utils/dates'
 
 const props = defineProps<{
@@ -15,6 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { isCollapsed, toggleColumn } = useCollapsibleColumns()
 const dragging = ref<InvoiceListItem | null>(null)
 const dragOverStatus = ref<string | null>(null)
 
@@ -131,10 +133,15 @@ function deadlineBadge(inv: InvoiceListItem) {
       v-for="col in columns"
       :key="col.status"
       class="kanban-column"
-      :class="{ 'drag-over': dragOverStatus === col.status }"
+      :class="{
+        'drag-over': dragOverStatus === col.status,
+        collapsed: isCollapsed(col.status, col.invoices.length),
+      }"
+      :title="isCollapsed(col.status, col.invoices.length) ? `Expand ${col.label}` : undefined"
       @dragover.prevent
       @dragenter.prevent="onDragEnter(col.status)"
       @drop.prevent="onDrop(col.status)"
+      @click="toggleColumn(col.status)"
     >
       <div class="kanban-column-header">
         <span class="kanban-dot" :class="col.status"></span>
@@ -142,7 +149,7 @@ function deadlineBadge(inv: InvoiceListItem) {
         <span class="kanban-count">{{ col.invoices.length }}</span>
       </div>
 
-      <div class="kanban-column-body">
+      <div v-if="!isCollapsed(col.status, col.invoices.length)" class="kanban-column-body">
         <div
           v-for="inv in col.invoices"
           :key="inv.id"
@@ -208,6 +215,39 @@ function deadlineBadge(inv: InvoiceListItem) {
 .kanban-column.drag-over {
   background: var(--p-primary-100);
   outline: 2px dashed var(--p-primary-color);
+}
+
+/* Collapsed empty column → thin vertical strip (Hermes-style) */
+.kanban-column.collapsed {
+  flex: 0 0 44px;
+  min-width: 44px;
+  cursor: pointer;
+  justify-content: center;
+  align-items: center;
+  transition: flex-basis 0.15s ease, min-width 0.15s ease;
+}
+.kanban-column.collapsed .kanban-column-header {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.25rem;
+}
+.kanban-column.collapsed .kanban-column-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+}
+.kanban-column.collapsed .kanban-count {
+  margin-left: 0;
+}
+.kanban-column.collapsed:hover {
+  background: var(--p-surface-200);
+}
+.app-dark .kanban-column.collapsed:hover {
+  background: var(--p-surface-800);
 }
 
 .kanban-column-header {

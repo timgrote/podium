@@ -13,10 +13,11 @@ import type { Task } from '../types'
 import { apiFetch } from './client'
 
 /** Canonical column order for the project task board. */
-export const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'canceled'] as const
+export const TASK_STATUSES = ['triage', 'todo', 'in_progress', 'blocked', 'done', 'canceled'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  triage: 'Triage',
   todo: 'To Do',
   in_progress: 'In Progress',
   blocked: 'Blocked',
@@ -29,11 +30,12 @@ export function isTaskStatus(value: string): value is TaskStatus {
 }
 
 const STATUS_INDEX: Record<TaskStatus, number> = {
-  todo: 0,
-  in_progress: 1,
-  blocked: 2,
-  done: 3,
-  canceled: 4,
+  triage: 0,
+  todo: 1,
+  in_progress: 2,
+  blocked: 3,
+  done: 4,
+  canceled: 5,
 }
 
 /**

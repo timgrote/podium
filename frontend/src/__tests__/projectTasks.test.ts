@@ -48,7 +48,7 @@ afterEach(() => {
 
 describe('status values', () => {
   it('matches the canonical column set used by the backend', () => {
-    expect(TASK_STATUSES).toEqual(['todo', 'in_progress', 'blocked', 'done', 'canceled'])
+    expect(TASK_STATUSES).toEqual(['triage', 'todo', 'in_progress', 'blocked', 'done', 'canceled'])
   })
 
   it('defines a human label for every status', () => {
@@ -118,7 +118,7 @@ describe('groupTasksByStatus', () => {
   it('produces one column per canonical status in column order', () => {
     const cols = groupTasksByStatus([])
     expect(cols.map((c) => c.status)).toEqual(TASK_STATUSES)
-    expect(cols.map((c) => c.label)).toEqual(['To Do', 'In Progress', 'Blocked', 'Done', 'Canceled'])
+    expect(cols.map((c) => c.label)).toEqual(['Triage', 'To Do', 'In Progress', 'Blocked', 'Done', 'Canceled'])
     expect(cols.every((c) => c.tasks.length === 0)).toBe(true)
   })
 

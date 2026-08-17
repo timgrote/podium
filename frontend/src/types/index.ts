@@ -280,7 +280,7 @@ export interface Task {
   parent_id: string | null
   title: string
   description: string | null
-  status: 'todo' | 'in_progress' | 'blocked' | 'done' | 'canceled'
+  status: 'triage' | 'todo' | 'in_progress' | 'blocked' | 'done' | 'canceled'
   priority: number | null
   start_date: string | null
   due_date: string | null

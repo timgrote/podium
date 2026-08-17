@@ -5,6 +5,8 @@ import type { KanbanTaskBoard, KanbanTaskCard, KanbanTaskColumn } from '../../ty
 import { getTaskBoard, moveTaskCard } from '../../api/kanban'
 import { useToast } from '../../composables/useToast'
 import { parseLocalDate, formatDateShort } from '../../utils/dates'
+import { TASK_SORT_OPTIONS, sortTasks, type TaskSortKey } from '../../utils/boardSort'
+import { useCollapsibleColumns } from '../../composables/useCollapsibleColumns'
 
 const props = defineProps<{
   assignee?: string
@@ -13,14 +15,59 @@ const props = defineProps<{
 const router = useRouter()
 const toast = useToast()
 
+const { isCollapsed, toggleColumn } = useCollapsibleColumns()
+
 const board = ref<KanbanTaskBoard | null>(null)
 const loading = ref(false)
+
+// Per-column sort (view only — never mutates stored sort_order).
+const columnSort = ref<Record<string, TaskSortKey>>({})
+
+// Project filter (multi-project boards only). Filters tasks by project_id.
+const projectFilter = ref<string>('all')
 
 // Drag state
 const dragging = ref<KanbanTaskCard | null>(null)
 const dragOverStatus = ref<string | null>(null)
 
-const columns = computed<KanbanTaskColumn[]>(() => board.value?.columns ?? [])
+/** Distinct projects present on the board, for the filter dropdown. */
+const projectOptions = computed<{ id: string; name: string }[]>(() => {
+  const map = new Map<string, string>()
+  for (const col of board.value?.columns ?? []) {
+    for (const t of col.tasks) {
+      if (t.project_id && t.project_name) map.set(t.project_id, t.project_name)
+    }
+  }
+  return [...map.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+})
+
+/** Columns with cards filtered by project and sorted per the selected view. */
+const columns = computed<KanbanTaskColumn[]>(() =>
+  (board.value?.columns ?? []).map((col) => {
+    let tasks = col.tasks
+    if (projectFilter.value !== 'all') {
+      tasks = tasks.filter((t) => t.project_id === projectFilter.value)
+    }
+    const key = columnSort.value[col.status] ?? 'manual'
+    return { ...col, tasks: sortTasks(tasks, key) }
+  }),
+)
+
+const hasActiveProjectFilter = computed(() => projectFilter.value !== 'all')
+
+function clearProjectFilter() {
+  projectFilter.value = 'all'
+}
+
+function columnSortKey(col: KanbanTaskColumn): TaskSortKey {
+  return columnSort.value[col.status] ?? 'manual'
+}
+
+function setColumnSort(status: string, key: TaskSortKey) {
+  columnSort.value = { ...columnSort.value, [status]: key }
+}
 
 function taskCount(col: KanbanTaskColumn): number {
   return col.tasks.length
@@ -105,23 +152,57 @@ async function onDrop(status: string) {
     <i class="pi pi-spin pi-spinner" /> Loading board…
   </div>
 
-  <div v-else class="kanban-board">
+  <div v-else class="kanban-board-wrap">
+    <!-- Project filter toolbar (multi-project board) -->
+    <div class="kanban-toolbar">
+      <div class="toolbar-filters">
+        <select v-model="projectFilter" class="toolbar-select" title="Filter by project">
+          <option value="all">All projects</option>
+          <option v-for="p in projectOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
+        <button v-if="hasActiveProjectFilter" class="toolbar-clear" @click="clearProjectFilter">
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div class="kanban-board">
     <div
       v-for="col in columns"
       :key="col.status"
       class="kanban-column"
-      :class="{ 'drag-over': dragOverStatus === col.status }"
+      :class="{
+        'drag-over': dragOverStatus === col.status,
+        collapsed: isCollapsed(col.status, col.tasks.length),
+      }"
+      :title="isCollapsed(col.status, col.tasks.length) ? `Expand ${col.label}` : undefined"
       @dragover.prevent
       @dragenter.prevent="onDragEnter(col.status)"
       @drop.prevent="onDrop(col.status)"
+      @click="toggleColumn(col.status)"
     >
       <div class="kanban-column-header">
         <span class="kanban-dot" :class="col.status"></span>
         <span class="kanban-column-label">{{ col.label }}</span>
         <span class="kanban-count">{{ taskCount(col) }}</span>
+        <div v-if="!isCollapsed(col.status, col.tasks.length)" class="kanban-sort">
+          <select
+            class="kanban-sort-select"
+            :value="columnSortKey(col)"
+            title="Sort this column"
+            @click.stop
+            @change="setColumnSort(col.status, ($event.target as HTMLSelectElement).value as TaskSortKey)"
+          >
+            <option
+              v-for="opt in TASK_SORT_OPTIONS"
+              :key="opt.key"
+              :value="opt.key"
+            >{{ opt.label }}</option>
+          </select>
+        </div>
       </div>
 
-      <div class="kanban-column-body">
+      <div v-if="!isCollapsed(col.status, col.tasks.length)" class="kanban-column-body">
         <div
           v-for="task in col.tasks"
           :key="task.id"
@@ -168,6 +249,7 @@ async function onDrop(status: string) {
         <div v-if="col.tasks.length === 0" class="kanban-empty">No tasks</div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -176,6 +258,43 @@ async function onDrop(status: string) {
   padding: 3rem;
   text-align: center;
   color: var(--p-text-muted-color);
+}
+
+/* --- Project filter toolbar --- */
+.kanban-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.toolbar-select {
+  padding: 0.4375rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+  max-width: 240px;
+}
+.toolbar-clear {
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  color: var(--p-primary-color);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toolbar-clear:hover {
+  background: var(--p-content-hover-background);
 }
 
 .kanban-board {
@@ -206,6 +325,39 @@ async function onDrop(status: string) {
   outline: 2px dashed var(--p-primary-color);
 }
 
+/* Collapsed empty column → thin vertical strip (Hermes-style) */
+.kanban-column.collapsed {
+  flex: 0 0 44px;
+  min-width: 44px;
+  cursor: pointer;
+  justify-content: center;
+  align-items: center;
+  transition: flex-basis 0.15s ease, min-width 0.15s ease;
+}
+.kanban-column.collapsed .kanban-column-header {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.25rem;
+}
+.kanban-column.collapsed .kanban-column-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+}
+.kanban-column.collapsed .kanban-count {
+  margin-left: 0;
+}
+.kanban-column.collapsed:hover {
+  background: var(--p-surface-200);
+}
+.app-dark .kanban-column.collapsed:hover {
+  background: var(--p-surface-800);
+}
+
 .kanban-column-header {
   display: flex;
   align-items: center;
@@ -221,6 +373,7 @@ async function onDrop(status: string) {
   background: var(--p-surface-400);
 }
 .kanban-dot.todo { background: var(--p-surface-400); }
+.kanban-dot.triage { background: var(--p-purple-500); }
 .kanban-dot.in_progress { background: var(--p-blue-500); }
 .kanban-dot.blocked { background: var(--p-red-500); }
 .kanban-dot.done { background: var(--p-green-600); }
@@ -240,6 +393,28 @@ async function onDrop(status: string) {
   font-weight: 600;
   border-radius: 1rem;
   padding: 0.125rem 0.5rem;
+}
+.kanban-sort {
+  margin-left: 0.375rem;
+  display: flex;
+  align-items: center;
+}
+.kanban-sort-select {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  max-width: 150px;
+}
+.kanban-sort-select:hover,
+.kanban-sort-select:focus {
+  border-color: var(--p-content-border-color);
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  outline: none;
 }
 
 .kanban-column-body {

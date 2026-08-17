@@ -35,6 +35,7 @@ _COLUMN_STATUSES = {c["status"] for c in KANBAN_COLUMNS}
 
 # Task board columns. Values match project_tasks.status.
 TASK_COLUMNS: list[dict[str, str]] = [
+    {"status": "triage", "label": "Triage"},
     {"status": "todo", "label": "To Do"},
     {"status": "in_progress", "label": "In Progress"},
     {"status": "blocked", "label": "Blocked"},

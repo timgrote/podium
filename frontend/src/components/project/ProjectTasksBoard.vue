@@ -27,6 +27,7 @@ import {
   type TaskStatus,
 } from '../../api/projectTasks'
 import { useToast } from '../../composables/useToast'
+import { useCollapsibleColumns } from '../../composables/useCollapsibleColumns'
 import { formatDateShort, isOverdue } from '../../utils/dates'
 
 const props = defineProps<{
@@ -40,6 +41,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { isCollapsed, toggleColumn } = useCollapsibleColumns()
 
 const tasks = ref<Task[]>([])
 const loading = ref(true)
@@ -229,9 +231,15 @@ defineExpose({ load })
       v-for="col in columns"
       :key="col.status"
       class="ptb-column"
-      :class="{ empty: col.tasks.length === 0, 'drag-over': dragOverStatus === col.status }"
+      :class="{
+        empty: col.tasks.length === 0,
+        collapsed: isCollapsed(col.status, col.tasks.length),
+        'drag-over': dragOverStatus === col.status,
+      }"
+      :title="isCollapsed(col.status, col.tasks.length) ? `Expand ${col.label}` : undefined"
       @dragenter.prevent="onColumnDragEnter(col.status)"
       @dragover.prevent
+      @click="toggleColumn(col.status)"
     >
       <div class="ptb-column-header">
         <span class="ptb-dot" :class="col.status"></span>
@@ -239,7 +247,12 @@ defineExpose({ load })
         <span class="ptb-count">{{ col.tasks.length }}</span>
       </div>
 
-      <div class="ptb-column-body" @dragover.prevent="onBodyDragOver(col.status)" @drop.prevent="onDrop(col.status)">
+      <div
+        v-if="!isCollapsed(col.status, col.tasks.length)"
+        class="ptb-column-body"
+        @dragover.prevent="onBodyDragOver(col.status)"
+        @drop.prevent="onDrop(col.status)"
+      >
         <div
           v-for="(task, i) in col.tasks"
           :key="task.id"
@@ -418,6 +431,39 @@ defineExpose({ load })
   outline: 2px solid var(--p-primary-color);
   background: var(--p-primary-color-subtle, var(--p-surface-100));
 }
+
+/* Collapsed empty column → thin vertical strip (Hermes-style) */
+.ptb-column.collapsed {
+  flex: 0 0 44px;
+  min-width: 44px;
+  cursor: pointer;
+  justify-content: center;
+  align-items: center;
+  transition: flex-basis 0.15s ease, min-width 0.15s ease;
+}
+.ptb-column.collapsed .ptb-column-header {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.25rem;
+}
+.ptb-column.collapsed .ptb-column-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+}
+.ptb-column.collapsed .ptb-count {
+  margin-left: 0;
+}
+.ptb-column.collapsed:hover {
+  background: var(--p-surface-200);
+}
+.app-dark .ptb-column.collapsed:hover {
+  background: var(--p-surface-800);
+}
 .app-dark .ptb-column {
   background: var(--p-surface-900);
 }
@@ -435,6 +481,7 @@ defineExpose({ load })
   background: var(--p-surface-400);
 }
 .ptb-dot.todo { background: var(--p-surface-400); }
+.ptb-dot.triage { background: var(--p-purple-500); }
 .ptb-dot.in_progress { background: var(--p-blue-500); }
 .ptb-dot.blocked { background: var(--p-red-500); }
 .ptb-dot.done { background: var(--p-green-600); }
