@@ -5,10 +5,15 @@ import { useInvoices } from '../composables/useInvoices'
 import { useToast } from '../composables/useToast'
 import InvoiceEditModal from '../components/modals/InvoiceEditModal.vue'
 import InvoiceActionsModal from '../components/modals/InvoiceActionsModal.vue'
+import InvoiceBoard from '../components/kanban/InvoiceBoard.vue'
 import { formatDate as formatDateUtil, daysPastDue } from '../utils/dates'
 
 const toast = useToast()
 const router = useRouter()
+
+// View mode: 'list' (default) or 'kanban'
+const viewMode = ref<'list' | 'kanban'>('list')
+
 const {
   loading,
   searchQuery,
@@ -133,7 +138,18 @@ async function doBatchMarkPaid() {
 <template>
   <div class="financial-page">
     <div class="page-header">
-      <h2>Financial</h2>
+      <div class="header-row">
+        <h2>Financial</h2>
+        <button
+          class="view-toggle"
+          :class="{ active: viewMode === 'kanban' }"
+          @click="viewMode = viewMode === 'list' ? 'kanban' : 'list'"
+          :title="viewMode === 'list' ? 'Switch to Kanban board' : 'Switch to list view'"
+        >
+          <i class="pi pi-th-large" />
+          {{ viewMode === 'list' ? 'Board' : 'List' }}
+        </button>
+      </div>
     </div>
 
     <!-- KPI Cards -->
@@ -245,7 +261,8 @@ async function doBatchMarkPaid() {
       </div>
     </div>
 
-    <!-- Invoice Table -->
+    <!-- Invoice Table (list view) -->
+    <template v-if="viewMode === 'list'">
     <div v-if="loading" class="loading">Loading invoices...</div>
     <div v-else-if="filtered.length === 0" class="empty-state">No invoices found</div>
     <table v-else class="invoice-table">
@@ -344,6 +361,15 @@ async function doBatchMarkPaid() {
         </tr>
       </tbody>
     </table>
+    </template>
+
+    <!-- Invoice Table (Kanban view) -->
+    <InvoiceBoard
+      v-if="viewMode === 'kanban'"
+      :invoices="filtered"
+      @edit="openEdit"
+      @changed="load"
+    />
 
     <InvoiceEditModal
       v-model:visible="showEditModal"
@@ -369,6 +395,34 @@ async function doBatchMarkPaid() {
 
 .page-header {
   margin-bottom: 1.5rem;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+}
+.view-toggle:hover {
+  background: var(--p-content-hover-background);
+  color: var(--p-text-color);
+}
+.view-toggle.active {
+  color: var(--p-primary-color);
+  border-color: var(--p-primary-color);
 }
 
 .page-header h2 {

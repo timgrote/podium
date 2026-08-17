@@ -330,3 +330,63 @@ export interface Deliverable {
   created_at: string | null
   updated_at: string | null
 }
+
+export interface KanbanCard {
+  id: string
+  project_number: string | null
+  job_code: string | null
+  project_name: string | null
+  status: string
+  board_order: number
+  client_id: string | null
+  client_name: string | null
+  pm_name: string | null
+  pm_avatar_url: string | null
+  location: string | null
+  data_path: string | null
+  next_task_deadline: string | null
+  last_activity: string | null
+  total_paid: number
+  total_outstanding: number
+  contract_count: number
+  invoice_count: number
+  proposal_count: number
+}
+
+export interface KanbanColumn {
+  status: string
+  label: string
+  projects: KanbanCard[]
+}
+
+export interface KanbanBoard {
+  columns: KanbanColumn[]
+}
+
+export interface KanbanTaskCard {
+  id: string
+  title: string | null
+  status: string
+  sort_order: number
+  priority: number | null
+  due_date: string | null
+  is_pinned: boolean
+  tags: string[]
+  parent_id: string | null
+  project_id: string | null
+  project_number: string | null
+  job_code: string | null
+  project_name: string | null
+  subtask_count: number
+  assignee_name: string | null
+}
+
+export interface KanbanTaskColumn {
+  status: string
+  label: string
+  tasks: KanbanTaskCard[]
+}
+
+export interface KanbanTaskBoard {
+  columns: KanbanTaskColumn[]
+}

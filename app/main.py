@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .routers import activity_log, auth, calendar, clients, company, contacts, contracts, deliverables, employees, flows, invoices, overview, projects, proposals, raindrop_analytics, tasks, time_entries, uploads, updates, wiki
+from .routers import activity_log, auth, calendar, clients, company, contacts, contracts, deliverables, employees, flows, invoices, kanban, overview, projects, proposals, raindrop_analytics, tasks, time_entries, uploads, updates, wiki
 
 _log_file = Path(__file__).resolve().parent.parent / "conductor.log"
 logging.basicConfig(
@@ -74,6 +74,7 @@ app.include_router(contacts.router, prefix="/api/contacts", tags=["contacts"])
 app.include_router(contracts.router, prefix="/api/contracts", tags=["contracts"])
 app.include_router(proposals.router, prefix="/api/proposals", tags=["proposals"])
 app.include_router(invoices.router, prefix="/api/invoices", tags=["invoices"])
+app.include_router(kanban.router, prefix="/api/kanban", tags=["kanban"])
 app.include_router(employees.router, prefix="/api/employees", tags=["employees"])
 app.include_router(time_entries.router, prefix="/api/time-entries", tags=["time-entries"])
 app.include_router(tasks.router, prefix="/api", tags=["tasks"])

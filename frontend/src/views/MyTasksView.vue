@@ -9,6 +9,7 @@ import { getEmployees } from '../api/employees'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import TaskDetailModal from '../components/modals/TaskDetailModal.vue'
+import TasksBoard from '../components/kanban/TasksBoard.vue'
 import {
   formatDateShort,
   isOverdue as isDateOverdue,
@@ -38,6 +39,15 @@ const searchQuery = ref('')
 const activeFilter = ref<FilterKey>('up_next')
 const selectedProjectIds = ref<Set<string>>(new Set())
 const projectFilterOpen = ref(false)
+
+// View mode: 'list' (default) or 'kanban'
+const viewMode = ref<'list' | 'kanban'>('list')
+
+// Assignee filter for the Kanban board: 'me' -> current user, else all.
+const boardAssignee = computed(() => {
+  if (assigneeFilter.value === 'me' && user.value) return user.value.id
+  return undefined
+})
 
 const doneTodayOpen = ref(true)
 const laterOpen = ref(false)
@@ -734,6 +744,15 @@ onMounted(() => {
           <span class="task-count">{{ activeTasks.length }} active</span>
           <button
             class="btn-bulk-toggle"
+            :class="{ active: viewMode === 'kanban' }"
+            @click="viewMode = viewMode === 'list' ? 'kanban' : 'list'"
+            :title="viewMode === 'list' ? 'Switch to Kanban board' : 'Switch to list view'"
+          >
+            <i class="pi pi-th-large" />
+            {{ viewMode === 'list' ? 'Board' : 'List' }}
+          </button>
+          <button
+            class="btn-bulk-toggle"
             :class="{ active: bulkMode }"
             @click="toggleBulkMode"
           >
@@ -768,6 +787,10 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- Kanban board view -->
+    <TasksBoard v-if="viewMode === 'kanban'" :assignee="boardAssignee" class="tasks-board" />
+
+    <template v-if="viewMode === 'list'">
     <!-- Quick Add Form -->
     <div v-if="showQuickAdd" class="quick-add-form">
       <div class="quick-add-row">
@@ -1265,6 +1288,7 @@ onMounted(() => {
           </div>
         </div>
       </section>
+    </template>
     </template>
 
     <TaskDetailModal

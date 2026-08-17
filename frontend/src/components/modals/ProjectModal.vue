@@ -370,6 +370,8 @@ async function save() {
           <label>Status</label>
           <select v-model="form.status">
             <option value="lead">Lead</option>
+            <option value="proposal">Proposal</option>
+            <option value="contract">Contract</option>
             <option value="active">Active</option>
             <option value="complete">Complete</option>
             <option value="archive">Archive</option>

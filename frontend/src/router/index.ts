@@ -33,6 +33,16 @@ const router = createRouter({
       meta: { layout: 'dashboard' },
     },
     {
+      path: '/kanban',
+      component: () => import('../views/KanbanView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/kanban/tasks',
+      component: () => import('../views/TasksKanbanView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
       path: '/projects/:projectId/tasks/:entityId',
       component: () => import('../views/ProjectPageView.vue'),
       meta: { layout: 'dashboard' },
