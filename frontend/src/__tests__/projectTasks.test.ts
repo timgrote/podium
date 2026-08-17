@@ -3,6 +3,7 @@ import type { Task } from '../types'
 import {
   TASK_STATUSES,
   TASK_STATUS_LABELS,
+  groupTasksByStatus,
   isTaskStatus,
   listTasks,
   sortTasksForBoard,
@@ -109,6 +110,40 @@ describe('listTasks', () => {
     const rows = await listTasks('proj-1')
     expect(apiFetch).toHaveBeenCalledWith('/projects/proj-1/tasks')
     expect(rows.map((t) => t.id)).toEqual(['todo0', 'todo1', 'done1'])
+  })
+})
+
+describe('groupTasksByStatus', () => {
+  it('produces one column per canonical status in column order', () => {
+    const cols = groupTasksByStatus([])
+    expect(cols.map((c) => c.status)).toEqual(TASK_STATUSES)
+    expect(cols.map((c) => c.label)).toEqual(['To Do', 'In Progress', 'Blocked', 'Done', 'Canceled'])
+    expect(cols.every((c) => c.tasks.length === 0)).toBe(true)
+  })
+
+  it('places tasks into their status column, preserving input order', () => {
+    const rows = [
+      task({ id: 't1', status: 'todo', sort_order: 0 }),
+      task({ id: 't2', status: 'done', sort_order: 1 }),
+      task({ id: 't3', status: 'todo', sort_order: 1 }),
+    ]
+    const cols = groupTasksByStatus(rows)
+    const todo = cols.find((c) => c.status === 'todo')!
+    const done = cols.find((c) => c.status === 'done')!
+    expect(todo.tasks.map((t) => t.id)).toEqual(['t1', 't3'])
+    expect(done.tasks.map((t) => t.id)).toEqual(['t2'])
+  })
+
+  it('collects unknown statuses into a trailing Other column', () => {
+    const rows = [
+      task({ id: 'a', status: 'todo', sort_order: 0 }),
+      task({ id: 'b', status: 'mystery' as TaskStatus, sort_order: 0 }),
+    ]
+    const cols = groupTasksByStatus(rows)
+    expect(cols.length).toBe(TASK_STATUSES.length + 1)
+    const other = cols[cols.length - 1]!
+    expect(other.label).toBe('Other')
+    expect(other.tasks.map((t) => t.id)).toEqual(['b'])
   })
 })
 

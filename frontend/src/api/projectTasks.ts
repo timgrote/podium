@@ -60,6 +60,37 @@ export function listTasks(projectId: string): Promise<Task[]> {
   return apiFetch<Task[]>(`/projects/${projectId}/tasks`).then(sortTasksForBoard)
 }
 
+export interface TaskBoardColumn {
+  status: TaskStatus
+  label: string
+  tasks: Task[]
+}
+
+/**
+ * Group tasks into board columns, one per canonical status in column order.
+ * Unknown statuses are collected into a trailing "Other" column so no task is
+ * ever hidden. Assumes input is already in board sort order (listTasks output).
+ */
+export function groupTasksByStatus(tasks: Task[]): TaskBoardColumn[] {
+  const cols: TaskBoardColumn[] = TASK_STATUSES.map((status) => ({
+    status,
+    label: TASK_STATUS_LABELS[status],
+    tasks: [],
+  }))
+
+  for (const t of tasks) {
+    const col = cols.find((c) => c.status === t.status)
+    if (col) col.tasks.push(t)
+  }
+
+  const unknown = tasks.filter((t) => !isTaskStatus(t.status))
+  if (unknown.length) {
+    cols.push({ status: 'canceled' as TaskStatus, label: 'Other', tasks: unknown })
+  }
+
+  return cols
+}
+
 /**
  * Persist a task's status and in-column position via the existing Kanban move
  * endpoint. Throws on API failure; the caller owns optimistic-UI rollback.

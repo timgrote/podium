@@ -10,6 +10,7 @@ import { formatDate, isOverdue, todayStr } from '../../utils/dates'
 import { copyLink } from '../../utils/clipboard'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
 import ProjectDeliverables from './ProjectDeliverables.vue'
+import ProjectTasksBoard from './ProjectTasksBoard.vue'
 import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const props = defineProps<{
@@ -41,6 +42,11 @@ const showCompletedTasks = ref(false)
 // Task detail modal
 const taskModalVisible = ref(false)
 const selectedTaskId = ref<string | null>(null)
+
+// Board vs flat-list view
+const viewMode = ref<'list' | 'board'>('list')
+// Increment to force the board to reload after a create/update/save.
+const boardRefreshKey = ref(0)
 
 // Deliverables
 const deliverablesRef = ref<InstanceType<typeof ProjectDeliverables> | null>(null)
@@ -104,6 +110,8 @@ async function loadTasks() {
     console.error('Failed to load tasks:', e)
   } finally {
     tasksLoading.value = false
+    // Keep the board's copy in sync with any create/update/save.
+    boardRefreshKey.value++
   }
 }
 
@@ -236,12 +244,31 @@ defineExpose({ totalTaskCount, loadTasks, loadDeliverables: () => deliverablesRe
     />
     <div class="section-header tasks-header">
       <h4>Tasks</h4>
-      <button v-if="!showNewTaskForm" class="btn-icon" title="Add task" @click="showNewTaskForm = true; if (user) newTaskAssigneeIds = [user.id]">
-        <i class="pi pi-plus" />
-      </button>
+      <div class="tasks-header-actions">
+        <button
+          class="btn-view-toggle"
+          :class="{ active: viewMode === 'board' }"
+          @click="viewMode = viewMode === 'list' ? 'board' : 'list'"
+          :title="viewMode === 'list' ? 'Switch to Kanban board' : 'Switch to list view'"
+        >
+          <i class="pi pi-th-large" />
+          {{ viewMode === 'list' ? 'Board' : 'List' }}
+        </button>
+        <button v-if="!showNewTaskForm" class="btn-icon" title="Add task" @click="showNewTaskForm = true; if (user) newTaskAssigneeIds = [user.id]">
+          <i class="pi pi-plus" />
+        </button>
+      </div>
     </div>
 
-    <!-- Inline new task form -->
+    <!-- Kanban board view -->
+    <ProjectTasksBoard
+      v-if="viewMode === 'board'"
+      :project="project"
+      :refresh-key="boardRefreshKey"
+      @open-task="openTaskDetail"
+    />
+
+    <!-- Inline new task form (shared across views) -->
     <div v-if="showNewTaskForm" class="new-task-form">
       <input v-model="newTaskTitle" type="text" placeholder="Task title" class="new-task-input" />
       <input v-model="newTaskDueDate" type="date" class="new-task-date" />
@@ -268,6 +295,8 @@ defineExpose({ totalTaskCount, loadTasks, loadDeliverables: () => deliverablesRe
       </div>
     </div>
 
+    <!-- ===== Flat list view (kept reachable via the Board/List toggle) ===== -->
+    <template v-if="viewMode === 'list'">
     <!-- Task search -->
     <div v-if="!tasksLoading && activeTasks.length > 0" class="task-search-bar">
       <i class="pi pi-search" />
@@ -392,6 +421,7 @@ defineExpose({ totalTaskCount, loadTasks, loadDeliverables: () => deliverablesRe
         </div>
       </div>
     </template>
+    </template>
   </div>
 
   <TaskDetailModal
@@ -436,8 +466,38 @@ defineExpose({ totalTaskCount, loadTasks, loadDeliverables: () => deliverablesRe
 }
 
 .tasks-header {
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 0.25rem;
+}
+
+.tasks-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tasks-header-actions .btn-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+}
+.tasks-header-actions .btn-view-toggle:hover {
+  background: var(--p-content-hover-background);
+  color: var(--p-text-color);
+}
+.tasks-header-actions .btn-view-toggle.active {
+  color: var(--p-primary-color);
+  border-color: var(--p-primary-color);
+}
+.tasks-header-actions .btn-view-toggle .pi {
+  font-size: 0.8125rem;
 }
 
 .task-checkbox {
