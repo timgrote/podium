@@ -92,6 +92,39 @@ export function groupTasksByStatus(tasks: Task[]): TaskBoardColumn[] {
 }
 
 /**
+ * Return a new array with the task moved to `targetStatus` at `targetIndex`
+ * (index within the destination column's remaining tasks — the dragged task is
+ * removed first, then inserted). The moved task's `status` is updated to the
+ * target so grouping reflects the new column. Pure: never mutates the input
+ * array or its tasks. targetIndex is clamped to the column bounds.
+ */
+export function reorderTasksForBoard(
+  tasks: Task[],
+  taskId: string,
+  targetStatus: TaskStatus,
+  targetIndex: number,
+): Task[] {
+  const task = tasks.find((t) => t.id === taskId)
+  if (!task) return tasks
+
+  const groups: Task[][] = TASK_STATUSES.map(() => [])
+  const unknown: Task[] = []
+  for (const t of tasks) {
+    if (t.id === taskId) continue
+    const i = TASK_STATUSES.indexOf(t.status as TaskStatus)
+    if (i >= 0) groups[i]!.push(t)
+    else unknown.push(t)
+  }
+
+  const destIndex = TASK_STATUSES.indexOf(targetStatus)
+  const dest = destIndex >= 0 ? groups[destIndex]! : unknown
+  const clamped = Math.max(0, Math.min(targetIndex, dest.length))
+  dest.splice(clamped, 0, { ...task, status: targetStatus })
+
+  return [...groups.flat(), ...unknown]
+}
+
+/**
  * Persist a task's status and in-column position via the existing Kanban move
  * endpoint. Throws on API failure; the caller owns optimistic-UI rollback.
  */

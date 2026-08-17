@@ -9,55 +9,54 @@
  * header with the status label + count and cards with title, assignees (if any)
  * and a due/last-updated label.
  *
- * Drag-and-drop is intentionally NOT implemented in this task. The
- * `onMoveTask` callback prop is the documented seam the follow-up drag-and-drop
- * task will call to persist moves — it is currently a no-op.
+ * Drag-and-drop: cards are native-HTML5 draggable. Dropping a card on a column
+ * (or above/below another card) calls updateTaskStatus to persist the new
+ * status/position. The UI updates optimistically and rolls back on API failure
+ * with an error toast. A per-card status menu provides the same status-change
+ * action for keyboard/screen-reader users who cannot drag.
  */
 import { computed, ref, watch } from 'vue'
 import type { ProjectSummary, Task } from '../../types'
 import {
+  TASK_STATUSES,
+  TASK_STATUS_LABELS,
   listTasks,
   groupTasksByStatus,
+  reorderTasksForBoard,
+  updateTaskStatus,
   type TaskStatus,
 } from '../../api/projectTasks'
+import { useToast } from '../../composables/useToast'
 import { formatDateShort, isOverdue } from '../../utils/dates'
 
-/**
- * Signature for persisting a task move. Exposed so the follow-up drag-and-drop
- * task can wire real persistence without changing the board's data contract.
- * Defaults to a no-op.
- */
-type MoveTaskHandler = (
-  taskId: string,
-  targetStatus: TaskStatus,
-  targetPosition: number,
-) => void
-
-const props = withDefaults(
-  defineProps<{
-    project: ProjectSummary
-    /** Increment to force the board to reload tasks (e.g. after a modal save). */
-    refreshKey?: number
-    /**
-     * Placeholder persistence hook for drag-and-drop (currently a no-op).
-     * Called with the moved task id, the target status, and the target position
-     * within that column.
-     */
-    onMoveTask?: MoveTaskHandler
-  }>(),
-  {
-    refreshKey: 0,
-    onMoveTask: () => {},
-  },
-)
+const props = defineProps<{
+  project: ProjectSummary
+  /** Increment to force the board to reload tasks (e.g. after a modal save). */
+  refreshKey?: number
+}>()
 
 const emit = defineEmits<{
   openTask: [taskId: string]
 }>()
 
+const toast = useToast()
+
 const tasks = ref<Task[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+// Drag state (native HTML5).
+const dragging = ref<Task | null>(null)
+/** Status column currently hovered during a drag (drives column highlight). */
+const dragOverStatus = ref<TaskStatus | null>(null)
+/**
+ * Id of the card the pointer is currently "before" (drop insertion point).
+ * `null` means append to the end of the hovered column.
+ */
+const dropBeforeId = ref<string | null>(null)
+
+// Accessible status-change menu.
+const activeMenuTaskId = ref<string | null>(null)
 
 /** Group tasks into canonical status columns via the shared data-access helper. */
 const columns = computed(() => groupTasksByStatus(tasks.value))
@@ -106,6 +105,99 @@ async function load() {
 watch(() => props.project.id, load, { immediate: true })
 watch(() => props.refreshKey, () => load())
 
+// --- Drag & drop ---
+function onDragStart(task: Task, event: DragEvent) {
+  dragging.value = task
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', task.id)
+  }
+}
+
+function onDragEnd() {
+  dragging.value = null
+  dragOverStatus.value = null
+  dropBeforeId.value = null
+}
+
+function onColumnDragEnter(status: TaskStatus) {
+  dragOverStatus.value = status
+}
+
+/** Hover over a card: set the insertion point before this card (or after it). */
+function onCardDragOver(status: TaskStatus, taskId: string, nextId: string | null, event: DragEvent) {
+  dragOverStatus.value = status
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const topHalf = event.clientY < rect.top + rect.height / 2
+  dropBeforeId.value = topHalf ? taskId : nextId
+}
+
+/** Hover over empty column space: append to the end. */
+function onBodyDragOver(status: TaskStatus) {
+  dragOverStatus.value = status
+  dropBeforeId.value = null
+}
+
+function onDrop(status: TaskStatus) {
+  const drag = dragging.value
+  const beforeId = dropBeforeId.value
+  dragging.value = null
+  dragOverStatus.value = null
+  dropBeforeId.value = null
+  if (!drag) return
+  void moveTask(drag.id, status, beforeId)
+}
+
+/** Resolve the drop to a target status + in-column index, then persist. */
+async function moveTask(taskId: string, targetStatus: TaskStatus, beforeId: string | null) {
+  const col = groupTasksByStatus(tasks.value).find((c) => c.status === targetStatus)
+  const remaining = col ? col.tasks.filter((t) => t.id !== taskId) : []
+  let targetIndex = remaining.length
+  if (beforeId) {
+    const i = remaining.findIndex((t) => t.id === beforeId)
+    if (i >= 0) targetIndex = i
+  }
+  await applyMove(taskId, targetStatus, targetIndex)
+}
+
+/**
+ * Optimistically reorder the local board, persist via updateTaskStatus, and
+ * roll back to the previous order on failure with an error toast.
+ */
+async function applyMove(taskId: string, targetStatus: TaskStatus, targetIndex: number) {
+  const task = tasks.value.find((t) => t.id === taskId)
+  if (!task) return
+
+  const reordered = reorderTasksForBoard(tasks.value, taskId, targetStatus, targetIndex)
+  const orderUnchanged =
+    reordered.map((t) => t.id).join('|') === tasks.value.map((t) => t.id).join('|')
+  if (orderUnchanged && task.status === targetStatus) return // no-op drop
+
+  const snapshot = tasks.value.map((t) => ({ ...t }))
+  tasks.value = reordered
+
+  try {
+    await updateTaskStatus(props.project.id, taskId, targetStatus, targetIndex)
+    toast.success('Moved', `${task.title} → ${TASK_STATUS_LABELS[targetStatus]}`)
+  } catch (e) {
+    tasks.value = snapshot
+    toast.error('Move failed', e instanceof Error ? e.message : undefined)
+  }
+}
+
+// --- Accessible status-change menu (keyboard / screen-reader alternative) ---
+function toggleMenu(taskId: string, event: MouseEvent) {
+  event.stopPropagation()
+  activeMenuTaskId.value = activeMenuTaskId.value === taskId ? null : taskId
+}
+
+async function changeStatusViaMenu(taskId: string, targetStatus: TaskStatus) {
+  const col = groupTasksByStatus(tasks.value).find((c) => c.status === targetStatus)
+  const remaining = col ? col.tasks.filter((t) => t.id !== taskId) : []
+  activeMenuTaskId.value = null
+  await applyMove(taskId, targetStatus, remaining.length)
+}
+
 defineExpose({ load })
 </script>
 
@@ -137,8 +229,9 @@ defineExpose({ load })
       v-for="col in columns"
       :key="col.status"
       class="ptb-column"
-      :class="{ empty: col.tasks.length === 0 }"
-      data-drop-target
+      :class="{ empty: col.tasks.length === 0, 'drag-over': dragOverStatus === col.status }"
+      @dragenter.prevent="onColumnDragEnter(col.status)"
+      @dragover.prevent
     >
       <div class="ptb-column-header">
         <span class="ptb-dot" :class="col.status"></span>
@@ -146,17 +239,52 @@ defineExpose({ load })
         <span class="ptb-count">{{ col.tasks.length }}</span>
       </div>
 
-      <div class="ptb-column-body">
+      <div class="ptb-column-body" @dragover.prevent="onBodyDragOver(col.status)" @drop.prevent="onDrop(col.status)">
         <div
-          v-for="task in col.tasks"
+          v-for="(task, i) in col.tasks"
           :key="task.id"
           class="ptb-card"
-          :class="{ pinned: task.is_pinned }"
+          :class="{
+            pinned: task.is_pinned,
+            dragging: dragging?.id === task.id,
+            'drop-before': dragging && dropBeforeId === task.id,
+          }"
+          draggable="true"
+          @dragstart="onDragStart(task, $event)"
+          @dragend="onDragEnd"
+          @dragover.stop.prevent="onCardDragOver(col.status, task.id, col.tasks[i + 1]?.id ?? null, $event)"
           @click="emit('openTask', task.id)"
         >
           <div class="ptb-card-title-row">
             <span class="ptb-card-title">{{ task.title }}</span>
-            <span v-if="task.is_pinned" class="ptb-pin" title="Pinned"><i class="pi pi-bookmark" /></span>
+            <span class="ptb-card-actions">
+              <span v-if="task.is_pinned" class="ptb-pin" title="Pinned"><i class="pi pi-bookmark" /></span>
+              <span class="ptb-menu-wrap">
+                <button
+                  class="ptb-menu-btn"
+                  type="button"
+                  aria-label="Change status"
+                  aria-haspopup="menu"
+                  :aria-expanded="activeMenuTaskId === task.id"
+                  @click.stop="toggleMenu(task.id, $event)"
+                >
+                  <i class="pi pi-ellipsis-v" />
+                </button>
+                <div v-if="activeMenuTaskId === task.id" class="ptb-menu" role="menu" @click.stop>
+                  <button
+                    v-for="s in TASK_STATUSES"
+                    :key="s"
+                    type="button"
+                    class="ptb-menu-item"
+                    :class="{ current: task.status === s }"
+                    role="menuitem"
+                    @click="changeStatusViaMenu(task.id, s)"
+                  >
+                    {{ TASK_STATUS_LABELS[s] }}
+                  </button>
+                </div>
+              </span>
+            </span>
           </div>
 
           <div class="ptb-card-footer">
@@ -169,16 +297,16 @@ defineExpose({ load })
             </span>
             <div v-if="assigneeInitials(task).length" class="ptb-assignees">
               <span
-                v-for="(initials, i) in assigneeInitials(task)"
-                :key="initials + i"
+                v-for="(initials, ai) in assigneeInitials(task)"
+                :key="initials + ai"
                 class="ptb-avatar"
-                :title="task.assignees?.[i] ? `${task.assignees[i].first_name} ${task.assignees[i].last_name}` : assigneeName(task)"
+                :title="task.assignees?.[ai] ? `${task.assignees[ai].first_name} ${task.assignees[ai].last_name}` : assigneeName(task)"
               >{{ initials }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Empty column: drop-target placeholder (drag wiring is a later task) -->
+        <!-- Empty column: drop-target placeholder -->
         <div v-if="col.tasks.length === 0" class="ptb-empty">
           <span class="ptb-empty-label">Drop here</span>
         </div>
@@ -286,6 +414,10 @@ defineExpose({ load })
   max-height: calc(100vh - 220px);
   transition: background 0.15s, outline 0.15s;
 }
+.ptb-column.drag-over {
+  outline: 2px solid var(--p-primary-color);
+  background: var(--p-primary-color-subtle, var(--p-surface-100));
+}
 .app-dark .ptb-column {
   background: var(--p-surface-900);
 }
@@ -343,6 +475,12 @@ defineExpose({ load })
 .ptb-card.pinned {
   border-left: 3px solid var(--p-primary-color);
 }
+.ptb-card.dragging {
+  opacity: 0.4;
+}
+.ptb-card.drop-before {
+  box-shadow: 0 -3px 0 0 var(--p-primary-color);
+}
 .ptb-card-title-row {
   display: flex;
   align-items: flex-start;
@@ -356,11 +494,71 @@ defineExpose({ load })
   line-height: 1.3;
   word-break: break-word;
 }
+.ptb-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
 .ptb-pin {
   color: var(--p-primary-color);
   font-size: 0.75rem;
   flex-shrink: 0;
-  margin-top: 0.125rem;
+}
+.ptb-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ptb-menu-btn {
+  background: none;
+  border: none;
+  color: var(--p-text-muted-color);
+  cursor: pointer;
+  padding: 0.125rem 0.25rem;
+  font-size: 0.8125rem;
+  border-radius: 0.25rem;
+  line-height: 1;
+}
+.ptb-menu-btn:hover,
+.ptb-menu-btn:focus-visible {
+  color: var(--p-text-color);
+  background: var(--p-content-hover-background);
+  outline: none;
+}
+.ptb-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 30;
+  min-width: 9rem;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+.ptb-menu-item {
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--p-text-color);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ptb-menu-item:hover,
+.ptb-menu-item:focus-visible {
+  background: var(--p-content-hover-background);
+  outline: none;
+}
+.ptb-menu-item.current {
+  color: var(--p-primary-color);
+  font-weight: 600;
 }
 .ptb-card-footer {
   margin-top: 0.625rem;

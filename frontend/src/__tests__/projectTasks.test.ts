@@ -6,6 +6,7 @@ import {
   groupTasksByStatus,
   isTaskStatus,
   listTasks,
+  reorderTasksForBoard,
   sortTasksForBoard,
   updateTaskStatus,
   type TaskStatus,
@@ -144,6 +145,50 @@ describe('groupTasksByStatus', () => {
     const other = cols[cols.length - 1]!
     expect(other.label).toBe('Other')
     expect(other.tasks.map((t) => t.id)).toEqual(['b'])
+  })
+})
+
+describe('reorderTasksForBoard', () => {
+  it('moves a task to another column, updating its status', () => {
+    const rows = [
+      task({ id: 'a', status: 'todo', sort_order: 0 }),
+      task({ id: 'b', status: 'in_progress', sort_order: 0 }),
+    ]
+    const out = reorderTasksForBoard(rows, 'a', 'done', 0)
+    expect(out.map((t) => t.id)).toEqual(['b', 'a'])
+    expect(out.find((t) => t.id === 'a')!.status).toBe('done')
+  })
+
+  it('reorders within the same column by index', () => {
+    const rows = [
+      task({ id: 'a', status: 'todo', sort_order: 0 }),
+      task({ id: 'b', status: 'todo', sort_order: 1 }),
+      task({ id: 'c', status: 'todo', sort_order: 2 }),
+    ]
+    // Move 'c' before 'a'.
+    expect(reorderTasksForBoard(rows, 'c', 'todo', 0).map((t) => t.id)).toEqual(['c', 'a', 'b'])
+    // Move 'a' after 'c' (append).
+    expect(reorderTasksForBoard(rows, 'a', 'todo', 2).map((t) => t.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('clamps the target index to the destination column bounds', () => {
+    const rows = [task({ id: 'a', status: 'todo' }), task({ id: 'b', status: 'done' })]
+    const out = reorderTasksForBoard(rows, 'b', 'todo', 99)
+    expect(out.map((t) => t.id)).toEqual(['a', 'b'])
+    expect(out.find((t) => t.id === 'b')!.status).toBe('todo')
+  })
+
+  it('does not mutate the input array or its tasks', () => {
+    const rows = [task({ id: 'a', status: 'todo' }), task({ id: 'b', status: 'in_progress' })]
+    const before = rows.map((r) => r.id)
+    reorderTasksForBoard(rows, 'a', 'blocked', 0)
+    expect(rows.map((r) => r.id)).toEqual(before)
+    expect(rows.every((r) => r.status === 'todo' || r.status === 'in_progress')).toBe(true)
+  })
+
+  it('returns the input unchanged when the task id is not found', () => {
+    const rows = [task({ id: 'a', status: 'todo' })]
+    expect(reorderTasksForBoard(rows, 'missing', 'done', 0)).toBe(rows)
   })
 })
 
