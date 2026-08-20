@@ -135,6 +135,30 @@ def test_task_card_includes_project_context(client, db):
         assert field in card, f"missing {field}"
 
 
+def test_task_board_filters_to_selected_employees(client, db):
+    pid = _make_project(db, "Assigned", status="active")
+    allie_task = _make_task(db, "Allie's task", pid)
+    tim_task = _make_task(db, "Tim's task", pid)
+    db.execute(
+        "INSERT INTO employees (id, first_name, last_name, email, created_at, updated_at) "
+        "VALUES ('allie-1', 'Allie', 'Example', 'allie@example.test', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), "
+        "('tim-1', 'Tim', 'Grote', 'tim@example.test', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    )
+    db.execute(
+        "INSERT INTO project_task_assignees (task_id, employee_id) VALUES (%s, %s), (%s, %s)",
+        (allie_task, "allie-1", tim_task, "tim-1"),
+    )
+    db.commit()
+
+    res = client.get("/api/kanban/tasks?assignee=allie-1")
+    assert res.status_code == 200
+    assert {t["id"] for c in res.json()["columns"] for t in c["tasks"]} == {allie_task}
+
+    res = client.get("/api/kanban/tasks?assignee=allie-1,tim-1")
+    assert res.status_code == 200
+    assert {t["id"] for c in res.json()["columns"] for t in c["tasks"]} == {allie_task, tim_task}
+
+
 def test_move_task_card_changes_status(client, db):
     pid = _make_project(db, "ProjY", status="active")
     tid = _make_task(db, "Move me", pid, status="todo")

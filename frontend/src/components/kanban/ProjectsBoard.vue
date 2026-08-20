@@ -3,7 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { KanbanBoard, KanbanCard, KanbanColumn } from '../../types'
 import { getBoard, moveCard } from '../../api/kanban'
+import { deleteProject } from '../../api/projects'
 import { useToast } from '../../composables/useToast'
+import { useMultiSelect } from '../../composables/useMultiSelect'
 import { parseLocalDate, formatDateShort } from '../../utils/dates'
 import {
   PROJECT_SORT_OPTIONS,
@@ -17,6 +19,22 @@ const router = useRouter()
 const toast = useToast()
 
 const { isCollapsed, toggleColumn } = useCollapsibleColumns()
+const { selected, multiSelecting, handleClick, clear, isSelected } = useMultiSelect()
+
+/** Display order of all project card ids (for shift-click range selection). */
+const orderedCardIds = computed<string[]>(() =>
+  columns.value.flatMap((col) => col.projects.map((c) => c.id)),
+)
+
+/** Canonical project status columns, used for the bulk "move to" action. */
+const STATUS_OPTIONS: { status: string; label: string }[] = [
+  { status: 'lead', label: 'Lead' },
+  { status: 'proposal', label: 'Proposal' },
+  { status: 'contract', label: 'Contract' },
+  { status: 'active', label: 'Active' },
+  { status: 'complete', label: 'Complete' },
+  { status: 'archive', label: 'Archive' },
+]
 
 const board = ref<KanbanBoard | null>(null)
 const loading = ref(false)
@@ -125,8 +143,64 @@ function initials(name: string | null): string {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?'
 }
 
-function navigateToProject(card: KanbanCard) {
+function navigateToProject(card: KanbanCard, event?: MouseEvent) {
+  if (event) {
+    const consumed = handleClick(card.id, {
+      ctrl: event.ctrlKey,
+      meta: event.metaKey,
+      shift: event.shiftKey,
+    }, orderedCardIds.value)
+    if (consumed) return
+  }
+  // Plain click with no active group → navigate (selection already cleared).
   router.push(`/projects/${card.project_number || card.id}`)
+}
+
+// --- Bulk actions on the selected group ---
+
+function selectedCards(): KanbanCard[] {
+  const byId = new Map<string, KanbanCard>()
+  for (const col of columns.value) {
+    for (const c of col.projects) byId.set(c.id, c)
+  }
+  return [...selected.value].map((id) => byId.get(id)).filter((c): c is KanbanCard => !!c)
+}
+
+async function moveSelectedTo(status: string) {
+  const cards = selectedCards()
+  if (cards.length === 0) return
+  const targetCol = columns.value.find((c) => c.status === status)
+  const anchor = targetCol ? targetCol.projects.length : 0
+  try {
+    for (const c of cards) {
+      await moveCard({ project_id: c.id, status, board_order: anchor })
+    }
+    board.value = await getBoard()
+    setColumnSort(status, 'manual')
+    toast.success('Moved', `${cards.length} project${cards.length > 1 ? 's' : ''} → ${status}`)
+    // Keep the group selected in its new column.
+  } catch (e) {
+    toast.error('Move failed', e instanceof Error ? e.message : undefined)
+  }
+}
+
+async function deleteSelected() {
+  const cards = selectedCards()
+  if (cards.length === 0) return
+  const names = cards.map((c) => c.project_name ?? c.id).join(', ')
+  if (!window.confirm(`Delete ${cards.length} project${cards.length > 1 ? 's' : ''}? (${names})`)) {
+    return
+  }
+  try {
+    for (const c of cards) {
+      await deleteProject(c.id)
+    }
+    board.value = await getBoard()
+    toast.success('Deleted', `${cards.length} project${cards.length > 1 ? 's' : ''}`)
+  } catch (e) {
+    toast.error('Delete failed', e instanceof Error ? e.message : undefined)
+  }
+  clear()
 }
 
 async function load() {
@@ -203,16 +277,21 @@ async function onDrop(status: string) {
   dragOverStatus.value = null
   dragOverCardId.value = null
 
+  // If we're dragging a card that's part of a multi-selection, move the whole
+  // group together.
+  const group = isSelected(card.id) && selected.value.size > 1
+  const idsToMove = group ? [...selected.value] : [card.id]
+
   // A drag-and-drop is an explicit manual position → snap the column to manual.
   setColumnSort(status, 'manual')
 
   try {
-    board.value = await moveCard({
-      project_id: card.id,
-      status,
-      board_order: targetBoardOrder,
-    })
-    toast.success('Moved', `${card.project_name} → ${status}`)
+    for (const id of idsToMove) {
+      await moveCard({ project_id: id, status, board_order: targetBoardOrder })
+    }
+    board.value = await getBoard()
+    toast.success('Moved', `${idsToMove.length} project${idsToMove.length > 1 ? 's' : ''} → ${status}`)
+    if (group) clear()
   } catch (e) {
     toast.error('Move failed', e instanceof Error ? e.message : undefined)
   } finally {
@@ -269,6 +348,29 @@ onMounted(load)
       </div>
     </div>
 
+    <!-- Selection action toolbar (shown when a multi-select is active) -->
+    <div v-if="multiSelecting" class="selection-toolbar">
+      <span class="selection-count">{{ selected.size }} selected</span>
+      <div class="selection-actions">
+        <select
+          class="toolbar-select"
+          title="Move selected to..."
+          @change="moveSelectedTo(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
+        >
+          <option value="" disabled>Move to…</option>
+          <option v-for="opt in STATUS_OPTIONS" :key="opt.status" :value="opt.status">
+            {{ opt.label }}
+          </option>
+        </select>
+        <button class="selection-btn danger" @click="deleteSelected">
+          <i class="pi pi-trash" /> Delete
+        </button>
+        <button class="selection-btn" @click="clear">
+          <i class="pi pi-times" /> Clear
+        </button>
+      </div>
+    </div>
+
     <div class="kanban-board">
     <div
       v-for="col in columns"
@@ -312,6 +414,7 @@ onMounted(load)
           class="kanban-card"
           :class="{
             dragging: dragging?.id === card.id,
+            selected: isSelected(card.id),
             'drop-top': dragOverStatus === col.status && dragOverCardId === card.id && dragOverHalf === 'top',
             'drop-bottom': dragOverStatus === col.status && dragOverCardId === card.id && dragOverHalf === 'bottom',
           }"
@@ -319,7 +422,7 @@ onMounted(load)
           @dragstart="onDragStart(card)"
           @dragend="onDragEnd"
           @dragover.prevent="onCardDragOver(col.status, card, $event)"
-          @click="navigateToProject(card)"
+          @click="navigateToProject(card, $event)"
         >
           <div class="card-title-row">
             <span class="card-title">{{ card.project_name }}</span>
@@ -453,6 +556,52 @@ onMounted(load)
 }
 .toolbar-clear:hover {
   background: var(--p-content-hover-background);
+}
+
+/* --- Selection toolbar --- */
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--p-primary-color);
+  border-radius: 0.5rem;
+  background: var(--p-primary-color-subtle, var(--p-surface-100));
+}
+.selection-count {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--p-text-color);
+}
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.selection-btn {
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  color: var(--p-text-color);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.selection-btn:hover {
+  background: var(--p-content-hover-background);
+}
+.selection-btn.danger {
+  color: var(--p-red-600);
+  border-color: var(--p-red-200, var(--p-content-border-color));
+}
+.selection-btn.danger:hover {
+  background: var(--p-red-50, #fef2f2);
 }
 
 .kanban-board {
@@ -600,11 +749,26 @@ onMounted(load)
   opacity: 0.5;
   transform: rotate(2deg);
 }
+/* Drop-position indicator — high-contrast amber, animated so it's unmistakable. */
+.kanban-card.drop-top,
+.kanban-card.drop-bottom {
+  border-color: #f59e0b;
+  animation: drop-pulse 0.9s ease-in-out infinite;
+}
 .kanban-card.drop-top {
-  box-shadow: 0 -3px 0 0 var(--p-primary-color);
+  box-shadow: 0 -4px 0 0 #f59e0b, 0 0 0 2px rgba(245, 158, 11, 0.45);
 }
 .kanban-card.drop-bottom {
-  box-shadow: 0 3px 0 0 var(--p-primary-color);
+  box-shadow: 0 4px 0 0 #f59e0b, 0 0 0 2px rgba(245, 158, 11, 0.45);
+}
+@keyframes drop-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45); }
+  50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.85); }
+}
+.kanban-card.selected {
+  border-color: var(--p-primary-color);
+  box-shadow: 0 0 0 2px var(--p-primary-color);
+  background: var(--p-primary-color-subtle, var(--p-content-background));
 }
 
 .card-title-row {

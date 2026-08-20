@@ -6,6 +6,7 @@ import { useProjects } from '../composables/useProjects'
 import { useClients } from '../composables/useClients'
 import { getCompanySettings } from '../api/company'
 import { useToast } from '../composables/useToast'
+import { usePersistentViewMode } from '../composables/usePersistentViewMode'
 import ProjectList from '../components/dashboard/ProjectList.vue'
 import ProjectsBoard from '../components/kanban/ProjectsBoard.vue'
 import ProjectModal from '../components/modals/ProjectModal.vue'
@@ -15,8 +16,8 @@ import ErrorModal from '../components/modals/ErrorModal.vue'
 
 const router = useRouter()
 
-// View mode: 'list' (default) or 'kanban'
-const viewMode = ref<'list' | 'kanban'>('list')
+// View mode: 'list' or 'kanban' — persisted per user.
+const viewMode = usePersistentViewMode('projects', 'list')
 
 const {
   filtered,

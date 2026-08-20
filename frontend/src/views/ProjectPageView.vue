@@ -12,6 +12,7 @@ import ProjectSidebar from '../components/project/ProjectSidebar.vue'
 import type { Section } from '../components/project/ProjectSidebar.vue'
 import ProjectTasks from '../components/project/ProjectTasks.vue'
 import ProjectNotes from '../components/project/ProjectNotes.vue'
+import ProjectEmailSummary from '../components/project/ProjectEmailSummary.vue'
 import ProjectTime from '../components/project/ProjectTime.vue'
 import ProjectTeam from '../components/project/ProjectTeam.vue'
 import ProjectFinancial from '../components/project/ProjectFinancial.vue'
@@ -72,7 +73,7 @@ watch(() => project.value?.project_name, (name) => {
 }, { immediate: true })
 
 // Active section from query param
-const validSections: Section[] = ['tasks', 'notes', 'time', 'financial', 'team']
+const validSections: Section[] = ['tasks', 'notes', 'email', 'time', 'financial', 'team']
 const activeSection = computed<Section>({
   get() {
     const s = route.query.section as string
@@ -326,6 +327,10 @@ onMounted(async () => {
             ref="notesRef"
             :project="project"
           />
+        </div>
+
+        <div v-show="activeSection === 'email'">
+          <ProjectEmailSummary :project="project" />
         </div>
 
         <template v-if="projectDetail">

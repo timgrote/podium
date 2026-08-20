@@ -1,5 +1,17 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import TasksBoard from '../components/kanban/TasksBoard.vue'
+import TaskDetailModal from '../components/modals/TaskDetailModal.vue'
+
+const taskModalVisible = ref(false)
+const selectedTaskId = ref<string | null>(null)
+const selectedProjectId = ref('')
+
+function openTask(task: { id: string; project_id: string }) {
+  selectedTaskId.value = task.id
+  selectedProjectId.value = task.project_id
+  taskModalVisible.value = true
+}
 </script>
 
 <template>
@@ -12,7 +24,12 @@ import TasksBoard from '../components/kanban/TasksBoard.vue'
         </router-link>
       </div>
     </div>
-    <TasksBoard />
+    <TasksBoard @open-task="openTask" />
+    <TaskDetailModal
+      v-model:visible="taskModalVisible"
+      :task-id="selectedTaskId"
+      :project-id="selectedProjectId"
+    />
   </div>
 </template>
 

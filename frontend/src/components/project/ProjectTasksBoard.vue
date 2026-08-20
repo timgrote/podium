@@ -525,8 +525,15 @@ defineExpose({ load })
 .ptb-card.dragging {
   opacity: 0.4;
 }
+/* Drop-position indicator — high-contrast amber, animated so it's unmistakable. */
 .ptb-card.drop-before {
-  box-shadow: 0 -3px 0 0 var(--p-primary-color);
+  border-color: #f59e0b;
+  box-shadow: 0 -4px 0 0 #f59e0b, 0 0 0 2px rgba(245, 158, 11, 0.45);
+  animation: ptb-drop-pulse 0.9s ease-in-out infinite;
+}
+@keyframes ptb-drop-pulse {
+  0%, 100% { box-shadow: 0 -4px 0 0 #f59e0b, 0 0 0 2px rgba(245, 158, 11, 0.45); }
+  50% { box-shadow: 0 -4px 0 0 #f59e0b, 0 0 0 4px rgba(245, 158, 11, 0.85); }
 }
 .ptb-card-title-row {
   display: flex;

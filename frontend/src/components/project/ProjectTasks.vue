@@ -6,6 +6,7 @@ import { uploadImage } from '../../api/tasks'
 import { getEmployees } from '../../api/employees'
 import { useToast } from '../../composables/useToast'
 import { useAuth } from '../../composables/useAuth'
+import { usePersistentViewMode } from '../../composables/usePersistentViewMode'
 import { formatDate, isOverdue, todayStr } from '../../utils/dates'
 import { copyLink } from '../../utils/clipboard'
 import TaskDetailModal from '../modals/TaskDetailModal.vue'
@@ -43,8 +44,8 @@ const showCompletedTasks = ref(false)
 const taskModalVisible = ref(false)
 const selectedTaskId = ref<string | null>(null)
 
-// Board vs flat-list view
-const viewMode = ref<'list' | 'board'>('list')
+// Board vs flat-list view — persisted per user.
+const viewMode = usePersistentViewMode('project_tasks', 'list')
 // Increment to force the board to reload after a create/update/save.
 const boardRefreshKey = ref(0)
 

@@ -120,6 +120,23 @@ def test_done_today_returns_only_today(client, db):
     assert ids == ["t-today"]
 
 
+def test_done_today_filters_to_selected_employee(client, db):
+    _seed(db, employee_id="tim-1")
+    now = datetime.now().isoformat()
+    db.execute(
+        "INSERT INTO employees (id, first_name, last_name, email, created_at, updated_at) "
+        "VALUES ('matara-1', 'Matara', 'Example', 'matara@example.test', %s, %s)",
+        (now, now),
+    )
+    _make_task(db, task_id="t-tim", assignee_id="tim-1", status="done", completed_at=now)
+    _make_task(db, task_id="t-matara", assignee_id="matara-1", status="done", completed_at=now)
+
+    resp = client.get(f"/api/tasks/done-today?employee_id=tim-1&assignee_ids=matara-1&today={date.today()}")
+
+    assert resp.status_code == 200
+    assert [task["id"] for task in resp.json()] == ["t-matara"]
+
+
 # ---------------------------------------------------------------------------
 # Bulk PATCH
 # ---------------------------------------------------------------------------

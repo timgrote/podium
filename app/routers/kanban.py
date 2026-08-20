@@ -215,12 +215,14 @@ def _task_rows(db, assignee: str | None = None):
     """Top-level tasks (not subtasks) with the compact fields the board needs."""
     params: list = []
     assignee_sql = ""
-    if assignee:
+    assignee_ids = [employee_id for employee_id in (assignee or "").split(",") if employee_id]
+    if assignee_ids:
+        placeholders = ", ".join(["%s"] * len(assignee_ids))
         assignee_sql = (
             " AND EXISTS (SELECT 1 FROM project_task_assignees a "
-            "WHERE a.task_id = t.id AND a.employee_id = %s)"
+            f"WHERE a.task_id = t.id AND a.employee_id IN ({placeholders}))"
         )
-        params.append(assignee)
+        params.extend(assignee_ids)
     sql = f"""
         SELECT
             t.id,

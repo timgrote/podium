@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInvoices } from '../composables/useInvoices'
 import { useToast } from '../composables/useToast'
+import { usePersistentViewMode } from '../composables/usePersistentViewMode'
 import InvoiceEditModal from '../components/modals/InvoiceEditModal.vue'
 import InvoiceActionsModal from '../components/modals/InvoiceActionsModal.vue'
 import InvoiceBoard from '../components/kanban/InvoiceBoard.vue'
@@ -11,8 +12,8 @@ import { formatDate as formatDateUtil, daysPastDue } from '../utils/dates'
 const toast = useToast()
 const router = useRouter()
 
-// View mode: 'list' (default) or 'kanban'
-const viewMode = ref<'list' | 'kanban'>('list')
+// View mode: 'list' or 'kanban' — persisted per user.
+const viewMode = usePersistentViewMode('financial', 'list')
 
 const {
   loading,

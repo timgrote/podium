@@ -23,8 +23,9 @@ export function getMyTasks(employeeId: string, filters?: MyTaskFilters): Promise
   return apiFetch(`/tasks/my?${params.toString()}`)
 }
 
-export function getDoneToday(employeeId: string, today: string): Promise<MyTask[]> {
+export function getDoneToday(employeeId: string, today: string, assigneeIds?: string[]): Promise<MyTask[]> {
   const params = new URLSearchParams({ employee_id: employeeId, today })
+  if (assigneeIds?.length) params.set('assignee_ids', assigneeIds.join(','))
   return apiFetch(`/tasks/done-today?${params.toString()}`)
 }
 

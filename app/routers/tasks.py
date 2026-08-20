@@ -318,22 +318,25 @@ def list_my_tasks(
 def list_done_today(
     employee_id: str,
     today: date | None = Query(None, description="Client local date (YYYY-MM-DD); defaults to server today"),
+    assignee_ids: str | None = Query(None, description="Comma-separated employee IDs to filter by"),
     db=Depends(get_db),
 ):
     day = today or date.today()
+    filter_ids = [s.strip() for s in assignee_ids.split(",") if s.strip()] if assignee_ids else [employee_id]
+    placeholders = ", ".join(["%s"] * len(filter_ids))
     rows = db.execute(
-        "SELECT t.*, p.name AS project_name, p.job_code "
+        "SELECT DISTINCT t.*, p.name AS project_name, p.job_code "
         "FROM project_tasks t "
         "JOIN project_task_assignees a ON a.task_id = t.id "
         "JOIN projects p ON p.id = t.project_id "
-        "WHERE a.employee_id = %s "
+        f"WHERE a.employee_id IN ({placeholders}) "
         "AND t.deleted_at IS NULL "
         "AND p.deleted_at IS NULL "
         "AND t.parent_id IS NULL "
         "AND t.completed_at >= %s "
         "AND t.completed_at < %s "
         "ORDER BY t.is_pinned DESC, t.completed_at DESC",
-        (employee_id, str(day), str(day + timedelta(days=1))),
+        (*filter_ids, str(day), str(day + timedelta(days=1))),
     ).fetchall()
     result = []
     for row in rows:

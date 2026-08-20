@@ -8,6 +8,8 @@ import { getProjects } from '../api/projects'
 import { getEmployees } from '../api/employees'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
+import { usePersistentViewMode } from '../composables/usePersistentViewMode'
+import { usePersistentTaskAssignee } from '../composables/usePersistentTaskAssignee'
 import TaskDetailModal from '../components/modals/TaskDetailModal.vue'
 import TasksBoard from '../components/kanban/TasksBoard.vue'
 import {
@@ -40,13 +42,14 @@ const activeFilter = ref<FilterKey>('up_next')
 const selectedProjectIds = ref<Set<string>>(new Set())
 const projectFilterOpen = ref(false)
 
-// View mode: 'list' (default) or 'kanban'
-const viewMode = ref<'list' | 'kanban'>('list')
+// View mode: 'list' or 'kanban' — persisted per user.
+const viewMode = usePersistentViewMode('my_tasks', 'list')
+const taskAssignee = usePersistentTaskAssignee()
 
-// Assignee filter for the Kanban board: 'me' -> current user, else all.
+// Assignee filter for the Kanban board: current user, everyone, or selected employees.
 const boardAssignee = computed(() => {
-  if (assigneeFilter.value === 'me' && user.value) return user.value.id
-  return undefined
+  if (taskAssignee.value === 'me') return user.value?.id
+  return taskAssignee.value === 'everyone' ? undefined : taskAssignee.value
 })
 
 const doneTodayOpen = ref(true)
@@ -73,11 +76,6 @@ const allTags = ref<string[]>([])
 type SortMode = 'due_date' | 'project' | 'assignee' | 'tags' | 'priority' | 'manual'
 const sortMode = ref<SortMode>('due_date')
 
-// Assignee filter: 'me' (self), 'everyone' (all), or specific employee IDs
-type AssigneeFilter = 'me' | 'everyone' | 'custom'
-const assigneeFilter = ref<AssigneeFilter>('me')
-const selectedAssigneeIds = ref<Set<string>>(new Set())
-const assigneeFilterOpen = ref(false)
 
 // Tag filter
 const selectedTagIds = ref<Set<string>>(new Set())
@@ -275,12 +273,12 @@ async function loadAll() {
   try {
     // Determine which assignee IDs to filter by
     let assigneeIds: string[] | undefined
-    if (assigneeFilter.value === 'me') {
+    if (taskAssignee.value === 'me') {
       assigneeIds = [user.value.id]
-    } else if (assigneeFilter.value === 'everyone') {
+    } else if (taskAssignee.value === 'everyone') {
       assigneeIds = employees.value.map(e => e.id)
-    } else if (assigneeFilter.value === 'custom' && selectedAssigneeIds.value.size > 0) {
-      assigneeIds = [...selectedAssigneeIds.value]
+    } else {
+      assigneeIds = [taskAssignee.value]
     }
 
     // Determine tag filter
@@ -291,7 +289,7 @@ async function loadAll() {
         assignee_ids: assigneeIds,
         tags: tagFilter,
       }),
-      getDoneToday(user.value.id, todayValue.value),
+      getDoneToday(user.value.id, todayValue.value, assigneeIds),
     ])
     tasks.value = all
     doneToday.value = today
@@ -376,6 +374,12 @@ function openTask(task: MyTask | Task, projectId?: string) {
   taskModalVisible.value = true
 }
 
+function openBoardTask(task: { id: string; project_id: string }) {
+  selectedTaskId.value = task.id
+  selectedProjectId.value = task.project_id
+  taskModalVisible.value = true
+}
+
 function isOverdue(task: MyTask | Task): boolean {
   if (!task.due_date || task.status === 'done' || task.status === 'canceled') return false
   return isDateOverdue(task.due_date)
@@ -452,35 +456,6 @@ function openProjectFilter() {
   if (projectFilterOpen.value && !projects.value.length) loadProjects()
 }
 
-// Assignee filter
-function setAssigneeFilter(mode: AssigneeFilter) {
-  assigneeFilter.value = mode
-  selectedAssigneeIds.value.clear()
-  assigneeFilterOpen.value = false
-  loadAll()
-}
-
-function toggleAssigneeFilter(empId: string) {
-  if (selectedAssigneeIds.value.has(empId)) {
-    selectedAssigneeIds.value.delete(empId)
-  } else {
-    selectedAssigneeIds.value.add(empId)
-  }
-  if (selectedAssigneeIds.value.size > 0) {
-    assigneeFilter.value = 'custom'
-  } else if (assigneeFilter.value === 'custom') {
-    // No one selected — fall back to "me" so the list isn't empty
-    assigneeFilter.value = 'me'
-  }
-  loadAll()
-}
-
-const assigneeFilterLabel = computed(() => {
-  if (assigneeFilter.value === 'me') return 'Just me'
-  if (assigneeFilter.value === 'everyone') return 'Everyone'
-  if (selectedAssigneeIds.value.size > 0) return `${selectedAssigneeIds.value.size} people`
-  return 'Custom'
-})
 
 // Tag filter
 function toggleTagFilter(tag: string) {
@@ -733,13 +708,18 @@ onMounted(() => {
   loadEmployees()
   loadAllTags()
 })
+
+watch(taskAssignee, () => loadAll())
+watch(employees, () => {
+  if (taskAssignee.value === 'everyone') loadAll()
+})
 </script>
 
 <template>
   <div class="my-tasks" :class="{ 'board-mode': viewMode === 'kanban' }">
     <div class="page-header">
       <div class="header-top">
-        <h1>My Tasks</h1>
+        <h1>Tasks</h1>
         <div class="header-actions">
           <span class="task-count">{{ activeTasks.length }} active</span>
           <button
@@ -767,6 +747,16 @@ onMounted(() => {
             <i class="pi pi-plus" />
             Add Task
           </button>
+          <label class="task-assignee-label">
+            Tasks for
+            <select v-model="taskAssignee" class="task-assignee-select" title="Show tasks assigned to">
+              <option value="me">Just me</option>
+              <option value="everyone">Everyone</option>
+              <option v-for="emp in employees" :key="emp.id" :value="emp.id">
+                {{ emp.first_name }} {{ emp.last_name }}
+              </option>
+            </select>
+          </label>
         </div>
       </div>
       <div class="search-bar">
@@ -788,7 +778,12 @@ onMounted(() => {
     </div>
 
     <!-- Kanban board view -->
-    <TasksBoard v-if="viewMode === 'kanban'" :assignee="boardAssignee" class="tasks-board" />
+    <TasksBoard
+      v-if="viewMode === 'kanban'"
+      :assignee="boardAssignee"
+      class="tasks-board"
+      @open-task="openBoardTask"
+    />
 
     <template v-if="viewMode === 'list'">
     <!-- Quick Add Form -->
@@ -964,41 +959,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Assignee filter -->
-        <div class="project-chip-wrap">
-          <button
-            class="chip"
-            :class="{ active: assigneeFilter !== 'me' || selectedAssigneeIds.size > 0 }"
-            @click="assigneeFilterOpen = !assigneeFilterOpen"
-          >
-            <i class="pi pi-users" style="font-size: 0.625rem; margin-right: 0.25rem" />
-            {{ assigneeFilterLabel }}
-          </button>
-          <div v-if="assigneeFilterOpen" class="project-dropdown">
-            <div class="dropdown-header">
-              <span>Filter by assignee</span>
-            </div>
-            <button class="dropdown-row dropdown-row-btn" :class="{ selected: assigneeFilter === 'me' }" @click="setAssigneeFilter('me')">
-              Just me
-            </button>
-            <button class="dropdown-row dropdown-row-btn" :class="{ selected: assigneeFilter === 'everyone' }" @click="setAssigneeFilter('everyone')">
-              Everyone
-            </button>
-            <div class="dropdown-divider" />
-            <label
-              v-for="emp in employees"
-              :key="emp.id"
-              class="dropdown-row"
-            >
-              <input
-                type="checkbox"
-                :checked="selectedAssigneeIds.has(emp.id)"
-                @change="toggleAssigneeFilter(emp.id)"
-              />
-              <span>{{ emp.first_name }} {{ emp.last_name }}</span>
-            </label>
-          </div>
-        </div>
 
         <!-- Tag filter -->
         <div v-if="allTags.length > 0" class="project-chip-wrap">
@@ -1367,6 +1327,25 @@ onMounted(() => {
 .header-actions { display: flex; align-items: center; gap: 1rem; }
 
 .task-count { font-size: 0.8125rem; color: var(--p-text-muted-color); }
+
+.task-assignee-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+}
+.task-assignee-select {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 0.375rem;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.task-assignee-select:focus { outline: none; border-color: var(--p-primary-color); }
 
 .loading { text-align: center; padding: 3rem; color: var(--p-text-muted-color); }
 
